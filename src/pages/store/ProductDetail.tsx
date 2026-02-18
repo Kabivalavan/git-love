@@ -465,7 +465,7 @@ export default function ProductDetailPage() {
 
         {/* FAQ-style Accordion Sections */}
         <section className="mb-8 md:mb-10 space-y-3">
-          <FAQAccordionItem title="Description" defaultOpen>
+          <FAQAccordionItem title="Description">
             <p className="text-muted-foreground whitespace-pre-wrap text-sm md:text-base leading-relaxed">
               {product.description || 'No description available.'}
             </p>
