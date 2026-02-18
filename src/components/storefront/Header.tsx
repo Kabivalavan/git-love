@@ -29,8 +29,16 @@ const fetchHeaderData = async () => {
   };
 };
 
+const fetchCartCount = async (userId: string) => {
+  const { data: cart } = await supabase.from('cart').select('id').eq('user_id', userId).single();
+  if (cart) {
+    const { count } = await supabase.from('cart_items').select('*', { count: 'exact', head: true }).eq('cart_id', cart.id);
+    return count || 0;
+  }
+  return 0;
+};
+
 export function Header() {
-  const [cartCount, setCartCount] = useState(0);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { user, signOut } = useAuth();
 
@@ -39,6 +47,14 @@ export function Header() {
     queryFn: fetchHeaderData,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
+  });
+
+  const { data: cartCount = 0 } = useQuery({
+    queryKey: ['cart-count', user?.id],
+    queryFn: () => fetchCartCount(user!.id),
+    enabled: !!user,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 
   const categories = data?.categories || [];
@@ -59,19 +75,6 @@ export function Header() {
       }
     }
   }, [storeInfo?.favicon_url]);
-
-  useEffect(() => {
-    if (user) fetchCartCount();
-  }, [user]);
-
-  const fetchCartCount = async () => {
-    if (!user) return;
-    const { data: cart } = await supabase.from('cart').select('id').eq('user_id', user.id).single();
-    if (cart) {
-      const { count } = await supabase.from('cart_items').select('*', { count: 'exact', head: true }).eq('cart_id', cart.id);
-      setCartCount(count || 0);
-    }
-  };
 
   return (
     <header className="sticky top-0 z-50 bg-card border-b border-border">

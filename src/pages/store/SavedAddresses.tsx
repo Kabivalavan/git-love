@@ -81,23 +81,23 @@
          <h2 className="text-xl font-semibold">Saved Addresses</h2>
          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
            <DialogTrigger asChild><Button onClick={() => handleOpenDialog()}><Plus className="h-4 w-4 mr-2" />Add Address</Button></DialogTrigger>
-           <DialogContent className="max-w-lg mx-4 rounded-xl">
-             <DialogHeader><DialogTitle>{editingAddress ? 'Edit Address' : 'Add New Address'}</DialogTitle></DialogHeader>
-             <div className="space-y-4 mt-4">
-               <div className="grid grid-cols-2 gap-4">
-                 <div><Label>Full Name *</Label><Input value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} /></div>
-                 <div><Label>Mobile *</Label><Input value={formData.mobile_number} onChange={e => setFormData({...formData, mobile_number: e.target.value})} /></div>
-               </div>
-               <div><Label>Address Line 1 *</Label><Input value={formData.address_line1} onChange={e => setFormData({...formData, address_line1: e.target.value})} /></div>
-               <div><Label>Address Line 2</Label><Input value={formData.address_line2} onChange={e => setFormData({...formData, address_line2: e.target.value})} /></div>
-               <div className="grid grid-cols-3 gap-4">
-                 <div><Label>City *</Label><Input value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} /></div>
-                 <div><Label>State *</Label><Input value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} /></div>
-                 <div><Label>Pincode *</Label><Input value={formData.pincode} onChange={e => setFormData({...formData, pincode: e.target.value})} /></div>
-               </div>
-               <Button className="w-full" onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Address'}</Button>
-             </div>
-           </DialogContent>
+            <DialogContent className="max-w-lg mx-6 sm:mx-auto rounded-2xl p-6">
+              <DialogHeader><DialogTitle>{editingAddress ? 'Edit Address' : 'Add New Address'}</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-4 px-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><Label>Full Name *</Label><Input value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} /></div>
+                  <div><Label>Mobile *</Label><Input value={formData.mobile_number} onChange={e => setFormData({...formData, mobile_number: e.target.value})} /></div>
+                </div>
+                <div><Label>Address Line 1 *</Label><Input value={formData.address_line1} onChange={e => setFormData({...formData, address_line1: e.target.value})} /></div>
+                <div><Label>Address Line 2</Label><Input value={formData.address_line2} onChange={e => setFormData({...formData, address_line2: e.target.value})} /></div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div><Label>City *</Label><Input value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} /></div>
+                  <div><Label>State *</Label><Input value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} /></div>
+                  <div><Label>Pincode *</Label><Input value={formData.pincode} onChange={e => setFormData({...formData, pincode: e.target.value})} /></div>
+                </div>
+                <Button className="w-full" onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Address'}</Button>
+              </div>
+            </DialogContent>
          </Dialog>
        </div>
        {addresses.length === 0 ? (
