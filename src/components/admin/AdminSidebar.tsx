@@ -94,36 +94,46 @@ function getInitialCollapsed() {
   try { return localStorage.getItem(COLLAPSED_KEY) === 'true'; } catch { return false; }
 }
 
+// Compute initial open groups synchronously to avoid flicker
+function getInitialOpenGroups(): Record<string, boolean> {
+  const path = window.location.pathname;
+  const initial: Record<string, boolean> = {};
+  sidebarEntries.forEach((entry) => {
+    if (isGroup(entry)) {
+      const hasActive = entry.items.some(item =>
+        item.exact ? path === item.path : path.startsWith(item.path) && item.path !== '/admin'
+      );
+      if (hasActive) initial[entry.label] = true;
+    }
+  });
+  return initial;
+}
+
 export function AdminSidebar() {
   const [collapsed, setCollapsedState] = React.useState(getInitialCollapsed);
-  const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>({});
+  const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(getInitialOpenGroups);
   const { signOut, profile } = useAuth();
   const location = useLocation();
   const navRef = useRef<HTMLElement>(null);
 
   const setCollapsed = (val: boolean) => {
     setCollapsedState(val);
-    try { localStorage.setItem(COLLAPSED_KEY, String(val)); } catch {}
+    try { localStorage.setItem(COLLAPSED_KEY, String(val)); } catch {};
   };
 
-  // Auto-open group containing active route (only on mount)
-  const initializedRef = React.useRef(false);
+  // When route changes, ensure the parent group stays open (no closing/reopening)
   useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-    const initial: Record<string, boolean> = {};
     sidebarEntries.forEach((entry) => {
       if (isGroup(entry)) {
         const hasActive = entry.items.some(item =>
           item.exact ? location.pathname === item.path : location.pathname.startsWith(item.path) && item.path !== '/admin'
         );
-        if (hasActive) {
-          initial[entry.label] = true;
+        if (hasActive && !openGroups[entry.label]) {
+          setOpenGroups(prev => ({ ...prev, [entry.label]: true }));
         }
       }
     });
-    setOpenGroups(prev => ({ ...prev, ...initial }));
-  }, []);
+  }, [location.pathname]);
 
   const toggleGroup = (label: string) => {
     setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }));
