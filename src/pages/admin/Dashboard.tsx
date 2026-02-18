@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AdminLayout, StatCard } from '@/components/admin/AdminLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { ShimmerStats, ShimmerTable } from '@/components/ui/shimmer';
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Order, Product } from '@/types/database';
@@ -317,13 +319,42 @@ export default function AdminDashboard() {
               </div>
             </TabsContent>
 
-            <TabsContent value="getting-started" className="mt-6">
+            <TabsContent value="getting-started" className="mt-6 space-y-6">
               <Card>
-                <CardContent className="p-8 text-center">
-                  <h3 className="text-lg font-semibold mb-2">Welcome to your Commerce Dashboard</h3>
-                  <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                    Start by adding products, setting up categories, and configuring your store settings to get your online store up and running.
-                  </p>
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">🚀 Getting Started Checklist</h3>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { title: 'Add Your Products', desc: 'Create your product catalog with images, pricing, and variants', link: '/admin/products', icon: Package, done: (stats?.totalProducts || 0) > 0 },
+                      { title: 'Set Up Categories', desc: 'Organize products into categories for easy browsing', link: '/admin/categories', icon: Package, done: false },
+                      { title: 'Configure Store Settings', desc: 'Set your store name, logo, contact info, and policies', link: '/admin/settings', icon: AlertTriangle, done: false },
+                      { title: 'Add Banners', desc: 'Upload hero banners for your homepage carousel', link: '/admin/banners', icon: Package, done: false },
+                      { title: 'Create Offers', desc: 'Set up discounts and coupon codes to attract customers', link: '/admin/offers', icon: Percent, done: false },
+                      { title: 'Review Analytics', desc: 'Monitor page views, product clicks, and customer engagement', link: '/admin/analytics', icon: TrendingUp, done: false },
+                    ].map((item, i) => (
+                      <Card key={i} className={`border ${item.done ? 'border-[hsl(142,76%,36%)]/30 bg-[hsl(142,76%,36%)]/5' : ''}`}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.done ? 'bg-[hsl(142,76%,36%)]/10 text-[hsl(142,76%,36%)]' : 'bg-primary/10 text-primary'}`}>
+                              <item.icon className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-semibold">{item.title}</h4>
+                                {item.done && <Badge className="bg-[hsl(142,76%,36%)] text-white text-[9px] px-1.5 py-0">Done</Badge>}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+                              {!item.done && (
+                                <Button variant="link" size="sm" className="p-0 h-auto mt-2 text-xs" asChild>
+                                  <Link to={item.link}>Get Started →</Link>
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
