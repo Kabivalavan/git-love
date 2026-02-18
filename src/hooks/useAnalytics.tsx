@@ -14,10 +14,19 @@ function getSessionId() {
 export function useAnalytics() {
   const location = useLocation();
   const lastPath = useRef('');
+  const enterTime = useRef(Date.now());
 
   useEffect(() => {
     if (location.pathname !== lastPath.current) {
+      // Track time spent on previous page
+      if (lastPath.current) {
+        const timeSpent = Math.round((Date.now() - enterTime.current) / 1000);
+        if (timeSpent > 1) {
+          trackEvent('time_on_page', { page_path: lastPath.current, metadata: { seconds: timeSpent } });
+        }
+      }
       lastPath.current = location.pathname;
+      enterTime.current = Date.now();
       trackEvent('page_view', { page_path: location.pathname });
     }
   }, [location.pathname]);
@@ -43,6 +52,35 @@ export function useAnalytics() {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [location.pathname]);
+
+  // Track clicks on product-related elements
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const productCard = target.closest('[data-product-id]');
+      if (productCard) {
+        const productId = productCard.getAttribute('data-product-id');
+        if (productId) {
+          trackEvent('product_click', { product_id: productId });
+        }
+      }
+      // Track add to cart clicks
+      const addToCartBtn = target.closest('[data-action="add-to-cart"]');
+      if (addToCartBtn) {
+        const productId = addToCartBtn.getAttribute('data-product-id');
+        if (productId) trackEvent('add_to_cart_click', { product_id: productId });
+      }
+      // Track wishlist clicks
+      const wishlistBtn = target.closest('[data-action="add-to-wishlist"]');
+      if (wishlistBtn) {
+        const productId = wishlistBtn.getAttribute('data-product-id');
+        if (productId) trackEvent('wishlist_click', { product_id: productId });
+      }
+    };
+
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
 
   const trackEvent = useCallback(async (
     eventType: string,

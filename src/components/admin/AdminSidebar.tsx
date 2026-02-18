@@ -161,7 +161,7 @@ export function AdminSidebar() {
       </Button>
 
       {/* Navigation */}
-      <nav ref={navRef} className="flex-1 overflow-y-auto py-2 scrollbar-thin">
+      <nav ref={navRef} className="flex-1 overflow-y-auto py-2">
         <ul className="space-y-0.5 px-2">
           {sidebarEntries.map((entry, idx) => {
             if (isGroup(entry)) {
@@ -179,13 +179,13 @@ export function AdminSidebar() {
                         end={item.exact}
                         title={item.label}
                         className={cn(
-                          "flex items-center justify-center py-2 rounded-md text-sm transition-all",
+                          "flex items-center justify-center py-1.5 rounded-md text-sm transition-all",
                           active
                             ? "bg-[hsl(142,76%,36%)] text-white"
                             : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))]"
                         )}
                       >
-                        <item.icon className="h-4.5 w-4.5" />
+                        <item.icon className="h-4 w-4" />
                       </NavLink>
                     </li>
                   );
@@ -207,7 +207,7 @@ export function AdminSidebar() {
                     <span className="flex-1 text-left">{entry.label}</span>
                     <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-180")} />
                   </button>
-                  {isOpen && (
+                  <div className={cn("overflow-hidden transition-all duration-200", isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0")}>
                     <ul className="ml-4 mt-0.5 space-y-0.5 border-l border-[hsl(var(--sidebar-border))] pl-3">
                       {entry.items.map((item) => {
                         const active = isActive(item.path, item.exact);
@@ -229,7 +229,7 @@ export function AdminSidebar() {
                         );
                       })}
                     </ul>
-                  )}
+                  </div>
                 </li>
               );
             }

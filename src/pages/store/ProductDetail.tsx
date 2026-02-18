@@ -1,6 +1,7 @@
 import { useEffect, useState, memo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2 } from 'lucide-react';
+import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,38 @@ import { Shimmer } from '@/components/ui/shimmer';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { ContentSections, type ContentSection } from '@/components/product/ContentSections';
 import type { Product, ProductVariant, Review } from '@/types/database';
+
+function FAQAccordionItem({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-between w-full px-4 py-3 text-left font-semibold text-foreground hover:bg-muted/50 transition-colors"
+      >
+        <span className="text-base">{title}</span>
+        <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+        </motion.div>
+      </button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0, 0, 0.2, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-1">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export default function ProductDetailPage() {
   const { slug } = useParams();
@@ -430,14 +463,13 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Description Section */}
-        <section className="mb-8 md:mb-10">
-          <h2 className="text-lg md:text-xl font-bold text-foreground mb-4">Description</h2>
-          <div className="prose max-w-none">
+        {/* FAQ-style Accordion Sections */}
+        <section className="mb-8 md:mb-10 space-y-3">
+          <FAQAccordionItem title="Description" defaultOpen>
             <p className="text-muted-foreground whitespace-pre-wrap text-sm md:text-base leading-relaxed">
               {product.description || 'No description available.'}
             </p>
-          </div>
+          </FAQAccordionItem>
         </section>
 
         {/* Content Sections - Sequential Amazon-style */}

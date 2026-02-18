@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ArrowRight, Truck, Shield, RefreshCw, Headphones, Sparkles, Flame, Star } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,25 @@ import { useAuth } from '@/hooks/useAuth';
 import { useOffers } from '@/hooks/useOffers';
 import { SEOHead } from '@/components/seo/SEOHead';
 import type { Product, Banner, Category } from '@/types/database';
+
+import type { Easing } from 'framer-motion';
+
+const easeOut: Easing = [0, 0, 0.2, 1];
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: easeOut } },
+};
+
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.1 } },
+};
+
+const scaleIn = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.4, ease: easeOut } },
+};
 
 function FullPageShimmer() {
   return (
@@ -187,7 +207,12 @@ export default function HomePage() {
       )}
 
       {/* Features Strip */}
-      <section className="bg-primary text-primary-foreground py-3 md:py-4">
+      <motion.section
+        className="bg-primary text-primary-foreground py-3 md:py-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+      >
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {[
@@ -196,7 +221,13 @@ export default function HomePage() {
               { icon: RefreshCw, title: 'Easy Returns', desc: '7-day return policy' },
               { icon: Headphones, title: '24/7 Support', desc: 'Dedicated support' },
             ].map((f, i) => (
-              <div key={i} className="flex items-center gap-2 md:gap-3 justify-center">
+              <motion.div
+                key={i}
+                className="flex items-center gap-2 md:gap-3 justify-center"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 + i * 0.1 }}
+              >
                 <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-primary-foreground/15 flex items-center justify-center flex-shrink-0">
                   <f.icon className="h-4 w-4 md:h-5 md:w-5" />
                 </div>
@@ -204,41 +235,61 @@ export default function HomePage() {
                   <p className="font-semibold text-[10px] md:text-sm truncate">{f.title}</p>
                   <p className="text-[9px] md:text-xs opacity-80 truncate hidden md:block">{f.desc}</p>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Categories */}
       {categories.length > 0 && (
-        <section className="container mx-auto px-4 py-8 md:py-12">
+        <motion.section
+          className="container mx-auto px-4 py-8 md:py-12"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-50px' }}
+        >
           <div className="flex items-center gap-3 mb-6 md:mb-8">
             <h2 className="text-xl md:text-3xl font-bold text-foreground">Shop by Category</h2>
             <div className="flex-1 h-px bg-border" />
           </div>
-          <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-4 md:gap-6">
+          <motion.div
+            className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-4 md:gap-6"
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+          >
             {categories.map((category) => (
-              <Link key={category.id} to={`/products?category=${category.slug}`} className="group text-center">
-                <div className="aspect-square rounded-2xl overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all duration-300 mx-auto w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 group-hover:shadow-lg group-hover:scale-105">
-                  {category.image_url ? (
-                    <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" loading="lazy" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-                      <span className="text-lg md:text-2xl font-bold text-primary">{category.name.charAt(0)}</span>
-                    </div>
-                  )}
-                </div>
-                <p className="mt-2 text-[10px] md:text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">{category.name}</p>
-              </Link>
+              <motion.div key={category.id} variants={scaleIn}>
+                <Link to={`/products?category=${category.slug}`} className="group text-center block">
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all duration-300 mx-auto w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 group-hover:shadow-lg group-hover:scale-105">
+                    {category.image_url ? (
+                      <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+                        <span className="text-lg md:text-2xl font-bold text-primary">{category.name.charAt(0)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="mt-2 text-[10px] md:text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">{category.name}</p>
+                </Link>
+              </motion.div>
             ))}
-          </div>
-        </section>
+          </motion.div>
+        </motion.section>
       )}
 
       {/* Best Sellers */}
       {bestsellerProducts.length > 0 && (
-        <section className="bg-muted/50 py-8 md:py-12">
+        <motion.section
+          className="bg-muted/50 py-8 md:py-12"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-50px' }}
+        >
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between mb-6 md:mb-8">
               <div className="flex items-center gap-2">
@@ -249,18 +300,32 @@ export default function HomePage() {
                 <Link to="/products?bestseller=true">View All <ArrowRight className="h-4 w-4 ml-1" /></Link>
               </Button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+            <motion.div
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4"
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+            >
               {bestsellerProducts.map((product) => (
-                <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" />
+                <motion.div key={product.id} variants={scaleIn}>
+                  <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" />
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
-        </section>
+        </motion.section>
       )}
 
       {/* Middle Banners */}
       {middleBanners.length > 0 && (
-        <section className="container mx-auto px-4 py-8 md:py-12">
+        <motion.section
+          className="container mx-auto px-4 py-8 md:py-12"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-50px' }}
+        >
           <div className={`grid gap-4 md:gap-6 ${middleBanners.length === 1 ? 'grid-cols-1' : 'md:grid-cols-2'}`}>
             {middleBanners.map((banner) => (
               <Card key={banner.id} className="overflow-hidden group cursor-pointer border-0 shadow-lg">
@@ -274,11 +339,17 @@ export default function HomePage() {
               </Card>
             ))}
           </div>
-        </section>
+        </motion.section>
       )}
 
       {middleBanners.length === 0 && (
-        <section className="container mx-auto px-4 py-8 md:py-12">
+        <motion.section
+          className="container mx-auto px-4 py-8 md:py-12"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-50px' }}
+        >
           <div className="grid md:grid-cols-2 gap-4 md:gap-6">
             <Card className="overflow-hidden border-0 shadow-lg">
               <CardContent className="p-0 relative">
@@ -305,12 +376,18 @@ export default function HomePage() {
               </CardContent>
             </Card>
           </div>
-        </section>
+        </motion.section>
       )}
 
       {/* Featured Products */}
       {featuredProducts.length > 0 && (
-        <section className="container mx-auto px-4 py-8 md:py-12">
+        <motion.section
+          className="container mx-auto px-4 py-8 md:py-12"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-50px' }}
+        >
           <div className="flex items-center justify-between mb-6 md:mb-8">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 md:h-6 md:w-6 text-primary" />
@@ -320,58 +397,86 @@ export default function HomePage() {
               <Link to="/products?featured=true">View All <ArrowRight className="h-4 w-4 ml-1" /></Link>
             </Button>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+          <motion.div
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4"
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+          >
             {featuredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" />
+              <motion.div key={product.id} variants={scaleIn}>
+                <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" />
+              </motion.div>
             ))}
-          </div>
-        </section>
+          </motion.div>
+        </motion.section>
       )}
 
       {/* Bundles */}
       {bundles.length > 0 && (
-        <section className="container mx-auto px-4 py-8 md:py-12">
+        <motion.section
+          className="container mx-auto px-4 py-8 md:py-12"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-50px' }}
+        >
           <div className="flex items-center gap-3 mb-6 md:mb-8">
             <h2 className="text-xl md:text-3xl font-bold text-foreground">Bundle Deals</h2>
             <div className="flex-1 h-px bg-border" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <motion.div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+          >
             {bundles.map((bundle: any) => {
               const discount = bundle.compare_price && bundle.compare_price > bundle.bundle_price
                 ? Math.round(((bundle.compare_price - bundle.bundle_price) / bundle.compare_price) * 100)
                 : 0;
               const bundleImage = bundle.image_url || bundle.items?.[0]?.product?.images?.[0]?.image_url || '/placeholder.svg';
               return (
-                <Card key={bundle.id} className="overflow-hidden hover:shadow-xl transition-all duration-300 group border-0 shadow-md">
-                  <CardContent className="p-0">
-                    <div className="aspect-[2/1] relative overflow-hidden bg-muted">
-                      <img src={bundleImage} alt={bundle.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                      {discount > 0 && (
-                        <Badge variant="destructive" className="absolute top-3 left-3 text-xs">{discount}% OFF</Badge>
-                      )}
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-semibold text-foreground">{bundle.name}</h3>
-                      {bundle.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{bundle.description}</p>}
-                      <div className="flex items-center gap-2 mt-3">
-                        <span className="text-lg font-bold text-foreground">₹{Number(bundle.bundle_price).toFixed(0)}</span>
-                        {bundle.compare_price && bundle.compare_price > bundle.bundle_price && (
-                          <span className="text-sm text-muted-foreground line-through">₹{Number(bundle.compare_price).toFixed(0)}</span>
+                <motion.div key={bundle.id} variants={scaleIn}>
+                  <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 group border-0 shadow-md">
+                    <CardContent className="p-0">
+                      <div className="aspect-[2/1] relative overflow-hidden bg-muted">
+                        <img src={bundleImage} alt={bundle.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                        {discount > 0 && (
+                          <Badge variant="destructive" className="absolute top-3 left-3 text-xs">{discount}% OFF</Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{bundle.items?.length || 0} products included</p>
-                    </div>
-                  </CardContent>
-                </Card>
+                      <div className="p-4">
+                        <h3 className="font-semibold text-foreground">{bundle.name}</h3>
+                        {bundle.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{bundle.description}</p>}
+                        <div className="flex items-center gap-2 mt-3">
+                          <span className="text-lg font-bold text-foreground">₹{Number(bundle.bundle_price).toFixed(0)}</span>
+                          {bundle.compare_price && bundle.compare_price > bundle.bundle_price && (
+                            <span className="text-sm text-muted-foreground line-through">₹{Number(bundle.compare_price).toFixed(0)}</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{bundle.items?.length || 0} products included</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               );
             })}
-          </div>
-        </section>
+          </motion.div>
+        </motion.section>
       )}
 
       {/* New Arrivals / All Products */}
       {newArrivals.length > 0 && (
-        <section className="bg-muted/50 py-8 md:py-12">
+        <motion.section
+          className="bg-muted/50 py-8 md:py-12"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-50px' }}
+        >
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between mb-6 md:mb-8">
               <div className="flex items-center gap-2">
@@ -382,13 +487,21 @@ export default function HomePage() {
                 <Link to="/products">View All <ArrowRight className="h-4 w-4 ml-1" /></Link>
               </Button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+            <motion.div
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4"
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+            >
               {newArrivals.slice(0, 8).map((product) => (
-                <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} />
+                <motion.div key={product.id} variants={scaleIn}>
+                  <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} />
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
-        </section>
+        </motion.section>
       )}
     </StorefrontLayout>
   );
