@@ -484,28 +484,7 @@ export default function AdminSettings() {
                 ))}
               </div>
 
-              <Separator />
 
-              {/* Legacy color customization */}
-              <div>
-                <p className="text-sm font-medium mb-3">Custom Color Overrides</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="primary_color">Primary Color</Label>
-                    <div className="flex gap-2">
-                      <Input id="primary_color" type="color" value={theme.primary_color} onChange={(e) => setTheme({ ...theme, primary_color: e.target.value })} className="w-16 h-10 p-1" />
-                      <Input value={theme.primary_color} onChange={(e) => setTheme({ ...theme, primary_color: e.target.value })} className="flex-1" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="secondary_color">Secondary Color</Label>
-                    <div className="flex gap-2">
-                      <Input id="secondary_color" type="color" value={theme.secondary_color} onChange={(e) => setTheme({ ...theme, secondary_color: e.target.value })} className="w-16 h-10 p-1" />
-                      <Input value={theme.secondary_color} onChange={(e) => setTheme({ ...theme, secondary_color: e.target.value })} className="flex-1" />
-                    </div>
-                  </div>
-                </div>
-              </div>
 
               <Button 
                 onClick={() => handleSave('theme', theme as unknown as Record<string, unknown>)} 
@@ -675,6 +654,7 @@ export default function AdminSettings() {
                       value={razorpayForm.key_id}
                       onChange={(e) => setRazorpayForm({ ...razorpayForm, key_id: e.target.value })}
                       placeholder="rzp_test_xxxxx or rzp_live_xxxxx"
+                      autoComplete="off"
                     />
                     <p className="text-xs text-muted-foreground">
                       Found in Razorpay Dashboard → Settings → API Keys
@@ -689,6 +669,7 @@ export default function AdminSettings() {
                       value={razorpayForm.key_secret}
                       onChange={(e) => setRazorpayForm({ ...razorpayForm, key_secret: e.target.value })}
                       placeholder="Enter your secret key"
+                      autoComplete="new-password"
                     />
                     <p className="text-xs text-muted-foreground">
                       Your secret key is never displayed after saving.

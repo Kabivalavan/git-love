@@ -12,7 +12,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isStaff: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, mobileNumber: string, fullName: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, mobileNumber: string, fullName: string, realEmail?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, mobileNumber: string, fullName: string) => {
+  const signUp = async (email: string, password: string, mobileNumber: string, fullName: string, realEmail?: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
     const { data, error } = await supabase.auth.signUp({
@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user_id: data.user.id,
           full_name: fullName,
           mobile_number: mobileNumber,
-          email: email,
+          email: realEmail || email,
         });
 
       if (profileError) {
