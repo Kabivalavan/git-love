@@ -14,14 +14,20 @@ import {
   Clock,
   Percent,
   CreditCard,
+  Zap,
+  RotateCcw,
+  XCircle,
+  PackageX,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Order, Product } from '@/types/database';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
+import { useAuth } from '@/hooks/useAuth';
 
 interface DashboardStats {
   todaySales: number;
@@ -39,7 +45,7 @@ interface DashboardStats {
   onlineOrders: number;
 }
 
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+const COLORS = ['hsl(38, 92%, 50%)', 'hsl(280, 65%, 60%)', 'hsl(211, 100%, 50%)'];
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -48,6 +54,7 @@ export default function AdminDashboard() {
   const [salesChart, setSalesChart] = useState<any[]>([]);
   const [orderStatusChart, setOrderStatusChart] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { profile } = useAuth();
 
   useEffect(() => {
     fetchDashboardData();
@@ -85,22 +92,11 @@ export default function AdminDashboard() {
       const conversionRate = pageViews > 0 ? (weekOrders.length / pageViews) * 100 : 0;
 
       setStats({
-        todaySales,
-        weekSales,
-        totalOrders: ordersData.length,
-        newOrders,
-        processingOrders,
-        deliveredOrders,
-        totalProducts: productsData.length,
-        lowStockProducts: lowStock.length,
-        totalCustomers: customersData.length,
-        avgOrderValue,
-        conversionRate,
-        codOrders,
-        onlineOrders: ordersData.length - codOrders,
+        todaySales, weekSales, totalOrders: ordersData.length, newOrders, processingOrders, deliveredOrders,
+        totalProducts: productsData.length, lowStockProducts: lowStock.length, totalCustomers: customersData.length,
+        avgOrderValue, conversionRate, codOrders, onlineOrders: ordersData.length - codOrders,
       });
 
-      // Build 7-day sales chart
       const dailySales: Record<string, { date: string; revenue: number; orders: number }> = {};
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
@@ -117,11 +113,8 @@ export default function AdminDashboard() {
       });
       setSalesChart(Object.values(dailySales));
 
-      // Order status chart
       const statusCounts: Record<string, number> = {};
-      ordersData.forEach(o => {
-        statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
-      });
+      ordersData.forEach(o => { statusCounts[o.status] = (statusCounts[o.status] || 0) + 1; });
       setOrderStatusChart(Object.entries(statusCounts).map(([name, value]) => ({
         name: name.charAt(0).toUpperCase() + name.slice(1), value
       })));
@@ -137,149 +130,204 @@ export default function AdminDashboard() {
 
   const orderColumns: Column<Order>[] = [
     { key: 'order_number', header: 'Order #' },
+    { key: 'total', header: 'Amount', render: (order) => `₹${Number(order.total).toFixed(2)}` },
     {
-      key: 'total',
-      header: 'Amount',
-      render: (order) => `₹${Number(order.total).toFixed(2)}`,
-    },
-    {
-      key: 'status',
-      header: 'Status',
+      key: 'status', header: 'Status',
       render: (order) => (
         <Badge variant={order.status === 'delivered' ? 'default' : order.status === 'cancelled' ? 'destructive' : 'secondary'}>
           {order.status}
         </Badge>
       ),
     },
-    {
-      key: 'created_at',
-      header: 'Date',
-      render: (order) => new Date(order.created_at).toLocaleDateString(),
-    },
+    { key: 'created_at', header: 'Date', render: (order) => new Date(order.created_at).toLocaleDateString() },
   ];
 
   const productColumns: Column<Product>[] = [
     { key: 'name', header: 'Product' },
     { key: 'sku', header: 'SKU' },
-    {
-      key: 'stock_quantity',
-      header: 'Stock',
-      render: (product) => (
-        <span className="text-destructive font-medium">{product.stock_quantity}</span>
-      ),
-    },
+    { key: 'stock_quantity', header: 'Stock', render: (product) => <span className="text-destructive font-medium">{product.stock_quantity}</span> },
     { key: 'low_stock_threshold', header: 'Threshold' },
   ];
 
+  const shippingData = [
+    { name: 'Pending', value: stats?.newOrders || 0, color: 'hsl(38, 92%, 50%)' },
+    { name: 'Packed', value: stats?.processingOrders || 0, color: 'hsl(280, 65%, 60%)' },
+    { name: 'Shipped', value: stats?.deliveredOrders || 0, color: 'hsl(211, 100%, 50%)' },
+  ];
+  const totalShippings = shippingData.reduce((s, d) => s + d.value, 0);
+
   return (
-    <AdminLayout title="Dashboard" description="Overview of your store performance">
+    <AdminLayout>
       {isLoading ? (
         <div className="space-y-6">
           <ShimmerStats />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ShimmerTable rows={5} columns={4} />
-            <ShimmerTable rows={5} columns={4} />
-          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><ShimmerTable rows={5} columns={4} /><ShimmerTable rows={5} columns={4} /></div>
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Primary Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <StatCard title="Today's Sales" value={`₹${stats?.todaySales.toLocaleString() || '0'}`} icon={<DollarSign className="h-5 w-5" />} />
-            <StatCard title="New Orders" value={stats?.newOrders || 0} description="Awaiting confirmation" icon={<ShoppingCart className="h-5 w-5" />} />
-            <StatCard title="Processing" value={stats?.processingOrders || 0} icon={<Clock className="h-5 w-5" />} />
-            <StatCard title="Avg Order" value={`₹${stats?.avgOrderValue.toFixed(0) || '0'}`} icon={<TrendingUp className="h-5 w-5" />} />
-            <StatCard title="Conversion" value={`${stats?.conversionRate.toFixed(1) || '0'}%`} description="Visitors → Orders" icon={<Percent className="h-5 w-5" />} />
-            <StatCard title="Low Stock" value={stats?.lowStockProducts || 0} description="Need attention" icon={<AlertTriangle className="h-5 w-5 text-amber-500" />} />
+          {/* Welcome */}
+          <div className="flex items-center gap-4">
+            <div className="h-14 w-14 rounded-lg bg-muted flex items-center justify-center">
+              <Package className="h-7 w-7 text-muted-foreground" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">
+                Hello, {profile?.full_name || 'Admin'}
+              </h1>
+              <p className="text-sm text-muted-foreground">Store Dashboard</p>
+            </div>
           </div>
 
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Revenue (Last 7 Days)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={salesChart}>
-                      <defs>
-                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 11 }} />
-                      <YAxis className="text-xs" tick={{ fontSize: 11 }} />
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
-                      <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="url(#colorRev)" name="Revenue (₹)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
+          {/* Tabs */}
+          <Tabs defaultValue="dashboard">
+            <TabsList className="bg-transparent border-b border-border rounded-none p-0 h-auto gap-0">
+              <TabsTrigger value="dashboard" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-2 text-sm">
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="getting-started" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-2 text-sm">
+                Getting Started
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="dashboard" className="mt-6 space-y-6">
+              {/* Overview Section */}
+              <div>
+                <h2 className="text-base font-semibold text-foreground flex items-center gap-2 mb-4">
+                  <Zap className="h-4 w-4 text-amber-500" />
+                  Overview
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  <StatCard title="PENDING ORDERS" value={stats?.newOrders || 0} description="To Be Confirmed" icon={<ShoppingCart className="h-5 w-5" />} />
+                  <StatCard title="RETURN REQUESTS" value={0} description="To Be Reviewed" icon={<RotateCcw className="h-5 w-5" />} />
+                  <StatCard title="PENDING CANCEL REQUEST" value={0} description="To Be Processed" icon={<XCircle className="h-5 w-5" />} />
+                  <StatCard title="YET TO RECEIVE PAYMENTS" value={`₹${stats?.todaySales.toLocaleString() || '0'}`} description="To Be Received" icon={<CreditCard className="h-5 w-5" />} />
+                  <StatCard title="OUT OF STOCK ITEMS" value={stats?.lowStockProducts || 0} description="To Be Restocked" icon={<PackageX className="h-5 w-5" />} />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Order Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={orderStatusChart} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
-                        {orderStatusChart.map((_, i) => (
-                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="mt-2 space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">COD Orders</span>
-                    <span className="font-medium">{stats?.codOrders || 0}</span>
-                  </div>
-                  <Progress value={stats && stats.totalOrders > 0 ? (stats.codOrders / stats.totalOrders) * 100 : 0} className="h-1.5" />
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Online Orders</span>
-                    <span className="font-medium">{stats?.onlineOrders || 0}</span>
-                  </div>
-                  <Progress value={stats && stats.totalOrders > 0 ? (stats.onlineOrders / stats.totalOrders) * 100 : 0} className="h-1.5" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              {/* Charts Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Sales Summary */}
+                <Card className="lg:col-span-2">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-base font-semibold">Sales Summary</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs cursor-pointer">This Month</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4 mb-4">
+                      <span className="text-3xl font-bold text-foreground">
+                        {stats?.totalOrders || 0}
+                      </span>
+                      <div className="flex gap-2">
+                        <Badge variant="outline" className="text-xs">Order</Badge>
+                        <Badge variant="secondary" className="text-xs">Amount</Badge>
+                      </div>
+                    </div>
+                    <div className="h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={salesChart}>
+                          <defs>
+                            <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
+                              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="date" tick={{ fontSize: 11 }} className="text-xs" />
+                          <YAxis tick={{ fontSize: 11 }} className="text-xs" />
+                          <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
+                          <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="url(#colorRev)" name="Revenue (₹)" strokeWidth={2} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
 
-          {/* Secondary Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard title="Total Products" value={stats?.totalProducts || 0} icon={<Package className="h-5 w-5" />} />
-            <StatCard title="Total Customers" value={stats?.totalCustomers || 0} icon={<Users className="h-5 w-5" />} />
-            <StatCard title="Delivered" value={stats?.deliveredOrders || 0} icon={<Truck className="h-5 w-5" />} />
-            <StatCard title="Week Sales" value={`₹${stats?.weekSales.toLocaleString() || '0'}`} icon={<CreditCard className="h-5 w-5" />} />
-          </div>
+                {/* Shipping Overview */}
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-base font-semibold">Shipping Overview</CardTitle>
+                    <Badge variant="outline" className="text-xs cursor-pointer">This Month</Badge>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-48 flex items-center justify-center">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={shippingData.length > 0 && totalShippings > 0 ? shippingData : [{ name: 'No Data', value: 1, color: 'hsl(var(--muted))' }]}
+                            cx="50%" cy="50%"
+                            innerRadius={50} outerRadius={75}
+                            dataKey="value"
+                            startAngle={90} endAngle={-270}
+                          >
+                            {(totalShippings > 0 ? shippingData : [{ color: 'hsl(var(--muted))' }]).map((entry, i) => (
+                              <Cell key={i} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <text x="50%" y="45%" textAnchor="middle" className="fill-muted-foreground text-[10px] uppercase tracking-wider">
+                            ALL SHIPPINGS
+                          </text>
+                          <text x="50%" y="58%" textAnchor="middle" className="fill-foreground text-xl font-bold">
+                            {totalShippings}
+                          </text>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="space-y-2 mt-2">
+                      {shippingData.map((item) => (
+                        <div key={item.name} className="flex items-center gap-2 text-sm">
+                          <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: item.color }} />
+                          <span className="text-muted-foreground">{item.name}</span>
+                          <span className="ml-auto font-medium">{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
 
-          {/* Tables */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader><CardTitle className="text-lg">Recent Orders</CardTitle></CardHeader>
-              <CardContent>
-                <DataTable<Order> columns={orderColumns} data={recentOrders} emptyMessage="No orders yet" getRowId={(o) => o.id} />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-500" /> Low Stock Alert
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <DataTable<Product> columns={productColumns} data={lowStockProducts} emptyMessage="No low stock items" getRowId={(p) => p.id} />
-              </CardContent>
-            </Card>
-          </div>
+              {/* Secondary Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <StatCard title="TOTAL PRODUCTS" value={stats?.totalProducts || 0} icon={<Package className="h-5 w-5" />} />
+                <StatCard title="TOTAL CUSTOMERS" value={stats?.totalCustomers || 0} icon={<Users className="h-5 w-5" />} />
+                <StatCard title="DELIVERED" value={stats?.deliveredOrders || 0} icon={<Truck className="h-5 w-5" />} />
+                <StatCard title="WEEK SALES" value={`₹${stats?.weekSales.toLocaleString() || '0'}`} icon={<CreditCard className="h-5 w-5" />} />
+              </div>
+
+              {/* Tables */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader><CardTitle className="text-base font-semibold">Recent Orders</CardTitle></CardHeader>
+                  <CardContent>
+                    <DataTable<Order> columns={orderColumns} data={recentOrders} emptyMessage="No orders yet" getRowId={(o) => o.id} />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-500" /> Low Stock Alert
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <DataTable<Product> columns={productColumns} data={lowStockProducts} emptyMessage="No low stock items" getRowId={(p) => p.id} />
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="getting-started" className="mt-6">
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <h3 className="text-lg font-semibold mb-2">Welcome to your Commerce Dashboard</h3>
+                  <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                    Start by adding products, setting up categories, and configuring your store settings to get your online store up and running.
+                  </p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       )}
     </AdminLayout>

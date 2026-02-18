@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ArrowRight, Truck, Shield, RefreshCw, Headphones } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowRight, Truck, Shield, RefreshCw, Headphones, Sparkles, Flame, Star } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ProductCard } from '@/components/storefront/ProductCard';
@@ -19,11 +19,11 @@ function FullPageShimmer() {
   return (
     <StorefrontLayout>
       <div className="min-h-screen">
-        <Skeleton className="w-full aspect-[3/1] md:aspect-[4/1]" />
+        <Skeleton className="w-full aspect-[3/1] md:aspect-[3/1]" />
         <div className="py-4 bg-muted">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-12" />)}
+              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-14 rounded-xl" />)}
             </div>
           </div>
         </div>
@@ -31,7 +31,7 @@ function FullPageShimmer() {
           <Skeleton className="h-8 w-48 mb-6" />
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-card rounded-lg border border-border overflow-hidden">
+              <div key={i} className="bg-card rounded-xl border border-border overflow-hidden">
                 <Skeleton className="aspect-square" />
                 <div className="p-3 space-y-2">
                   <Skeleton className="h-4 w-3/4" />
@@ -88,6 +88,7 @@ export default function HomePage() {
   const bestsellerProducts = data?.bestsellerProducts || [];
   const newArrivals = data?.newArrivals || [];
   const bundles = data?.bundles || [];
+
   useEffect(() => {
     if (banners.length > 1) {
       const interval = setInterval(() => {
@@ -154,12 +155,13 @@ export default function HomePage() {
           priceRange: '₹₹',
         }}
       />
+
       {/* Hero Banner Slider */}
       {banners.length > 0 && (
         <section className="relative">
-          <div className="relative overflow-hidden aspect-[3/1] md:aspect-[4/1]">
+          <div className="relative overflow-hidden aspect-[3/1] md:aspect-[3/1]">
             {banners.map((banner, index) => (
-              <div key={banner.id} className={`absolute inset-0 transition-opacity duration-500 ${index === currentBanner ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
+              <div key={banner.id} className={`absolute inset-0 transition-all duration-700 ${index === currentBanner ? 'opacity-100 z-10 scale-100' : 'opacity-0 z-0 scale-105'}`}>
                 <Link to={banner.redirect_url || '/products'}>
                   <img src={banner.media_url} alt={banner.title} className="w-full h-full object-cover" />
                 </Link>
@@ -168,15 +170,15 @@ export default function HomePage() {
           </div>
           {banners.length > 1 && (
             <>
-              <Button variant="secondary" size="icon" className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-20 opacity-70 hover:opacity-100 h-8 w-8 md:h-10 md:w-10" onClick={() => setCurrentBanner((prev) => (prev - 1 + banners.length) % banners.length)}>
-                <ChevronLeft className="h-4 w-4 md:h-6 md:w-6" />
+              <Button variant="secondary" size="icon" className="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 z-20 bg-card/80 backdrop-blur-sm hover:bg-card shadow-lg h-10 w-10 md:h-12 md:w-12 rounded-full" onClick={() => setCurrentBanner((prev) => (prev - 1 + banners.length) % banners.length)}>
+                <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
               </Button>
-              <Button variant="secondary" size="icon" className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-20 opacity-70 hover:opacity-100 h-8 w-8 md:h-10 md:w-10" onClick={() => setCurrentBanner((prev) => (prev + 1) % banners.length)}>
-                <ChevronRight className="h-4 w-4 md:h-6 md:w-6" />
+              <Button variant="secondary" size="icon" className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 z-20 bg-card/80 backdrop-blur-sm hover:bg-card shadow-lg h-10 w-10 md:h-12 md:w-12 rounded-full" onClick={() => setCurrentBanner((prev) => (prev + 1) % banners.length)}>
+                <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
               </Button>
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">
                 {banners.map((_, index) => (
-                  <button key={index} className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-full transition-colors ${index === currentBanner ? 'bg-primary' : 'bg-white/50'}`} onClick={() => setCurrentBanner(index)} />
+                  <button key={index} className={`rounded-full transition-all ${index === currentBanner ? 'bg-primary w-6 h-2.5' : 'bg-card/60 w-2.5 h-2.5'}`} onClick={() => setCurrentBanner(index)} />
                 ))}
               </div>
             </>
@@ -185,7 +187,7 @@ export default function HomePage() {
       )}
 
       {/* Features Strip */}
-      <section className="bg-muted py-3 md:py-4">
+      <section className="bg-primary text-primary-foreground py-3 md:py-4">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {[
@@ -195,10 +197,12 @@ export default function HomePage() {
               { icon: Headphones, title: '24/7 Support', desc: 'Dedicated support' },
             ].map((f, i) => (
               <div key={i} className="flex items-center gap-2 md:gap-3 justify-center">
-                <f.icon className="h-4 w-4 md:h-6 md:w-6 text-primary flex-shrink-0" />
+                <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-primary-foreground/15 flex items-center justify-center flex-shrink-0">
+                  <f.icon className="h-4 w-4 md:h-5 md:w-5" />
+                </div>
                 <div className="min-w-0">
-                  <p className="font-medium text-[10px] md:text-sm truncate">{f.title}</p>
-                  <p className="text-[9px] md:text-xs text-muted-foreground truncate hidden md:block">{f.desc}</p>
+                  <p className="font-semibold text-[10px] md:text-sm truncate">{f.title}</p>
+                  <p className="text-[9px] md:text-xs opacity-80 truncate hidden md:block">{f.desc}</p>
                 </div>
               </div>
             ))}
@@ -208,23 +212,24 @@ export default function HomePage() {
 
       {/* Categories */}
       {categories.length > 0 && (
-        <section className="container mx-auto px-4 py-6 md:py-10">
-          <div className="mb-4 md:mb-6">
-            <h2 className="text-lg md:text-2xl font-bold text-foreground">Shop by Category</h2>
+        <section className="container mx-auto px-4 py-8 md:py-12">
+          <div className="flex items-center gap-3 mb-6 md:mb-8">
+            <h2 className="text-xl md:text-3xl font-bold text-foreground">Shop by Category</h2>
+            <div className="flex-1 h-px bg-border" />
           </div>
-          <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-3 md:gap-4">
+          <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-4 md:gap-6">
             {categories.map((category) => (
               <Link key={category.id} to={`/products?category=${category.slug}`} className="group text-center">
-                <div className="aspect-square rounded-xl overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-colors mx-auto w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24">
+                <div className="aspect-square rounded-2xl overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all duration-300 mx-auto w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 group-hover:shadow-lg group-hover:scale-105">
                   {category.image_url ? (
                     <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" loading="lazy" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-secondary">
-                      <span className="text-lg md:text-2xl font-bold text-muted-foreground">{category.name.charAt(0)}</span>
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+                      <span className="text-lg md:text-2xl font-bold text-primary">{category.name.charAt(0)}</span>
                     </div>
                   )}
                 </div>
-                <p className="mt-1.5 text-[10px] md:text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">{category.name}</p>
+                <p className="mt-2 text-[10px] md:text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">{category.name}</p>
               </Link>
             ))}
           </div>
@@ -233,15 +238,18 @@ export default function HomePage() {
 
       {/* Best Sellers */}
       {bestsellerProducts.length > 0 && (
-        <section className="bg-muted py-6 md:py-10">
+        <section className="bg-muted/50 py-8 md:py-12">
           <div className="container mx-auto px-4">
-            <div className="flex items-center justify-between mb-4 md:mb-6">
-              <h2 className="text-lg md:text-2xl font-bold text-foreground">Best Sellers</h2>
-              <Button variant="ghost" asChild size="sm">
+            <div className="flex items-center justify-between mb-6 md:mb-8">
+              <div className="flex items-center gap-2">
+                <Flame className="h-5 w-5 md:h-6 md:w-6 text-amber-500" />
+                <h2 className="text-xl md:text-3xl font-bold text-foreground">Best Sellers</h2>
+              </div>
+              <Button variant="outline" asChild size="sm" className="rounded-full">
                 <Link to="/products?bestseller=true">View All <ArrowRight className="h-4 w-4 ml-1" /></Link>
               </Button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 md:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
               {bestsellerProducts.map((product) => (
                 <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" />
               ))}
@@ -252,14 +260,14 @@ export default function HomePage() {
 
       {/* Middle Banners */}
       {middleBanners.length > 0 && (
-        <section className="container mx-auto px-4 py-6 md:py-10">
-          <div className={`grid gap-3 md:gap-6 ${middleBanners.length === 1 ? 'grid-cols-1' : 'md:grid-cols-2'}`}>
+        <section className="container mx-auto px-4 py-8 md:py-12">
+          <div className={`grid gap-4 md:gap-6 ${middleBanners.length === 1 ? 'grid-cols-1' : 'md:grid-cols-2'}`}>
             {middleBanners.map((banner) => (
-              <Card key={banner.id} className="overflow-hidden group cursor-pointer">
+              <Card key={banner.id} className="overflow-hidden group cursor-pointer border-0 shadow-lg">
                 <CardContent className="p-0">
                   <Link to={banner.redirect_url || '/products'}>
                     <div className="aspect-[2/1] overflow-hidden">
-                      <img src={banner.media_url} alt={banner.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <img src={banner.media_url} alt={banner.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     </div>
                   </Link>
                 </CardContent>
@@ -270,28 +278,28 @@ export default function HomePage() {
       )}
 
       {middleBanners.length === 0 && (
-        <section className="container mx-auto px-4 py-6 md:py-10">
-          <div className="grid md:grid-cols-2 gap-3 md:gap-6">
-            <Card className="overflow-hidden">
+        <section className="container mx-auto px-4 py-8 md:py-12">
+          <div className="grid md:grid-cols-2 gap-4 md:gap-6">
+            <Card className="overflow-hidden border-0 shadow-lg">
               <CardContent className="p-0 relative">
-                <div className="aspect-[2/1] bg-gradient-to-r from-primary to-primary/80 flex items-center p-4 md:p-8">
+                <div className="aspect-[2/1] bg-gradient-to-br from-primary via-primary/90 to-accent flex items-center p-6 md:p-10">
                   <div className="text-primary-foreground">
-                    <p className="text-[10px] md:text-sm font-medium mb-1">SPECIAL OFFER</p>
-                    <h3 className="text-base md:text-2xl font-bold mb-1 md:mb-2">Up to 50% OFF</h3>
-                    <p className="text-[10px] md:text-sm opacity-90 mb-2 md:mb-4">On selected items</p>
-                    <Button variant="secondary" size="sm" asChild><Link to="/products?offer=true">Shop Now</Link></Button>
+                    <Badge className="bg-primary-foreground/20 text-primary-foreground border-0 mb-3">SPECIAL OFFER</Badge>
+                    <h3 className="text-xl md:text-3xl font-bold mb-2">Up to 50% OFF</h3>
+                    <p className="text-sm opacity-90 mb-4">On selected items this season</p>
+                    <Button className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 rounded-full" size="sm" asChild><Link to="/products?offer=true">Shop Now <ArrowRight className="h-4 w-4 ml-1" /></Link></Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden border-0 shadow-lg">
               <CardContent className="p-0 relative">
-                <div className="aspect-[2/1] bg-gradient-to-r from-amber-500 to-orange-500 flex items-center p-4 md:p-8">
+                <div className="aspect-[2/1] bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 flex items-center p-6 md:p-10">
                   <div className="text-white">
-                    <p className="text-[10px] md:text-sm font-medium mb-1">NEW ARRIVALS</p>
-                    <h3 className="text-base md:text-2xl font-bold mb-1 md:mb-2">Fresh Collection</h3>
-                    <p className="text-[10px] md:text-sm opacity-90 mb-2 md:mb-4">Just dropped this week</p>
-                    <Button variant="secondary" size="sm" asChild><Link to="/products?new=true">Explore</Link></Button>
+                    <Badge className="bg-white/20 text-white border-0 mb-3">NEW ARRIVALS</Badge>
+                    <h3 className="text-xl md:text-3xl font-bold mb-2">Fresh Collection</h3>
+                    <p className="text-sm opacity-90 mb-4">Just dropped this week</p>
+                    <Button className="bg-white text-orange-600 hover:bg-white/90 rounded-full" size="sm" asChild><Link to="/products?new=true">Explore <ArrowRight className="h-4 w-4 ml-1" /></Link></Button>
                   </div>
                 </div>
               </CardContent>
@@ -302,25 +310,30 @@ export default function HomePage() {
 
       {/* Featured Products */}
       {featuredProducts.length > 0 && (
-        <section className="container mx-auto px-4 py-6 md:py-10">
-          <div className="flex items-center justify-between mb-4 md:mb-6">
-            <h2 className="text-lg md:text-2xl font-bold text-foreground">Featured Products</h2>
-            <Button variant="ghost" asChild size="sm">
+        <section className="container mx-auto px-4 py-8 md:py-12">
+          <div className="flex items-center justify-between mb-6 md:mb-8">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+              <h2 className="text-xl md:text-3xl font-bold text-foreground">Featured Products</h2>
+            </div>
+            <Button variant="outline" asChild size="sm" className="rounded-full">
               <Link to="/products?featured=true">View All <ArrowRight className="h-4 w-4 ml-1" /></Link>
             </Button>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 md:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
             {featuredProducts.map((product) => (
               <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" />
             ))}
           </div>
         </section>
       )}
+
       {/* Bundles */}
       {bundles.length > 0 && (
-        <section className="container mx-auto px-4 py-6 md:py-10">
-          <div className="flex items-center justify-between mb-4 md:mb-6">
-            <h2 className="text-lg md:text-2xl font-bold text-foreground">Bundle Deals</h2>
+        <section className="container mx-auto px-4 py-8 md:py-12">
+          <div className="flex items-center gap-3 mb-6 md:mb-8">
+            <h2 className="text-xl md:text-3xl font-bold text-foreground">Bundle Deals</h2>
+            <div className="flex-1 h-px bg-border" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {bundles.map((bundle: any) => {
@@ -329,18 +342,18 @@ export default function HomePage() {
                 : 0;
               const bundleImage = bundle.image_url || bundle.items?.[0]?.product?.images?.[0]?.image_url || '/placeholder.svg';
               return (
-                <Card key={bundle.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                <Card key={bundle.id} className="overflow-hidden hover:shadow-xl transition-all duration-300 group border-0 shadow-md">
                   <CardContent className="p-0">
                     <div className="aspect-[2/1] relative overflow-hidden bg-muted">
-                      <img src={bundleImage} alt={bundle.name} className="w-full h-full object-cover" loading="lazy" />
+                      <img src={bundleImage} alt={bundle.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                       {discount > 0 && (
-                        <Badge variant="destructive" className="absolute top-2 left-2">{discount}% OFF</Badge>
+                        <Badge variant="destructive" className="absolute top-3 left-3 text-xs">{discount}% OFF</Badge>
                       )}
                     </div>
                     <div className="p-4">
                       <h3 className="font-semibold text-foreground">{bundle.name}</h3>
                       {bundle.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{bundle.description}</p>}
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center gap-2 mt-3">
                         <span className="text-lg font-bold text-foreground">₹{Number(bundle.bundle_price).toFixed(0)}</span>
                         {bundle.compare_price && bundle.compare_price > bundle.bundle_price && (
                           <span className="text-sm text-muted-foreground line-through">₹{Number(bundle.compare_price).toFixed(0)}</span>
@@ -356,13 +369,16 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Check All Products (was New Arrivals) */}
+      {/* New Arrivals / All Products */}
       {newArrivals.length > 0 && (
-        <section className="bg-muted py-6 md:py-10">
+        <section className="bg-muted/50 py-8 md:py-12">
           <div className="container mx-auto px-4">
-            <div className="flex items-center justify-between mb-4 md:mb-6">
-              <h2 className="text-lg md:text-2xl font-bold text-foreground">Check All Products</h2>
-              <Button variant="ghost" asChild size="sm">
+            <div className="flex items-center justify-between mb-6 md:mb-8">
+              <div className="flex items-center gap-2">
+                <Star className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+                <h2 className="text-xl md:text-3xl font-bold text-foreground">Check All Products</h2>
+              </div>
+              <Button variant="outline" asChild size="sm" className="rounded-full">
                 <Link to="/products">View All <ArrowRight className="h-4 w-4 ml-1" /></Link>
               </Button>
             </div>
