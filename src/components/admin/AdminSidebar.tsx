@@ -106,19 +106,24 @@ export function AdminSidebar() {
     try { localStorage.setItem(COLLAPSED_KEY, String(val)); } catch {}
   };
 
-  // Auto-open group containing active route
+  // Auto-open group containing active route (only on mount)
+  const initializedRef = React.useRef(false);
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    const initial: Record<string, boolean> = {};
     sidebarEntries.forEach((entry) => {
       if (isGroup(entry)) {
         const hasActive = entry.items.some(item =>
           item.exact ? location.pathname === item.path : location.pathname.startsWith(item.path) && item.path !== '/admin'
         );
         if (hasActive) {
-          setOpenGroups(prev => ({ ...prev, [entry.label]: true }));
+          initial[entry.label] = true;
         }
       }
     });
-  }, [location.pathname]);
+    setOpenGroups(prev => ({ ...prev, ...initial }));
+  }, []);
 
   const toggleGroup = (label: string) => {
     setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }));

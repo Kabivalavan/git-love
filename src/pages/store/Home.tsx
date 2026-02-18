@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ArrowRight, Truck, Shield, RefreshCw, Headphones, Sparkles, Flame, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowRight, Truck, Shield, RefreshCw, Headphones, Sparkles, Flame, Star, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { Button } from '@/components/ui/button';
@@ -68,9 +68,10 @@ function FullPageShimmer() {
 }
 
 const fetchHomeData = async () => {
-  const [bannersRes, middleBannersRes, categoriesRes, featuredRes, bestsellersRes, newRes, bundlesRes] = await Promise.all([
+  const [bannersRes, middleBannersRes, popupBannersRes, categoriesRes, featuredRes, bestsellersRes, newRes, bundlesRes] = await Promise.all([
     supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_top').order('sort_order'),
     supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_middle').order('sort_order'),
+    supabase.from('banners').select('*').eq('is_active', true).eq('position', 'popup').order('sort_order').limit(1),
     supabase.from('categories').select('*').eq('is_active', true).is('parent_id', null).order('sort_order').limit(8),
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_featured', true).limit(8),
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_bestseller', true).limit(8),
@@ -80,6 +81,7 @@ const fetchHomeData = async () => {
   return {
     banners: (bannersRes.data || []) as Banner[],
     middleBanners: (middleBannersRes.data || []) as Banner[],
+    popupBanner: ((popupBannersRes.data || [])[0] || null) as Banner | null,
     categories: (categoriesRes.data || []) as Category[],
     featuredProducts: (featuredRes.data || []) as Product[],
     bestsellerProducts: (bestsellersRes.data || []) as Product[],
@@ -90,6 +92,7 @@ const fetchHomeData = async () => {
 
 export default function HomePage() {
   const [currentBanner, setCurrentBanner] = useState(0);
+  const [showPopup, setShowPopup] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const { getProductOffer, isLoading: isOffersLoading } = useOffers();
@@ -103,6 +106,7 @@ export default function HomePage() {
 
   const banners = data?.banners || [];
   const middleBanners = data?.middleBanners || [];
+  const popupBanner = data?.popupBanner || null;
   const categories = data?.categories || [];
   const featuredProducts = data?.featuredProducts || [];
   const bestsellerProducts = data?.bestsellerProducts || [];
@@ -117,6 +121,17 @@ export default function HomePage() {
       return () => clearInterval(interval);
     }
   }, [banners.length]);
+
+  // Popup banner - show after 4 seconds
+  useEffect(() => {
+    if (popupBanner) {
+      const popupDismissed = sessionStorage.getItem('popup_banner_dismissed');
+      if (!popupDismissed) {
+        const timer = setTimeout(() => setShowPopup(true), 4000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [popupBanner]);
 
   const handleAddToCart = async (product: Product) => {
     if (!user) {
@@ -503,6 +518,41 @@ export default function HomePage() {
           </div>
         </motion.section>
       )}
+
+      {/* Popup Banner */}
+      <AnimatePresence>
+        {showPopup && popupBanner && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
+                className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <Link
+                to={popupBanner.redirect_url || '/products'}
+                onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
+              >
+                <img src={popupBanner.media_url} alt={popupBanner.title} className="w-full h-auto" />
+              </Link>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </StorefrontLayout>
   );
 }

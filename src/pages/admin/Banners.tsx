@@ -46,7 +46,7 @@ const POSITIONS = [
   { value: 'home_middle', label: 'Home Middle' },
   { value: 'category', label: 'Category Page' },
   { value: 'offer', label: 'Offer Banner' },
-  { value: 'popup', label: 'Popup' },
+  { value: 'popup', label: 'Popup (1 only, shows after 4s)' },
 ];
 
 export default function AdminBanners() {
