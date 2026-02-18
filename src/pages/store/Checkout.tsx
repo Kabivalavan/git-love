@@ -14,7 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useRazorpay } from '@/hooks/useRazorpay';
-import type { Address, CartItem, Product, PaymentMethod } from '@/types/database';
+import type { Address, CartItem, Product, PaymentMethod, CheckoutSettings } from '@/types/database';
 
 interface CartItemWithProduct extends CartItem {
   product: Product;
@@ -27,6 +27,12 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [isLoading, setIsLoading] = useState(true);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings>({
+    cod_enabled: true,
+    min_order_value: 0,
+    free_shipping_threshold: 500,
+    default_shipping_charge: 50,
+  });
   const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [newAddress, setNewAddress] = useState({
@@ -78,6 +84,21 @@ export default function CheckoutPage() {
       setSelectedAddress(addressList.find(a => a.is_default)?.id || addressList[0].id);
     }
 
+    // Fetch checkout settings
+    const { data: settingsData } = await supabase
+      .from('store_settings')
+      .select('value')
+      .eq('key', 'checkout')
+      .single();
+    if (settingsData?.value) {
+      const cs = settingsData.value as unknown as CheckoutSettings;
+      setCheckoutSettings(cs);
+      // If COD is disabled and current method is cod, switch to online
+      if (!cs.cod_enabled && paymentMethod === 'cod') {
+        setPaymentMethod('online');
+      }
+    }
+
     setIsLoading(false);
   };
 
@@ -127,7 +148,9 @@ export default function CheckoutPage() {
       const orderNumber = orderNumberData || `ORD${Date.now()}`;
 
       const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-      const shippingCharge = subtotal >= 500 ? 0 : 50;
+      const freeThreshold = checkoutSettings.free_shipping_threshold;
+      const defaultShipping = checkoutSettings.default_shipping_charge;
+      const shippingCharge = (freeThreshold > 0 && subtotal >= freeThreshold) ? 0 : defaultShipping;
       const total = subtotal + shippingCharge;
 
       // Create order with pending payment status
@@ -309,7 +332,9 @@ export default function CheckoutPage() {
   }
 
   const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-  const shippingCharge = subtotal >= 500 ? 0 : 50;
+  const freeThreshold = checkoutSettings.free_shipping_threshold;
+  const defaultShipping = checkoutSettings.default_shipping_charge;
+  const shippingCharge = (freeThreshold > 0 && subtotal >= freeThreshold) ? 0 : defaultShipping;
   const total = subtotal + shippingCharge;
 
   return (
@@ -452,15 +477,17 @@ export default function CheckoutPage() {
               <CardContent>
                 <RadioGroup value={paymentMethod} onValueChange={(val) => setPaymentMethod(val as PaymentMethod)}>
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <RadioGroupItem value="cod" id="cod" />
-                      <Label htmlFor="cod" className="flex-1 cursor-pointer">
-                        <div className="p-3 border rounded-lg hover:border-primary transition-colors">
-                          <p className="font-medium">Cash on Delivery</p>
-                          <p className="text-sm text-muted-foreground">Pay when you receive your order</p>
-                        </div>
-                      </Label>
-                    </div>
+                    {checkoutSettings.cod_enabled && (
+                      <div className="flex items-center gap-3">
+                        <RadioGroupItem value="cod" id="cod" />
+                        <Label htmlFor="cod" className="flex-1 cursor-pointer">
+                          <div className="p-3 border rounded-lg hover:border-primary transition-colors">
+                            <p className="font-medium">Cash on Delivery</p>
+                            <p className="text-sm text-muted-foreground">Pay when you receive your order</p>
+                          </div>
+                        </Label>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3">
                       <RadioGroupItem value="online" id="online" />
                       <Label htmlFor="online" className="flex-1 cursor-pointer">
@@ -515,11 +542,17 @@ export default function CheckoutPage() {
                   <span>₹{total.toFixed(0)}</span>
                 </div>
 
+                {checkoutSettings.min_order_value > 0 && subtotal < checkoutSettings.min_order_value && (
+                  <p className="text-sm text-destructive text-center">
+                    Minimum order value is ₹{checkoutSettings.min_order_value}
+                  </p>
+                )}
+
                 <Button
                   className="w-full"
                   size="lg"
                   onClick={placeOrder}
-                  disabled={!selectedAddress || isPlacingOrder}
+                  disabled={!selectedAddress || isPlacingOrder || (checkoutSettings.min_order_value > 0 && subtotal < checkoutSettings.min_order_value)}
                 >
                   {isPlacingOrder ? (
                     <>

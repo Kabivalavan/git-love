@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
-import { ShoppingBag, ArrowLeft, Phone, Lock, User as UserIcon } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, Phone, Lock, User as UserIcon, Mail } from 'lucide-react';
 
 const loginSchema = z.object({
   mobileNumber: z.string().regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number'),
@@ -16,6 +16,7 @@ const loginSchema = z.object({
 
 const signupSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Enter a valid email address'),
   mobileNumber: z.string().regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
@@ -29,6 +30,7 @@ export default function CustomerAuth() {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
+    email: '',
     mobileNumber: '',
     password: '',
     confirmPassword: '',
@@ -86,7 +88,7 @@ export default function CustomerAuth() {
         }
 
         const authEmail = mobileToEmail(formData.mobileNumber);
-        const { error } = await signUp(authEmail, formData.password, formData.mobileNumber, formData.fullName);
+        const { error } = await signUp(authEmail, formData.password, formData.mobileNumber, formData.fullName, formData.email);
 
         if (error) {
           if (error.message?.includes('already registered') || error.message?.includes('already been registered')) {
@@ -149,6 +151,17 @@ export default function CustomerAuth() {
                     <Input id="fullName" name="fullName" placeholder="Enter your full name" value={formData.fullName} onChange={handleChange} className="pl-9 h-10" />
                   </div>
                   {errors.fullName && <p className="text-xs text-destructive">{errors.fullName}</p>}
+                </div>
+              )}
+
+              {!isLogin && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-xs font-medium">Email Address</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="email" name="email" type="email" placeholder="Enter your email address" value={formData.email} onChange={handleChange} className="pl-9 h-10" />
+                  </div>
+                  {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                 </div>
               )}
 

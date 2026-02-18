@@ -81,7 +81,7 @@
          <h2 className="text-xl font-semibold">Saved Addresses</h2>
          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
            <DialogTrigger asChild><Button onClick={() => handleOpenDialog()}><Plus className="h-4 w-4 mr-2" />Add Address</Button></DialogTrigger>
-           <DialogContent className="max-w-lg">
+           <DialogContent className="max-w-lg mx-4 rounded-xl">
              <DialogHeader><DialogTitle>{editingAddress ? 'Edit Address' : 'Add New Address'}</DialogTitle></DialogHeader>
              <div className="space-y-4 mt-4">
                <div className="grid grid-cols-2 gap-4">

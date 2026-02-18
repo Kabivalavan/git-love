@@ -34,7 +34,7 @@ export function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { user, signOut } = useAuth();
 
-  const { data, isLoading: isHeaderLoading } = useQuery({
+  const { data } = useQuery({
     queryKey: ['header-data'],
     queryFn: fetchHeaderData,
     staleTime: 5 * 60 * 1000,
@@ -44,6 +44,21 @@ export function Header() {
   const categories = data?.categories || [];
   const storeInfo = data?.storeInfo || null;
   const announcement = data?.announcement || null;
+
+  // Set dynamic favicon from store settings
+  useEffect(() => {
+    if (storeInfo?.favicon_url) {
+      const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
+      if (link) {
+        link.href = storeInfo.favicon_url;
+      } else {
+        const newLink = document.createElement('link');
+        newLink.rel = 'icon';
+        newLink.href = storeInfo.favicon_url;
+        document.head.appendChild(newLink);
+      }
+    }
+  }, [storeInfo?.favicon_url]);
 
   useEffect(() => {
     if (user) fetchCartCount();
@@ -94,11 +109,9 @@ export function Header() {
             </SheetContent>
           </Sheet>
 
-          {/* Logo - centered on mobile */}
-          <Link to="/" className="flex items-center gap-2 flex-shrink-0 absolute left-1/2 -translate-x-1/2 lg:relative lg:left-auto lg:translate-x-0">
-            {isHeaderLoading ? (
-              <div className="h-8 sm:h-10 w-24 rounded bg-muted animate-pulse" />
-            ) : storeInfo?.logo_url ? (
+          {/* Logo - next to hamburger on mobile */}
+          <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+            {storeInfo?.logo_url ? (
               <img src={storeInfo.logo_url} alt={storeInfo.name} className="h-8 sm:h-10 max-w-[120px] object-contain" />
             ) : (
               <span className="text-xl sm:text-2xl font-bold text-primary">{storeInfo?.name || 'Store'}</span>
