@@ -131,7 +131,10 @@ export default function ProductDetailPage() {
       supabase.from('reviews').select('*, profile:profiles(full_name)').eq('product_id', productData.id).order('created_at', { ascending: false }).limit(50),
     ]);
 
-    setVariants((variantsRes.data || []) as ProductVariant[]);
+    const variantList = (variantsRes.data || []) as ProductVariant[];
+    setVariants(variantList);
+    // Auto-select first variant by default
+    if (variantList.length > 0) setSelectedVariant(variantList[0]);
     const reviewsList = (reviewsRes.data || []) as unknown as Review[];
     setReviews(reviewsList);
 
@@ -458,9 +461,12 @@ export default function ProductDetailPage() {
             {/* Variants */}
             {variants.length > 0 && (
               <div>
-                <Label className={`text-sm md:text-base font-semibold ${variantError ? 'text-destructive' : ''}`}>
-                  Select Variant {(product as any).variant_required && <span className="text-destructive">*</span>}
-                </Label>
+                <div className="flex items-center gap-2 mb-1">
+                  <Label className={`text-sm md:text-base font-semibold ${variantError ? 'text-destructive' : ''}`}>
+                    Select Variant {(product as any).variant_required && <span className="text-destructive">*</span>}
+                  </Label>
+                  <span className="text-xs text-muted-foreground">(First variant selected by default)</span>
+                </div>
                 {variantError && (
                   <p className="text-xs text-destructive mt-1 mb-1">⚠️ Please select a variant to continue</p>
                 )}
