@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Loader2, Trash2 } from 'lucide-react';
+import { Plus, Loader2, Trash2, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ShimmerTable } from '@/components/ui/shimmer';
 import {
@@ -18,8 +18,8 @@ import { Switch } from '@/components/ui/switch';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { ImageUpload } from '@/components/ui/image-upload';
-import type { Product } from '@/types/database';
+import { MultiImageUpload } from '@/components/ui/image-upload';
+import type { Product, ProductVariant } from '@/types/database';
 
 interface Bundle {
   id: string;
@@ -47,19 +47,24 @@ interface BundleItem {
 
 interface BundleItemForm {
   product_id: string;
+  variant_id: string;
   quantity: string;
+}
+
+interface ProductWithVariants extends Product {
+  variants?: ProductVariant[];
 }
 
 export default function AdminBundles() {
   const [bundles, setBundles] = useState<Bundle[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductWithVariants[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBundle, setSelectedBundle] = useState<Bundle | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<Bundle>>({});
+  const [formData, setFormData] = useState<Partial<Bundle> & { imageUrls?: string[] }>({});
   const [itemForms, setItemForms] = useState<BundleItemForm[]>([]);
   const { toast } = useToast();
 
@@ -84,8 +89,12 @@ export default function AdminBundles() {
   };
 
   const fetchProducts = async () => {
-    const { data } = await supabase.from('products').select('*').eq('is_active', true).order('name');
-    setProducts((data || []) as unknown as Product[]);
+    const { data } = await supabase
+      .from('products')
+      .select('*, variants:product_variants(*)')
+      .eq('is_active', true)
+      .order('name');
+    setProducts((data || []) as unknown as ProductWithVariants[]);
   };
 
   const handleRowClick = (bundle: Bundle) => {
@@ -94,20 +103,21 @@ export default function AdminBundles() {
   };
 
   const handleCreate = () => {
-    setFormData({ is_active: true, sort_order: 0 });
-    setItemForms([{ product_id: '', quantity: '1' }]);
+    setFormData({ is_active: true, sort_order: 0, imageUrls: [] });
+    setItemForms([{ product_id: '', variant_id: '', quantity: '1' }]);
     setSelectedBundle(null);
     setIsFormOpen(true);
   };
 
   const handleEdit = () => {
     if (!selectedBundle) return;
-    setFormData({ ...selectedBundle });
+    setFormData({ ...selectedBundle, imageUrls: selectedBundle.image_url ? [selectedBundle.image_url] : [] });
     setItemForms(
       selectedBundle.items?.map(i => ({
         product_id: i.product_id,
+        variant_id: '',
         quantity: i.quantity.toString(),
-      })) || [{ product_id: '', quantity: '1' }]
+      })) || [{ product_id: '', variant_id: '', quantity: '1' }]
     );
     setIsDetailOpen(false);
     setIsFormOpen(true);
@@ -127,6 +137,35 @@ export default function AdminBundles() {
     setIsDeleting(false);
   };
 
+  // Auto-calculate suggested prices from selected products/variants
+  const suggestedPrices = useMemo(() => {
+    let totalSP = 0;
+    let totalCP = 0;
+    let allFilled = true;
+
+    for (const item of itemForms) {
+      if (!item.product_id) { allFilled = false; continue; }
+      const qty = parseInt(item.quantity) || 1;
+      const product = products.find(p => p.id === item.product_id);
+      if (!product) { allFilled = false; continue; }
+
+      if (item.variant_id && product.variants) {
+        const variant = product.variants.find(v => v.id === item.variant_id);
+        if (variant) {
+          totalSP += (variant.price || product.price || 0) * qty;
+          totalCP += ((variant as any).cost_price || 0) * qty;
+        } else {
+          totalSP += (product.price || 0) * qty;
+        }
+      } else {
+        totalSP += (product.price || 0) * qty;
+        totalCP += (product.cost_price || 0) * qty;
+      }
+    }
+
+    return { totalSP: Math.round(totalSP), totalCP: Math.round(totalCP), allFilled };
+  }, [itemForms, products]);
+
   const handleSave = async () => {
     if (!formData.name || !formData.bundle_price) {
       toast({ title: 'Error', description: 'Name and price are required', variant: 'destructive' });
@@ -140,6 +179,7 @@ export default function AdminBundles() {
 
     setIsSaving(true);
     const slug = formData.slug || formData.name!.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const primaryImage = formData.imageUrls?.[0] || null;
 
     const bundleData = {
       name: formData.name!,
@@ -148,7 +188,7 @@ export default function AdminBundles() {
       bundle_price: formData.bundle_price!,
       compare_price: formData.compare_price || null,
       is_active: formData.is_active ?? true,
-      image_url: formData.image_url || null,
+      image_url: primaryImage,
       sort_order: formData.sort_order ?? 0,
     };
 
@@ -254,21 +294,26 @@ export default function AdminBundles() {
       >
         {selectedBundle && (
           <div className="space-y-6">
+            {selectedBundle.image_url && (
+              <div className="aspect-[2/1] rounded-lg overflow-hidden bg-muted">
+                <img src={selectedBundle.image_url} alt={selectedBundle.name} className="w-full h-full object-cover" />
+              </div>
+            )}
             <DetailSection title="Info">
               <DetailField label="Name" value={selectedBundle.name} />
-              <DetailField label="Price" value={`₹${Number(selectedBundle.bundle_price).toFixed(0)}`} />
+              <DetailField label="Bundle Price (SP)" value={`₹${Number(selectedBundle.bundle_price).toFixed(0)}`} />
               {selectedBundle.compare_price && (
                 <DetailField label="Compare Price" value={`₹${Number(selectedBundle.compare_price).toFixed(0)}`} />
               )}
               <DetailField label="Active" value={selectedBundle.is_active ? 'Yes' : 'No'} />
+              {selectedBundle.description && <DetailField label="Description" value={selectedBundle.description} />}
             </DetailSection>
             <DetailSection title="Products in Bundle">
               {selectedBundle.items?.map((item, i) => (
-                <DetailField
-                  key={i}
-                  label={`#${i + 1}`}
-                  value={`${(item.product as any)?.name || item.product_id.slice(0, 8)} × ${item.quantity}`}
-                />
+                <div key={i} className="border rounded-lg p-3 mb-2 bg-muted/30">
+                  <p className="font-medium text-sm">{(item.product as any)?.name || item.product_id.slice(0, 8)}</p>
+                  <p className="text-xs text-muted-foreground">Qty: {item.quantity} · ₹{Number((item.product as any)?.price || 0).toFixed(0)} each</p>
+                </div>
               ))}
             </DetailSection>
           </div>
@@ -280,31 +325,29 @@ export default function AdminBundles() {
           <DialogHeader>
             <DialogTitle>{selectedBundle ? 'Edit Bundle' : 'Create Bundle'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Bundle Name *</Label>
-                <Input value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., Starter Kit" />
-              </div>
-              <div className="space-y-2">
-                <Label>Image</Label>
-                <ImageUpload bucket="products" value={formData.image_url || undefined} onChange={(url) => setFormData({ ...formData, image_url: url })} />
-              </div>
+          <div className="space-y-5 mt-4">
+            {/* Name & Description */}
+            <div className="space-y-2">
+              <Label>Bundle Name *</Label>
+              <Input value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., Starter Kit" />
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
               <Textarea value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={2} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Bundle Price *</Label>
-                <Input type="number" step="0.01" value={formData.bundle_price || ''} onChange={(e) => setFormData({ ...formData, bundle_price: parseFloat(e.target.value) })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Compare/Original Price</Label>
-                <Input type="number" step="0.01" value={formData.compare_price || ''} onChange={(e) => setFormData({ ...formData, compare_price: parseFloat(e.target.value) || null })} />
-              </div>
+
+            {/* Images */}
+            <div className="space-y-2">
+              <Label>Bundle Images</Label>
+              <p className="text-xs text-muted-foreground">First image is used as primary. Upload up to 5 images.</p>
+              <MultiImageUpload
+                bucket="products"
+                values={formData.imageUrls || []}
+                onChange={(urls) => setFormData({ ...formData, imageUrls: urls })}
+                maxImages={5}
+              />
             </div>
+
             <div className="flex items-center gap-2">
               <Switch checked={formData.is_active} onCheckedChange={(c) => setFormData({ ...formData, is_active: c })} />
               <Label>Active</Label>
@@ -314,30 +357,119 @@ export default function AdminBundles() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-base font-semibold">Products in Bundle *</Label>
-                <Button variant="outline" size="sm" onClick={() => setItemForms([...itemForms, { product_id: '', quantity: '1' }])}>
+                <Button variant="outline" size="sm" onClick={() => setItemForms([...itemForms, { product_id: '', variant_id: '', quantity: '1' }])}>
                   <Plus className="h-4 w-4 mr-1" /> Add Product
                 </Button>
               </div>
-              {itemForms.map((item, idx) => (
-                <div key={idx} className="flex gap-2 items-end">
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-xs">Product</Label>
-                    <Select value={item.product_id} onValueChange={(v) => { const u = [...itemForms]; u[idx].product_id = v; setItemForms(u); }}>
-                      <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
-                      <SelectContent>
-                        {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name} - ₹{Number(p.price).toFixed(0)}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+              {itemForms.map((item, idx) => {
+                const selectedProduct = products.find(p => p.id === item.product_id);
+                const variants = selectedProduct?.variants || [];
+                return (
+                  <div key={idx} className="border rounded-xl p-4 space-y-3 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground">Item {idx + 1}</span>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setItemForms(itemForms.filter((_, i) => i !== idx))}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Product *</Label>
+                        <Select
+                          value={item.product_id}
+                          onValueChange={(v) => {
+                            const u = [...itemForms];
+                            u[idx].product_id = v;
+                            u[idx].variant_id = '';
+                            setItemForms(u);
+                          }}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+                          <SelectContent>
+                            {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Variant {variants.length > 0 ? '*' : '(none)'}</Label>
+                        <Select
+                          value={item.variant_id}
+                          onValueChange={(v) => { const u = [...itemForms]; u[idx].variant_id = v; setItemForms(u); }}
+                          disabled={!item.product_id || variants.length === 0}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={variants.length > 0 ? "Select variant" : "No variants"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {variants.map(v => (
+                              <SelectItem key={v.id} value={v.id}>
+                                {v.name} {v.price ? `— ₹${Number(v.price).toFixed(0)}` : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="w-28 space-y-1.5">
+                      <Label className="text-xs">Quantity</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => { const u = [...itemForms]; u[idx].quantity = e.target.value; setItemForms(u); }}
+                        className="h-10"
+                      />
+                    </div>
                   </div>
-                  <div className="w-20 space-y-1">
-                    <Label className="text-xs">Qty</Label>
-                    <Input type="number" min="1" value={item.quantity} onChange={(e) => { const u = [...itemForms]; u[idx].quantity = e.target.value; setItemForms(u); }} className="h-10" />
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-10 w-10 text-destructive" onClick={() => setItemForms(itemForms.filter((_, i) => i !== idx))}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                );
+              })}
+            </div>
+
+            {/* Auto-calculated price suggestions */}
+            {itemForms.some(i => i.product_id) && (
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <Info className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold text-foreground">Auto-Calculated Suggestions</span>
                 </div>
-              ))}
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Selling Price (sum)</p>
+                    <p className="text-lg font-bold text-primary">₹{suggestedPrices.totalSP}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Cost Price (sum)</p>
+                    <p className="text-lg font-bold text-foreground">₹{suggestedPrices.totalCP}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">Set bundle price below these to create an attractive deal</p>
+              </div>
+            )}
+
+            {/* Price fields at the bottom */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Bundle Selling Price (₹) *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.bundle_price || ''}
+                  onChange={(e) => setFormData({ ...formData, bundle_price: parseFloat(e.target.value) })}
+                  placeholder={suggestedPrices.totalSP ? `Suggested: ₹${suggestedPrices.totalSP}` : "0.00"}
+                />
+                <p className="text-xs text-muted-foreground">Tax inclusive</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Compare / Original Price (₹)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.compare_price || ''}
+                  onChange={(e) => setFormData({ ...formData, compare_price: parseFloat(e.target.value) || null })}
+                  placeholder={suggestedPrices.totalSP ? `e.g., ₹${suggestedPrices.totalSP}` : "0.00"}
+                />
+                <p className="text-xs text-muted-foreground">Shown as strikethrough</p>
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t">

@@ -65,6 +65,7 @@ export default function AdminProducts() {
   const [formData, setFormData] = useState<Partial<Product> & { imageUrls?: string[]; productType?: string; contentSections?: ContentSection[] }>({});
   const [variantForms, setVariantForms] = useState<VariantForm[]>([]);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
+  const [formParentCategoryId, setFormParentCategoryId] = useState<string>('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -76,7 +77,7 @@ export default function AdminProducts() {
     setIsLoading(true);
     const { data, error } = await supabase
       .from('products')
-      .select('*, category:categories(*), images:product_images(*)')
+      .select('*, category:categories(*), images:product_images(*), variants:product_variants(*)')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -92,8 +93,10 @@ export default function AdminProducts() {
     setCategories((data || []) as unknown as Category[]);
   };
 
-  const handleRowClick = (product: Product) => {
-    setSelectedProduct(product);
+  const handleRowClick = async (product: Product) => {
+    // Fetch variants for detail panel
+    const { data: variants } = await supabase.from('product_variants').select('*').eq('product_id', product.id);
+    setSelectedProduct({ ...product, variants: (variants || []) as unknown as ProductVariant[] });
     setIsDetailOpen(true);
   };
 
@@ -111,8 +114,8 @@ export default function AdminProducts() {
       name: v.name,
       sku: v.sku || '',
       price: v.price?.toString() || '',
-      cost_price: '',
-      tax_rate: '',
+      cost_price: (v as any).cost_price?.toString() || '',
+      tax_rate: (v as any).tax_rate?.toString() || '',
       stock_quantity: v.stock_quantity?.toString() || '0',
     }));
     
@@ -124,6 +127,17 @@ export default function AdminProducts() {
       else if (names.some(n => FOOTWEAR_SIZES.includes(n))) detectedType = 'footwear';
     }
     const contentSections = (selectedProduct as any).content_sections as ContentSection[] || [];
+
+    // Determine parent/sub category
+    const catId = selectedProduct.category_id || '';
+    const catObj = categories.find(c => c.id === catId);
+    if (catObj?.parent_id) {
+      // It's a child category — set parent and sub separately
+      setFormParentCategoryId(catObj.parent_id);
+    } else {
+      setFormParentCategoryId(catId);
+    }
+
     setFormData({ ...selectedProduct, imageUrls, productType: detectedType, contentSections, variant_required: (selectedProduct as any).variant_required || false } as any);
     // Always ensure at least 1 variant
     setVariantForms(existingVariants.length > 0 ? existingVariants : [{ name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0' }]);
@@ -147,6 +161,7 @@ export default function AdminProducts() {
       contentSections: [],
     });
     setVariantForms([defaultVariant()]);
+    setFormParentCategoryId('');
     setSelectedProduct(null);
     setIsFormOpen(true);
   };
@@ -300,7 +315,21 @@ export default function AdminProducts() {
         </div>
       ),
     },
-    { key: 'sku', header: 'SKU' },
+    {
+      key: 'sku',
+      header: 'Variants / SKU',
+      render: (p) => {
+        const variantCount = (p as any).variants?.length;
+        if (variantCount !== undefined && variantCount > 0) {
+          return (
+            <span className="text-xs text-muted-foreground">
+              {variantCount} variant{variantCount > 1 ? 's' : ''} — <span className="text-primary cursor-pointer underline">see details</span>
+            </span>
+          );
+        }
+        return <span className="text-xs text-muted-foreground">{p.sku || '—'}</span>;
+      },
+    },
     {
       key: 'price',
       header: 'Price',
@@ -426,22 +455,32 @@ export default function AdminProducts() {
             )}
             <DetailSection title="Basic Info">
               <DetailField label="Name" value={selectedProduct.name} />
-              <DetailField label="SKU" value={selectedProduct.sku} />
               <DetailField label="Slug" value={selectedProduct.slug} />
               <DetailField label="Badge" value={selectedProduct.badge} />
               <DetailField label="Category" value={selectedProduct.category?.name} />
               <DetailField label="Barcode" value={selectedProduct.barcode} />
             </DetailSection>
-            <DetailSection title="Pricing">
-              <DetailField label="Selling Price (Tax Incl.)" value={`₹${Number(selectedProduct.price).toFixed(2)}`} />
-              <DetailField label="Cost Price" value={selectedProduct.cost_price ? `₹${Number(selectedProduct.cost_price).toFixed(2)}` : '-'} />
-              <DetailField label="Tax Rate" value={`${selectedProduct.tax_rate}%`} />
-            </DetailSection>
             <DetailSection title="Inventory">
-              <DetailField label="Stock" value={selectedProduct.stock_quantity} />
+              <DetailField label="Total Stock" value={selectedProduct.stock_quantity} />
               <DetailField label="Low Stock Threshold" value={selectedProduct.low_stock_threshold} />
               <DetailField label="Weight" value={selectedProduct.shipping_weight ? `${selectedProduct.shipping_weight} kg` : '-'} />
             </DetailSection>
+            {selectedProduct.variants && selectedProduct.variants.length > 0 && (
+              <DetailSection title="Variants & Pricing">
+                {selectedProduct.variants.map((v, i) => (
+                  <div key={i} className="border rounded-lg p-3 mb-2 bg-muted/30 space-y-1">
+                    <p className="font-semibold text-sm text-foreground">{v.name}{i === 0 ? ' (Default)' : ''}</p>
+                    <div className="grid grid-cols-2 gap-x-4 text-xs text-muted-foreground">
+                      {v.sku && <span>SKU: <span className="text-foreground">{v.sku}</span></span>}
+                      {v.price && <span>SP: <span className="text-foreground font-medium">₹{Number(v.price).toFixed(0)}</span></span>}
+                      {(v as any).cost_price && <span>CP: <span className="text-foreground">₹{Number((v as any).cost_price).toFixed(0)}</span></span>}
+                      {(v as any).tax_rate != null && <span>Tax: <span className="text-foreground">{(v as any).tax_rate}%</span></span>}
+                      <span>Stock: <span className="text-foreground">{v.stock_quantity}</span></span>
+                    </div>
+                  </div>
+                ))}
+              </DetailSection>
+            )}
             <DetailSection title="Status">
               <DetailField label="Active" value={selectedProduct.is_active ? 'Yes' : 'No'} />
               <DetailField label="Featured" value={selectedProduct.is_featured ? 'Yes' : 'No'} />
@@ -504,8 +543,12 @@ export default function AdminProducts() {
                 <div className="space-y-2">
                   <Label htmlFor="category">Parent Category</Label>
                   <Select
-                    value={formData.category_id || ''}
-                    onValueChange={(value) => setFormData({ ...formData, category_id: value || null })}
+                    value={formParentCategoryId}
+                    onValueChange={(value) => {
+                      setFormParentCategoryId(value);
+                      // Set category_id to the parent itself; sub will override if chosen
+                      setFormData({ ...formData, category_id: value || null });
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
@@ -520,21 +563,16 @@ export default function AdminProducts() {
                 <div className="space-y-2">
                   <Label htmlFor="subcategory">Sub Category</Label>
                   <Select
-                    value={formData.category_id && categories.find(c => c.id === formData.category_id)?.parent_id ? formData.category_id : ''}
-                    onValueChange={(value) => setFormData({ ...formData, category_id: value || formData.category_id })}
-                    disabled={!formData.category_id || !!categories.find(c => c.id === formData.category_id)?.parent_id === false && categories.filter(c => c.parent_id === formData.category_id).length === 0}
+                    value={formParentCategoryId && categories.find(c => c.id === formData.category_id)?.parent_id === formParentCategoryId ? formData.category_id || '' : ''}
+                    onValueChange={(value) => setFormData({ ...formData, category_id: value || formParentCategoryId || null })}
+                    disabled={!formParentCategoryId || categories.filter(c => c.parent_id === formParentCategoryId).length === 0}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={formData.category_id ? "Select sub category" : "Select parent first"} />
+                      <SelectValue placeholder={formParentCategoryId ? "Select sub category (optional)" : "Select parent first"} />
                     </SelectTrigger>
                     <SelectContent>
                       {categories
-                        .filter(c => {
-                          const parentId = categories.find(p => p.id === formData.category_id)?.parent_id
-                            ? categories.find(p => p.id === formData.category_id)?.parent_id
-                            : formData.category_id;
-                          return c.parent_id === parentId;
-                        })
+                        .filter(c => c.parent_id === formParentCategoryId)
                         .map((cat) => (
                           <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                         ))}
@@ -542,6 +580,7 @@ export default function AdminProducts() {
                   </Select>
                 </div>
               </div>
+
 
               <div className="space-y-2">
                 <Label htmlFor="badge">Badge</Label>

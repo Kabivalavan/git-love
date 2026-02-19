@@ -472,27 +472,29 @@ export default function HomePage() {
               const bundleImage = bundle.image_url || bundle.items?.[0]?.product?.images?.[0]?.image_url || '/placeholder.svg';
               return (
                 <motion.div key={bundle.id} variants={scaleIn}>
-                  <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 group border-0 shadow-md">
-                    <CardContent className="p-0">
-                      <div className="aspect-[2/1] relative overflow-hidden bg-muted">
-                        <img src={bundleImage} alt={bundle.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                        {discount > 0 && (
-                          <Badge variant="destructive" className="absolute top-3 left-3 text-xs">{discount}% OFF</Badge>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <h3 className="font-semibold text-foreground">{bundle.name}</h3>
-                        {bundle.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{bundle.description}</p>}
-                        <div className="flex items-center gap-2 mt-3">
-                          <span className="text-lg font-bold text-foreground">₹{Number(bundle.bundle_price).toFixed(0)}</span>
-                          {bundle.compare_price && bundle.compare_price > bundle.bundle_price && (
-                            <span className="text-sm text-muted-foreground line-through">₹{Number(bundle.compare_price).toFixed(0)}</span>
+                  <Link to={`/bundles/${bundle.slug}`} className="block group">
+                    <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 border-0 shadow-md">
+                      <CardContent className="p-0">
+                        <div className="aspect-[2/1] relative overflow-hidden bg-muted">
+                          <img src={bundleImage} alt={bundle.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                          {discount > 0 && (
+                            <Badge variant="destructive" className="absolute top-3 left-3 text-xs">{discount}% OFF</Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">{bundle.items?.length || 0} products included</p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                        <div className="p-4">
+                          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">{bundle.name}</h3>
+                          {bundle.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{bundle.description}</p>}
+                          <div className="flex items-center gap-2 mt-3">
+                            <span className="text-lg font-bold text-foreground">₹{Number(bundle.bundle_price).toFixed(0)}</span>
+                            {bundle.compare_price && bundle.compare_price > bundle.bundle_price && (
+                              <span className="text-sm text-muted-foreground line-through">₹{Number(bundle.compare_price).toFixed(0)}</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">{bundle.items?.length || 0} products included</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 </motion.div>
               );
             })}
