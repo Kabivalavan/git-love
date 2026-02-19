@@ -74,8 +74,10 @@ export type Database = {
           metadata: Json | null
           page_path: string | null
           product_id: string | null
+          referrer: string | null
           session_id: string | null
           user_id: string | null
+          visitor_id: string | null
         }
         Insert: {
           category_id?: string | null
@@ -85,8 +87,10 @@ export type Database = {
           metadata?: Json | null
           page_path?: string | null
           product_id?: string | null
+          referrer?: string | null
           session_id?: string | null
           user_id?: string | null
+          visitor_id?: string | null
         }
         Update: {
           category_id?: string | null
@@ -96,8 +100,10 @@ export type Database = {
           metadata?: Json | null
           page_path?: string | null
           product_id?: string | null
+          referrer?: string | null
           session_id?: string | null
           user_id?: string | null
+          visitor_id?: string | null
         }
         Relationships: [
           {
@@ -115,6 +121,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      analytics_sessions: {
+        Row: {
+          created_at: string
+          device: string | null
+          id: string
+          last_active_at: string
+          referrer: string | null
+          session_id: string
+          user_agent: string | null
+          visitor_id: string
+        }
+        Insert: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          last_active_at?: string
+          referrer?: string | null
+          session_id: string
+          user_agent?: string | null
+          visitor_id: string
+        }
+        Update: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          last_active_at?: string
+          referrer?: string | null
+          session_id?: string
+          user_agent?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
       }
       banners: {
         Row: {

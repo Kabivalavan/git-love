@@ -1,25 +1,28 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, ShoppingCart, TrendingUp, Users, Package, BarChart3, MousePointer, ArrowDownToLine, AlertTriangle } from 'lucide-react';
+import { Eye, ShoppingCart, TrendingUp, Users, Package, BarChart3, MousePointer, ArrowDownToLine, AlertTriangle, Clock, Globe, Smartphone, Monitor, Tablet, Activity, CreditCard } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
 
 interface AnalyticsData {
   totalPageViews: number;
   uniqueSessions: number;
+  uniqueVisitors: number;
+  avgSessionDuration: number;
   productViews: { product_id: string; product_name: string; views: number }[];
   mostOrdered: { product_name: string; total_orders: number }[];
   pageViews: { page: string; views: number }[];
-  dailyViews: { date: string; views: number }[];
+  dailyViews: { date: string; views: number; visitors: number }[];
   engagementByProduct: { product_id: string; product_name: string; views: number; cart_adds: number; orders: number; conversion: number }[];
-  cartAbandonment: { addedToCart: number; purchased: number; abandonmentRate: number };
+  cartAbandonment: { addedToCart: number; checkoutStarted: number; purchased: number; abandonmentRate: number };
   scrollDepth: { depth25: number; depth50: number; depth75: number; depth100: number };
   revenueByDay: { date: string; revenue: number; orders: number }[];
   totalRevenue: number;
@@ -27,6 +30,9 @@ interface AnalyticsData {
   avgOrderValue: number;
   newCustomers: number;
   returningCustomers: number;
+  deviceBreakdown: { desktop: number; mobile: number; tablet: number };
+  conversionFunnel: { pageViews: number; productViews: number; addToCart: number; checkoutStarted: number; orderCompleted: number };
+  topReferrers: { referrer: string; count: number }[];
 }
 
 function MetricCard({ icon: Icon, label, value, color = 'primary', subtext }: { icon: any; label: string; value: string | number; color?: string; subtext?: string }) {
@@ -51,6 +57,20 @@ function MetricCard({ icon: Icon, label, value, color = 'primary', subtext }: { 
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function FunnelBar({ label, value, maxValue, color }: { label: string; value: number; maxValue: number; color: string }) {
+  const percent = maxValue > 0 ? (value / maxValue) * 100 : 0;
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-sm w-32 text-muted-foreground truncate">{label}</span>
+      <div className="flex-1 h-8 bg-muted rounded-md overflow-hidden relative">
+        <div className={`h-full rounded-md transition-all ${color}`} style={{ width: `${Math.max(percent, 2)}%` }} />
+        <span className="absolute inset-0 flex items-center justify-center text-xs font-medium">{value}</span>
+      </div>
+      <span className="text-xs text-muted-foreground w-12 text-right">{percent.toFixed(0)}%</span>
+    </div>
   );
 }
 
@@ -80,23 +100,67 @@ export default function AdminAnalytics() {
     const { since, until } = getDateRange();
 
     try {
-      const [eventsRes, orderItemsRes, ordersRes, profilesRes] = await Promise.all([
+      const [eventsRes, orderItemsRes, ordersRes, profilesRes, sessionsRes] = await Promise.all([
         supabase.from('analytics_events').select('*').gte('created_at', since).lte('created_at', until).order('created_at', { ascending: false }).limit(5000),
         supabase.from('order_items').select('product_name, quantity, total').gte('created_at', since).lte('created_at', until),
         supabase.from('orders').select('id, total, user_id, created_at, status').gte('created_at', since).lte('created_at', until),
         supabase.from('profiles').select('user_id, created_at').gte('created_at', since).lte('created_at', until),
+        supabase.from('analytics_sessions' as any).select('*').gte('created_at', since).lte('created_at', until).limit(5000),
       ]);
 
       const eventsList = eventsRes.data || [];
       const ordersList = ordersRes.data || [];
       const orderItemsList = orderItemsRes.data || [];
+      const sessionsList = (sessionsRes.data || []) as any[];
 
+      // --- Core metrics ---
       const pageViews = eventsList.filter(e => e.event_type === 'page_view');
       const productViewEvents = eventsList.filter(e => e.event_type === 'product_view');
       const cartAddEvents = eventsList.filter(e => e.event_type === 'add_to_cart');
+      const checkoutEvents = eventsList.filter(e => e.event_type === 'checkout_started');
+      const orderCompletedEvents = eventsList.filter(e => e.event_type === 'order_completed');
       const scrollEvents = eventsList.filter(e => e.event_type === 'scroll_depth');
 
       const uniqueSessions = new Set(eventsList.map(e => e.session_id).filter(Boolean)).size;
+      const uniqueVisitors = new Set([
+        ...eventsList.map(e => (e as any).visitor_id).filter(Boolean),
+        ...sessionsList.map(s => s.visitor_id).filter(Boolean),
+      ]).size;
+
+      // Session duration
+      const sessionDurations: number[] = [];
+      sessionsList.forEach(s => {
+        if (s.last_active_at && s.created_at) {
+          const dur = (new Date(s.last_active_at).getTime() - new Date(s.created_at).getTime()) / 1000;
+          if (dur > 0 && dur < 7200) sessionDurations.push(dur);
+        }
+      });
+      const avgSessionDuration = sessionDurations.length > 0 ? sessionDurations.reduce((a, b) => a + b, 0) / sessionDurations.length : 0;
+
+      // Device breakdown
+      const deviceBreakdown = { desktop: 0, mobile: 0, tablet: 0 };
+      sessionsList.forEach(s => {
+        if (s.device === 'mobile') deviceBreakdown.mobile++;
+        else if (s.device === 'tablet') deviceBreakdown.tablet++;
+        else deviceBreakdown.desktop++;
+      });
+
+      // Top referrers
+      const referrerMap = new Map<string, number>();
+      sessionsList.forEach(s => {
+        if (s.referrer) {
+          try {
+            const host = new URL(s.referrer).hostname || s.referrer;
+            referrerMap.set(host, (referrerMap.get(host) || 0) + 1);
+          } catch {
+            referrerMap.set(s.referrer, (referrerMap.get(s.referrer) || 0) + 1);
+          }
+        }
+      });
+      const topReferrers = Array.from(referrerMap.entries())
+        .map(([referrer, count]) => ({ referrer, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
 
       // Page views by page
       const pageViewsMap = new Map<string, number>();
@@ -137,13 +201,18 @@ export default function AdminAnalytics() {
         .sort((a, b) => b.total_orders - a.total_orders)
         .slice(0, 15);
 
-      // Daily views
-      const dailyMap = new Map<string, number>();
+      // Daily views + visitors
+      const dailyMap = new Map<string, { views: number; visitors: Set<string> }>();
       pageViews.forEach(e => {
         const date = new Date(e.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-        dailyMap.set(date, (dailyMap.get(date) || 0) + 1);
+        if (!dailyMap.has(date)) dailyMap.set(date, { views: 0, visitors: new Set() });
+        const d = dailyMap.get(date)!;
+        d.views++;
+        if ((e as any).visitor_id) d.visitors.add((e as any).visitor_id);
       });
-      const dailyViews = Array.from(dailyMap.entries()).map(([date, views]) => ({ date, views })).reverse();
+      const dailyViews = Array.from(dailyMap.entries())
+        .map(([date, d]) => ({ date, views: d.views, visitors: d.visitors.size }))
+        .reverse();
 
       // Cart adds map
       const cartAddsMap = new Map<string, number>();
@@ -158,12 +227,23 @@ export default function AdminAnalytics() {
         return { ...pv, cart_adds: cartAdds, orders, conversion: pv.views > 0 ? Math.round((orders / pv.views) * 100) : 0 };
       });
 
-      // Cart abandonment
+      // Cart abandonment (session-based)
       const cartAddSessions = new Set(cartAddEvents.map(e => e.session_id).filter(Boolean));
-      const purchaseSessions = new Set(eventsList.filter(e => e.event_type === 'purchase').map(e => e.session_id).filter(Boolean));
+      const checkoutSessions = new Set(checkoutEvents.map(e => e.session_id).filter(Boolean));
+      const purchaseSessions = new Set(orderCompletedEvents.map(e => e.session_id).filter(Boolean));
       const addedToCart = cartAddSessions.size;
+      const checkoutStarted = checkoutSessions.size;
       const purchased = purchaseSessions.size;
       const abandonmentRate = addedToCart > 0 ? Math.round(((addedToCart - purchased) / addedToCart) * 100) : 0;
+
+      // Conversion funnel
+      const conversionFunnel = {
+        pageViews: pageViews.length,
+        productViews: productViewEvents.length,
+        addToCart: cartAddEvents.length,
+        checkoutStarted: checkoutEvents.length,
+        orderCompleted: orderCompletedEvents.length,
+      };
 
       // Scroll depth
       const scrollDepthCounts = { depth25: 0, depth50: 0, depth75: 0, depth100: 0 };
@@ -184,16 +264,13 @@ export default function AdminAnalytics() {
         existing.orders++;
         revenueByDayMap.set(date, existing);
       });
-      const revenueByDay = Array.from(revenueByDayMap.entries())
-        .map(([date, d]) => ({ date, ...d }))
-        .reverse();
+      const revenueByDay = Array.from(revenueByDayMap.entries()).map(([date, d]) => ({ date, ...d })).reverse();
 
       const validOrders = ordersList.filter(o => o.status !== 'cancelled' && o.status !== 'returned');
       const totalRevenue = validOrders.reduce((s, o) => s + Number(o.total), 0);
       const totalOrders = validOrders.length;
       const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-      // Customer acquisition
       const newCustomers = (profilesRes.data || []).length;
       const uniqueOrderUsers = new Set(ordersList.map(o => o.user_id).filter(Boolean));
       const returningCustomers = uniqueOrderUsers.size;
@@ -201,12 +278,14 @@ export default function AdminAnalytics() {
       setData({
         totalPageViews: pageViews.length,
         uniqueSessions,
+        uniqueVisitors,
+        avgSessionDuration,
         productViews: productViewsList,
         mostOrdered,
         pageViews: pageViewsList,
         dailyViews,
         engagementByProduct,
-        cartAbandonment: { addedToCart, purchased, abandonmentRate },
+        cartAbandonment: { addedToCart, checkoutStarted, purchased, abandonmentRate },
         scrollDepth: scrollDepthCounts,
         revenueByDay,
         totalRevenue,
@@ -214,12 +293,22 @@ export default function AdminAnalytics() {
         avgOrderValue,
         newCustomers,
         returningCustomers,
+        deviceBreakdown,
+        conversionFunnel,
+        topReferrers,
       });
     } catch (err) {
       console.error(err);
       toast({ title: 'Error', description: 'Failed to fetch analytics', variant: 'destructive' });
     }
     setIsLoading(false);
+  };
+
+  const formatDuration = (seconds: number) => {
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return `${m}m ${s}s`;
   };
 
   return (
@@ -256,29 +345,32 @@ export default function AdminAnalytics() {
         </div>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList>
+          <TabsList className="flex-wrap">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="funnel">Funnel</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="engagement">Engagement</TabsTrigger>
             <TabsTrigger value="revenue">Revenue</TabsTrigger>
+            <TabsTrigger value="audience">Audience</TabsTrigger>
           </TabsList>
 
           {/* OVERVIEW TAB */}
           <TabsContent value="overview" className="space-y-6 mt-4">
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
               <MetricCard icon={Eye} label="Page Views" value={isLoading ? '...' : data?.totalPageViews || 0} />
-              <MetricCard icon={Users} label="Visitors" value={isLoading ? '...' : data?.uniqueSessions || 0} color="green" />
+              <MetricCard icon={Users} label="Unique Visitors" value={isLoading ? '...' : data?.uniqueVisitors || 0} color="green" />
+              <MetricCard icon={Activity} label="Sessions" value={isLoading ? '...' : data?.uniqueSessions || 0} color="blue" />
+              <MetricCard icon={Clock} label="Avg Duration" value={isLoading ? '...' : data ? formatDuration(data.avgSessionDuration) : '0s'} color="purple" />
               <MetricCard icon={MousePointer} label="Product Views" value={isLoading ? '...' : data?.productViews.reduce((s, p) => s + p.views, 0) || 0} color="amber" />
               <MetricCard icon={ShoppingCart} label="Cart Adds" value={isLoading ? '...' : data?.cartAbandonment.addedToCart || 0} color="blue" />
-              <MetricCard icon={Package} label="Orders" value={isLoading ? '...' : data?.totalOrders || 0} color="purple" />
-              <MetricCard icon={TrendingUp} label="Avg Pages/Visit" value={isLoading ? '...' : data && data.uniqueSessions > 0 ? (data.totalPageViews / data.uniqueSessions).toFixed(1) : '0'} />
+              <MetricCard icon={Package} label="Orders" value={isLoading ? '...' : data?.totalOrders || 0} color="green" />
+              <MetricCard icon={TrendingUp} label="Revenue" value={isLoading ? '...' : `₹${data?.totalRevenue.toFixed(0) || 0}`} color="green" />
             </div>
 
             {/* Daily Views Chart */}
             {data && data.dailyViews.length > 0 && (
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2 text-base"><BarChart3 className="h-5 w-5" /> Daily Page Views</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2 text-base"><BarChart3 className="h-5 w-5" /> Daily Traffic</CardTitle></CardHeader>
                 <CardContent>
                   <div className="flex items-end gap-1 h-40">
                     {data.dailyViews.map((d, i) => {
@@ -293,11 +385,14 @@ export default function AdminAnalytics() {
                       );
                     })}
                   </div>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-primary/80" /> Page Views</span>
+                  </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Cart Abandonment + Scroll Depth + Customer Acquisition */}
+            {/* Cart Abandonment + Scroll Depth + Customers */}
             <div className="grid md:grid-cols-3 gap-4">
               <Card>
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-5 w-5" /> Cart Abandonment</CardTitle></CardHeader>
@@ -314,7 +409,11 @@ export default function AdminAnalytics() {
                         <span className="font-medium">{data?.cartAbandonment.addedToCart || 0}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Completed purchase</span>
+                        <span className="text-muted-foreground">Checkout started</span>
+                        <span className="font-medium">{data?.cartAbandonment.checkoutStarted || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Orders completed</span>
                         <span className="font-medium">{data?.cartAbandonment.purchased || 0}</span>
                       </div>
                     </div>
@@ -362,7 +461,7 @@ export default function AdminAnalytics() {
                       <Separator />
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Avg Order Value</span>
-                        <span className="font-bold">Rs {data?.avgOrderValue.toFixed(0) || 0}</span>
+                        <span className="font-bold">₹{data?.avgOrderValue.toFixed(0) || 0}</span>
                       </div>
                     </div>
                   )}
@@ -393,6 +492,54 @@ export default function AdminAnalytics() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* FUNNEL TAB */}
+          <TabsContent value="funnel" className="space-y-6 mt-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Conversion Funnel</CardTitle></CardHeader>
+              <CardContent>
+                {isLoading ? <p className="text-sm text-muted-foreground">Loading...</p> : !data ? null : (
+                  <div className="space-y-3">
+                    <FunnelBar label="Page Views" value={data.conversionFunnel.pageViews} maxValue={data.conversionFunnel.pageViews} color="bg-blue-500/70" />
+                    <FunnelBar label="Product Views" value={data.conversionFunnel.productViews} maxValue={data.conversionFunnel.pageViews} color="bg-cyan-500/70" />
+                    <FunnelBar label="Add to Cart" value={data.conversionFunnel.addToCart} maxValue={data.conversionFunnel.pageViews} color="bg-amber-500/70" />
+                    <FunnelBar label="Checkout Started" value={data.conversionFunnel.checkoutStarted} maxValue={data.conversionFunnel.pageViews} color="bg-orange-500/70" />
+                    <FunnelBar label="Order Completed" value={data.conversionFunnel.orderCompleted} maxValue={data.conversionFunnel.pageViews} color="bg-green-500/70" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Drop-off analysis */}
+            {data && (
+              <div className="grid md:grid-cols-4 gap-3">
+                <MetricCard
+                  icon={Eye}
+                  label="View → Product"
+                  value={data.conversionFunnel.pageViews > 0 ? `${((data.conversionFunnel.productViews / data.conversionFunnel.pageViews) * 100).toFixed(1)}%` : '0%'}
+                  color="blue"
+                />
+                <MetricCard
+                  icon={ShoppingCart}
+                  label="Product → Cart"
+                  value={data.conversionFunnel.productViews > 0 ? `${((data.conversionFunnel.addToCart / data.conversionFunnel.productViews) * 100).toFixed(1)}%` : '0%'}
+                  color="amber"
+                />
+                <MetricCard
+                  icon={CreditCard}
+                  label="Cart → Checkout"
+                  value={data.conversionFunnel.addToCart > 0 ? `${((data.conversionFunnel.checkoutStarted / data.conversionFunnel.addToCart) * 100).toFixed(1)}%` : '0%'}
+                  color="purple"
+                />
+                <MetricCard
+                  icon={Package}
+                  label="Checkout → Order"
+                  value={data.conversionFunnel.checkoutStarted > 0 ? `${((data.conversionFunnel.orderCompleted / data.conversionFunnel.checkoutStarted) * 100).toFixed(1)}%` : '0%'}
+                  color="green"
+                />
+              </div>
+            )}
           </TabsContent>
 
           {/* PRODUCTS TAB */}
@@ -484,13 +631,12 @@ export default function AdminAnalytics() {
           {/* REVENUE TAB */}
           <TabsContent value="revenue" className="space-y-6 mt-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <MetricCard icon={TrendingUp} label="Total Revenue" value={isLoading ? '...' : `Rs ${data?.totalRevenue.toFixed(0) || 0}`} color="green" />
+              <MetricCard icon={TrendingUp} label="Total Revenue" value={isLoading ? '...' : `₹${data?.totalRevenue.toFixed(0) || 0}`} color="green" />
               <MetricCard icon={Package} label="Total Orders" value={isLoading ? '...' : data?.totalOrders || 0} color="blue" />
-              <MetricCard icon={ShoppingCart} label="Avg Order Value" value={isLoading ? '...' : `Rs ${data?.avgOrderValue.toFixed(0) || 0}`} color="purple" />
+              <MetricCard icon={ShoppingCart} label="Avg Order Value" value={isLoading ? '...' : `₹${data?.avgOrderValue.toFixed(0) || 0}`} color="purple" />
               <MetricCard icon={Users} label="Unique Buyers" value={isLoading ? '...' : data?.returningCustomers || 0} color="amber" />
             </div>
 
-            {/* Revenue Chart */}
             {data && data.revenueByDay.length > 0 && (
               <Card>
                 <CardHeader><CardTitle className="text-base">Daily Revenue</CardTitle></CardHeader>
@@ -501,7 +647,7 @@ export default function AdminAnalytics() {
                       const height = (d.revenue / maxRev) * 100;
                       return (
                         <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                          <span className="text-[9px] text-muted-foreground">Rs {(d.revenue / 1000).toFixed(1)}k</span>
+                          <span className="text-[9px] text-muted-foreground">₹{(d.revenue / 1000).toFixed(1)}k</span>
                           <div className="w-full bg-green-500/70 rounded-t-sm transition-all" style={{ height: `${Math.max(height, 4)}%` }} />
                           <span className="text-[9px] text-muted-foreground truncate w-full text-center">{d.date}</span>
                         </div>
@@ -512,7 +658,6 @@ export default function AdminAnalytics() {
               </Card>
             )}
 
-            {/* Revenue Table */}
             {data && data.revenueByDay.length > 0 && (
               <Card>
                 <CardHeader><CardTitle className="text-base">Revenue Breakdown</CardTitle></CardHeader>
@@ -526,7 +671,7 @@ export default function AdminAnalytics() {
                         <TableRow key={i}>
                           <TableCell>{d.date}</TableCell>
                           <TableCell className="text-right">{d.orders}</TableCell>
-                          <TableCell className="text-right font-medium">Rs {d.revenue.toFixed(0)}</TableCell>
+                          <TableCell className="text-right font-medium">₹{d.revenue.toFixed(0)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -534,6 +679,62 @@ export default function AdminAnalytics() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* AUDIENCE TAB */}
+          <TabsContent value="audience" className="space-y-6 mt-4">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Device Breakdown */}
+              <Card>
+                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Smartphone className="h-5 w-5" /> Device Breakdown</CardTitle></CardHeader>
+                <CardContent>
+                  {isLoading ? <p className="text-sm text-muted-foreground">Loading...</p> : !data ? null : (
+                    <div className="space-y-4">
+                      {[
+                        { icon: Monitor, label: 'Desktop', value: data.deviceBreakdown.desktop, color: 'bg-blue-500' },
+                        { icon: Smartphone, label: 'Mobile', value: data.deviceBreakdown.mobile, color: 'bg-green-500' },
+                        { icon: Tablet, label: 'Tablet', value: data.deviceBreakdown.tablet, color: 'bg-purple-500' },
+                      ].map(item => {
+                        const total = data.deviceBreakdown.desktop + data.deviceBreakdown.mobile + data.deviceBreakdown.tablet;
+                        const percent = total > 0 ? (item.value / total) * 100 : 0;
+                        return (
+                          <div key={item.label} className="flex items-center gap-3">
+                            <item.icon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                            <span className="text-sm w-16">{item.label}</span>
+                            <div className="flex-1">
+                              <Progress value={percent} className="h-3" />
+                            </div>
+                            <span className="text-sm font-medium w-16 text-right">{item.value} ({percent.toFixed(0)}%)</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Top Referrers */}
+              <Card>
+                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Globe className="h-5 w-5" /> Top Referrers</CardTitle></CardHeader>
+                <CardContent>
+                  {isLoading ? <p className="text-sm text-muted-foreground">Loading...</p> : !data?.topReferrers.length ? (
+                    <p className="text-sm text-muted-foreground">No referrer data yet. Most visitors are direct.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader><TableRow><TableHead>Source</TableHead><TableHead className="text-right">Visits</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {data.topReferrers.map((r, i) => (
+                          <TableRow key={i}>
+                            <TableCell className="text-sm font-mono">{r.referrer}</TableCell>
+                            <TableCell className="text-right"><Badge variant="secondary">{r.count}</Badge></TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

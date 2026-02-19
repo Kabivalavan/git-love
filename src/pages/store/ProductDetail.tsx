@@ -16,11 +16,13 @@ import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useAnalytics } from '@/hooks/useAnalytics';
 import { Shimmer } from '@/components/ui/shimmer';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { ContentSections, type ContentSection } from '@/components/product/ContentSections';
 import type { Product, ProductVariant, Review } from '@/types/database';
 
+// FAQ Accordion Item Component
 function FAQAccordionItem({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
@@ -69,6 +71,7 @@ export default function ProductDetailPage() {
   const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', comment: '' });
   const { toast } = useToast();
   const { user } = useAuth();
+  const { trackEvent } = useAnalytics();
 
   useEffect(() => {
     if (slug) fetchProduct();
@@ -90,6 +93,17 @@ export default function ProductDetailPage() {
 
     const productData = data as unknown as Product;
     setProduct(productData);
+
+    // Track product view
+    trackEvent('product_view', {
+      product_id: productData.id,
+      category_id: productData.category_id || undefined,
+      metadata: {
+        product_name: productData.name,
+        price: productData.price,
+        category: productData.category?.name || null,
+      },
+    });
 
     const [variantsRes, reviewsRes] = await Promise.all([
       supabase.from('product_variants').select('*').eq('product_id', productData.id).eq('is_active', true),
@@ -124,7 +138,6 @@ export default function ProductDetailPage() {
     }
     if (!product) return;
     
-    // Check if variant selection is mandatory
     if ((product as any).variant_required && variants.length > 0 && !selectedVariant) {
       setVariantError(true);
       toast({ title: 'Select a variant', description: 'Please select a variant before adding to cart', variant: 'destructive' });
@@ -159,6 +172,18 @@ export default function ProductDetailPage() {
             quantity,
           });
         }
+
+        // Track add to cart
+        trackEvent('add_to_cart', {
+          product_id: product.id,
+          metadata: {
+            product_name: product.name,
+            price: selectedVariant?.price || product.price,
+            quantity,
+            variant: selectedVariant?.name || null,
+          },
+        });
+
         toast({ title: 'Added to cart', description: `${product.name} has been added to your cart` });
       }
     } catch (error) {
@@ -177,6 +202,7 @@ export default function ProductDetailPage() {
 
     try {
       await supabase.from('wishlist').insert({ user_id: user.id, product_id: product.id });
+      trackEvent('wishlist_add', { product_id: product.id, metadata: { product_name: product.name } });
       toast({ title: 'Added to wishlist', description: `${product.name} has been added to your wishlist` });
     } catch (error: any) {
       if (error.code === '23505') {
@@ -214,7 +240,6 @@ export default function ProductDetailPage() {
     } else {
       toast({ title: 'Review submitted', description: 'Thank you for your feedback!' });
       setReviewForm({ rating: 5, title: '', comment: '' });
-      // Refresh reviews
       const { data } = await supabase
         .from('reviews')
         .select('*, profile:profiles(full_name)')
@@ -259,7 +284,6 @@ export default function ProductDetailPage() {
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length)
     : 0;
 
-  // Rating distribution
   const ratingDist = [5, 4, 3, 2, 1].map(star => ({
     star,
     count: reviews.filter(r => r.rating === star).length,
@@ -424,165 +448,178 @@ export default function ProductDetailPage() {
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(Math.min(currentStock, quantity + 1))} disabled={quantity >= currentStock}>
                   <Plus className="h-4 w-4" />
                 </Button>
-                <span className="text-xs md:text-sm text-muted-foreground">
-                  {currentStock > 0 ? `${currentStock} available` : 'Out of stock'}
-                </span>
+                <span className="text-sm text-muted-foreground">{currentStock} available</span>
               </div>
             </div>
 
-            {/* Actions - fixed for mobile */}
-            <div className="flex gap-2">
-              <Button size="default" className="flex-1 min-w-0 text-sm" onClick={handleAddToCart} disabled={currentStock <= 0 || isAddingToCart}>
-                {isAddingToCart ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ShoppingCart className="h-4 w-4 mr-1" />}
-                Add to Cart
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                size="lg"
+                className="flex-1"
+                onClick={handleAddToCart}
+                disabled={isAddingToCart || currentStock === 0}
+                data-action="add-to-cart"
+                data-product-id={product.id}
+              >
+                {isAddingToCart ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShoppingCart className="h-4 w-4 mr-2" />}
+                {currentStock === 0 ? 'Out of Stock' : 'Add to Cart'}
               </Button>
-              <Button size="default" variant="secondary" className="flex-1 min-w-0 text-sm" onClick={handleBuyNow} disabled={currentStock <= 0}>
+              <Button size="lg" variant="secondary" className="flex-1" onClick={handleBuyNow} disabled={currentStock === 0}>
                 Buy Now
               </Button>
-              <Button variant="outline" size="icon" className="flex-shrink-0 h-9 w-9" onClick={handleAddToWishlist}>
-                <Heart className="h-4 w-4" />
+            </div>
+
+            {/* Wishlist & Share */}
+            <div className="flex gap-3">
+              <Button variant="outline" size="sm" onClick={handleAddToWishlist} data-action="add-to-wishlist" data-product-id={product.id}>
+                <Heart className="h-4 w-4 mr-2" />
+                Wishlist
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => {
+                navigator.share?.({ title: product.name, url: window.location.href }).catch(() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast({ title: 'Link copied!' });
+                });
+              }}>
+                <Share2 className="h-4 w-4 mr-2" />
+                Share
               </Button>
             </div>
 
-            <Separator />
-
-            <div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
-              <div className="p-2 md:p-3 bg-muted rounded-lg">
-                <Truck className="h-5 w-5 md:h-6 md:w-6 mx-auto text-primary mb-1" />
+            {/* Trust Badges */}
+            <div className="grid grid-cols-3 gap-2 pt-2">
+              <div className="text-center p-2 bg-muted rounded-lg">
+                <Truck className="h-5 w-5 mx-auto mb-1 text-primary" />
                 <p className="text-[10px] md:text-xs font-medium">Free Shipping</p>
               </div>
-              <div className="p-2 md:p-3 bg-muted rounded-lg">
-                <Shield className="h-5 w-5 md:h-6 md:w-6 mx-auto text-primary mb-1" />
+              <div className="text-center p-2 bg-muted rounded-lg">
+                <Shield className="h-5 w-5 mx-auto mb-1 text-primary" />
                 <p className="text-[10px] md:text-xs font-medium">Secure Payment</p>
               </div>
-              <div className="p-2 md:p-3 bg-muted rounded-lg">
-                <RefreshCw className="h-5 w-5 md:h-6 md:w-6 mx-auto text-primary mb-1" />
+              <div className="text-center p-2 bg-muted rounded-lg">
+                <RefreshCw className="h-5 w-5 mx-auto mb-1 text-primary" />
                 <p className="text-[10px] md:text-xs font-medium">Easy Returns</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* FAQ-style Accordion Sections */}
-        <section className="mb-8 md:mb-10 space-y-3">
-          <FAQAccordionItem title="Description">
-            <p className="text-muted-foreground whitespace-pre-wrap text-sm md:text-base leading-relaxed">
-              {product.description || 'No description available.'}
-            </p>
-          </FAQAccordionItem>
-        </section>
-
-        {/* Content Sections - Sequential Amazon-style */}
-        {contentSections.filter(s => s.enabled).length > 0 && (
-          <section className="mb-8 md:mb-10">
-            <ContentSections sections={contentSections} />
-          </section>
-        )}
+        {/* Product Details Sections */}
+        <div className="space-y-4 mb-8 md:mb-12">
+          {product.description && (
+            <FAQAccordionItem title="Product Description" defaultOpen>
+              <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">{product.description}</div>
+            </FAQAccordionItem>
+          )}
+          {contentSections.length > 0 && <ContentSections sections={contentSections} />}
+        </div>
 
         {/* Reviews Section */}
-        <section className="mb-8 md:mb-12">
-          <h2 className="text-lg md:text-xl font-bold text-foreground mb-6">Customer Reviews ({reviews.length})</h2>
-            <div className="grid md:grid-cols-3 gap-6 md:gap-8">
-              {/* Rating Summary + Write Review */}
-              <div className="space-y-4">
-                <div className="text-center">
-                  <p className="text-4xl md:text-5xl font-bold">{avgRating.toFixed(1)}</p>
-                  <div className="flex justify-center mt-1">
+        <div className="mb-8 md:mb-12">
+          <h2 className="text-lg md:text-xl font-bold mb-4">Customer Reviews</h2>
+
+          {reviews.length > 0 && (
+            <div className="grid md:grid-cols-3 gap-6 mb-6">
+              <Card className="md:col-span-1">
+                <CardContent className="py-6 text-center">
+                  <p className="text-4xl font-bold">{avgRating.toFixed(1)}</p>
+                  <div className="flex justify-center my-2">
                     {[1, 2, 3, 4, 5].map((star) => (
-                      <Star key={star} className={`h-4 w-4 md:h-5 md:w-5 ${star <= Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-muted'}`} />
+                      <Star key={star} className={`h-5 w-5 ${star <= Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-muted'}`} />
                     ))}
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">{reviews.length} reviews</p>
-                </div>
-                <div className="space-y-2">
-                  {ratingDist.map((rd) => (
-                    <div key={rd.star} className="flex items-center gap-2">
-                      <span className="text-sm w-3">{rd.star}</span>
-                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                      <Progress value={rd.percent} className="flex-1 h-2" />
-                      <span className="text-xs text-muted-foreground w-6">{rd.count}</span>
-                    </div>
-                  ))}
-                </div>
+                  <p className="text-sm text-muted-foreground">{reviews.length} reviews</p>
+                  <div className="mt-4 space-y-2">
+                    {ratingDist.map(rd => (
+                      <div key={rd.star} className="flex items-center gap-2">
+                        <span className="text-xs w-3">{rd.star}</span>
+                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                        <Progress value={rd.percent} className="flex-1 h-2" />
+                        <span className="text-xs text-muted-foreground w-6">{rd.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
 
-                {/* Write Review */}
-                {user && (
-                  <div className="border rounded-lg p-4 space-y-3">
-                    <Label className="font-semibold">Write a Review</Label>
-                    <div className="flex gap-1">
+              <div className="md:col-span-2 space-y-4 max-h-96 overflow-y-auto">
+                {reviews.map((review) => (
+                  <Card key={review.id}>
+                    <CardContent className="py-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star key={star} className={`h-3 w-3 ${star <= review.rating ? 'fill-amber-400 text-amber-400' : 'text-muted'}`} />
+                          ))}
+                        </div>
+                        <span className="text-sm font-medium">{(review as any).profile?.full_name || 'Customer'}</span>
+                        {review.is_verified && <Badge variant="secondary" className="text-[10px]">Verified</Badge>}
+                      </div>
+                      {review.title && <p className="font-medium text-sm">{review.title}</p>}
+                      {review.comment && <p className="text-sm text-muted-foreground mt-1">{review.comment}</p>}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Write Review */}
+          {user && (
+            <Card>
+              <CardContent className="py-4">
+                <h3 className="font-semibold mb-3">Write a Review</h3>
+                <div className="space-y-3">
+                  <div>
+                    <Label>Rating</Label>
+                    <div className="flex gap-1 mt-1">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button key={star} onClick={() => setReviewForm({ ...reviewForm, rating: star })}>
                           <Star className={`h-6 w-6 ${star <= reviewForm.rating ? 'fill-amber-400 text-amber-400' : 'text-muted'}`} />
                         </button>
                       ))}
                     </div>
-                    <Input
-                      placeholder="Review title"
-                      value={reviewForm.title}
-                      onChange={(e) => setReviewForm({ ...reviewForm, title: e.target.value })}
-                    />
-                    <Textarea
-                      placeholder="Write your review..."
-                      rows={3}
-                      value={reviewForm.comment}
-                      onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
-                    />
-                    <Button onClick={handleSubmitReview} disabled={isSubmittingReview} className="w-full">
-                      {isSubmittingReview ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                      Submit Review
-                    </Button>
                   </div>
-                )}
-                {!user && (
-                  <div className="border rounded-lg p-4 text-center">
-                    <p className="text-sm text-muted-foreground mb-2">Login to write a review</p>
-                    <Button variant="outline" size="sm" asChild>
-                      <Link to="/auth">Login</Link>
-                    </Button>
+                  <div>
+                    <Label>Title (optional)</Label>
+                    <Input value={reviewForm.title} onChange={(e) => setReviewForm({ ...reviewForm, title: e.target.value })} placeholder="Great product!" />
                   </div>
-                )}
-              </div>
-
-              {/* Reviews List */}
-              <div className="md:col-span-2 space-y-4">
-                {reviews.length === 0 ? (
-                  <p className="text-muted-foreground">No reviews yet. Be the first to review!</p>
-                ) : (
-                  reviews.map((review) => (
-                    <div key={review.id} className="p-3 md:p-4 bg-muted rounded-lg">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <div className="flex">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star key={star} className={`h-3 w-3 md:h-4 md:w-4 ${star <= review.rating ? 'fill-amber-400 text-amber-400' : 'text-muted'}`} />
-                          ))}
-                        </div>
-                        <span className="font-medium text-sm">{(review as any).profile?.full_name || 'Anonymous'}</span>
-                        {review.is_verified && <Badge variant="secondary" className="text-[10px]">Verified</Badge>}
-                        <span className="text-xs text-muted-foreground ml-auto">
-                          {new Date(review.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      {review.title && <p className="font-medium text-sm">{review.title}</p>}
-                      {review.comment && <p className="text-muted-foreground text-xs md:text-sm mt-1">{review.comment}</p>}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-        </section>
+                  <div>
+                    <Label>Comment (optional)</Label>
+                    <Textarea value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} placeholder="Share your experience..." rows={3} />
+                  </div>
+                  <Button onClick={handleSubmitReview} disabled={isSubmittingReview}>
+                    {isSubmittingReview ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting...</> : 'Submit Review'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (
-          <section>
-            <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Related Products</h2>
+          <div>
+            <h2 className="text-lg md:text-xl font-bold mb-4">You May Also Like</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {relatedProducts.map((p) => (
-                <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} />
-              ))}
+              {relatedProducts.map((rp) => (
+                <ProductCard key={rp.id} product={rp} />
+              ))
+            }
             </div>
-          </section>
+          </div>
         )}
       </div>
     </StorefrontLayout>
   );
+}
+
+// Card component used inline
+function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`bg-card border border-border rounded-lg ${className}`}>{children}</div>;
+}
+
+function CardContent({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`px-4 ${className}`}>{children}</div>;
 }
