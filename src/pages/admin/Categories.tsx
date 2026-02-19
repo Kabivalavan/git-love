@@ -70,10 +70,16 @@ export default function AdminCategories() {
     }
   };
 
+  const getNextSortOrder = () => {
+    if (categories.length === 0) return 0;
+    const maxOrder = Math.max(...categories.map(c => c.sort_order ?? 0));
+    return maxOrder + 1;
+  };
+
   const handleCreate = () => {
     setFormData({
       is_active: true,
-      sort_order: 0,
+      sort_order: getNextSortOrder(),
     });
     setSelectedCategory(null);
     setIsFormOpen(true);
@@ -107,13 +113,19 @@ export default function AdminCategories() {
     setIsSaving(true);
 
     const slug = formData.slug || formData.name.toLowerCase().replace(/\s+/g, '-');
+    let sortOrder = formData.sort_order ?? getNextSortOrder();
+    // Auto-resolve sort order collisions
+    const hasCollision = categories.some(c => c.sort_order === sortOrder && c.id !== selectedCategory?.id);
+    if (hasCollision) {
+      sortOrder = getNextSortOrder();
+    }
     const categoryData = {
       name: formData.name,
       slug,
       description: formData.description,
       image_url: formData.image_url,
       parent_id: formData.parent_id,
-      sort_order: formData.sort_order ?? 0,
+      sort_order: sortOrder,
       is_active: formData.is_active ?? true,
     };
 
@@ -262,7 +274,7 @@ export default function AdminCategories() {
                 <SelectContent>
                   <SelectItem value="none">None (Top Level)</SelectItem>
                   {categories
-                    .filter((c) => c.id !== selectedCategory?.id)
+                    .filter((c) => c.id !== selectedCategory?.id && !c.parent_id)
                     .map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
