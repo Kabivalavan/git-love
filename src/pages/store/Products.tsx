@@ -346,7 +346,7 @@ export default function ProductsPage() {
 
         {/* Sub-categories */}
         {categorySlug && subCategories.length > 0 && (
-          <div className="flex flex-wrap gap-3 mb-6">
+          <div className="grid grid-cols-4 gap-3 sm:gap-4 mb-6">
             {subCategories.map((sub) => {
               const isSelected = selectedSubCategory === sub.id;
               return (
@@ -355,7 +355,7 @@ export default function ProductsPage() {
                   onClick={() => setSelectedSubCategory(isSelected ? null : sub.id)}
                   className="group text-center"
                 >
-                  <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-muted border-2 transition-all duration-300 mx-auto ${isSelected ? 'border-primary ring-2 ring-primary/30 shadow-lg' : 'border-transparent group-hover:border-primary group-hover:shadow-md'}`}>
+                  <div className={`w-full aspect-square rounded-xl overflow-hidden bg-muted border-2 transition-all duration-300 ${isSelected ? 'border-primary ring-2 ring-primary/30 shadow-lg' : 'border-transparent group-hover:border-primary group-hover:shadow-md'}`}>
                     {sub.image_url ? (
                       <img src={sub.image_url} alt={sub.name} className="w-full h-full object-cover" loading="lazy" />
                     ) : (
@@ -364,7 +364,7 @@ export default function ProductsPage() {
                       </div>
                     )}
                   </div>
-                  <p className={`mt-1.5 text-[10px] sm:text-xs font-medium transition-colors truncate max-w-[5rem] ${isSelected ? 'text-primary font-semibold' : 'text-foreground group-hover:text-primary'}`}>{sub.name}</p>
+                  <p className={`mt-1.5 text-[10px] sm:text-xs font-medium transition-colors truncate ${isSelected ? 'text-primary font-semibold' : 'text-foreground group-hover:text-primary'}`}>{sub.name}</p>
                 </button>
               );
             })}

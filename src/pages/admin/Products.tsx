@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
@@ -47,7 +48,8 @@ interface VariantForm {
   name: string;
   sku: string;
   price: string;
-  mrp: string;
+  cost_price: string;
+  tax_rate: string;
   stock_quantity: string;
 }
 
@@ -109,7 +111,8 @@ export default function AdminProducts() {
       name: v.name,
       sku: v.sku || '',
       price: v.price?.toString() || '',
-      mrp: v.mrp?.toString() || '',
+      cost_price: '',
+      tax_rate: '',
       stock_quantity: v.stock_quantity?.toString() || '0',
     }));
     
@@ -176,7 +179,8 @@ export default function AdminProducts() {
       name: size,
       sku: '',
       price: '',
-      mrp: '',
+      cost_price: '',
+      tax_rate: '',
       stock_quantity: '0',
     }));
     setVariantForms([...variantForms, ...newVariants]);
@@ -203,9 +207,9 @@ export default function AdminProducts() {
       short_description: formData.short_description,
       category_id: formData.category_id || null,
       price: formData.price,
-      mrp: formData.mrp || null,
+      mrp: null,
       cost_price: formData.cost_price || null,
-      sku: formData.sku || null,
+      sku: null,
       barcode: formData.barcode || null,
       stock_quantity: formData.stock_quantity ?? 0,
       low_stock_threshold: formData.low_stock_threshold ?? 5,
@@ -255,7 +259,7 @@ export default function AdminProducts() {
             name: v.name,
             sku: v.sku || null,
             price: v.price ? parseFloat(v.price) : null,
-            mrp: v.mrp ? parseFloat(v.mrp) : null,
+            mrp: null,
             stock_quantity: parseInt(v.stock_quantity) || 0,
             is_active: true,
           }));
@@ -296,12 +300,7 @@ export default function AdminProducts() {
       key: 'price',
       header: 'Price',
       render: (p) => (
-        <div>
-          <span className="font-medium">₹{Number(p.price).toFixed(0)}</span>
-          {p.mrp && p.mrp > p.price && (
-            <span className="text-xs text-muted-foreground line-through ml-2">₹{Number(p.mrp).toFixed(0)}</span>
-          )}
-        </div>
+        <span className="font-medium">₹{Number(p.price).toFixed(0)}</span>
       ),
     },
     {
@@ -424,8 +423,7 @@ export default function AdminProducts() {
               <DetailField label="Barcode" value={selectedProduct.barcode} />
             </DetailSection>
             <DetailSection title="Pricing">
-              <DetailField label="Price" value={`₹${Number(selectedProduct.price).toFixed(2)}`} />
-              <DetailField label="MRP" value={selectedProduct.mrp ? `₹${Number(selectedProduct.mrp).toFixed(2)}` : '-'} />
+              <DetailField label="Selling Price (Tax Incl.)" value={`₹${Number(selectedProduct.price).toFixed(2)}`} />
               <DetailField label="Cost Price" value={selectedProduct.cost_price ? `₹${Number(selectedProduct.cost_price).toFixed(2)}` : '-'} />
               <DetailField label="Tax Rate" value={`${selectedProduct.tax_rate}%`} />
             </DetailSection>
@@ -455,11 +453,10 @@ export default function AdminProducts() {
           </DialogHeader>
           
           <Tabs defaultValue="basic" className="mt-4">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="basic">Basic</TabsTrigger>
-              <TabsTrigger value="pricing">Pricing</TabsTrigger>
+              <TabsTrigger value="pricing">Pricing & Variants</TabsTrigger>
               <TabsTrigger value="inventory">Inventory</TabsTrigger>
-              <TabsTrigger value="variants">Variants</TabsTrigger>
               <TabsTrigger value="images">Images</TabsTrigger>
               <TabsTrigger value="content">Content</TabsTrigger>
             </TabsList>
@@ -495,16 +492,7 @@ export default function AdminProducts() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="sku">SKU</Label>
-                  <Input
-                    id="sku"
-                    value={formData.sku || ''}
-                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                    placeholder="Stock keeping unit"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category">Parent Category</Label>
                   <Select
                     value={formData.category_id || ''}
                     onValueChange={(value) => setFormData({ ...formData, category_id: value || null })}
@@ -513,9 +501,33 @@ export default function AdminProducts() {
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((cat) => (
+                      {categories.filter(c => !c.parent_id).map((cat) => (
                         <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="subcategory">Sub Category</Label>
+                  <Select
+                    value={formData.category_id && categories.find(c => c.id === formData.category_id)?.parent_id ? formData.category_id : ''}
+                    onValueChange={(value) => setFormData({ ...formData, category_id: value || formData.category_id })}
+                    disabled={!formData.category_id || !!categories.find(c => c.id === formData.category_id)?.parent_id === false && categories.filter(c => c.parent_id === formData.category_id).length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={formData.category_id ? "Select sub category" : "Select parent first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories
+                        .filter(c => {
+                          const parentId = categories.find(p => p.id === formData.category_id)?.parent_id
+                            ? categories.find(p => p.id === formData.category_id)?.parent_id
+                            : formData.category_id;
+                          return c.parent_id === parentId;
+                        })
+                        .map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -578,17 +590,12 @@ export default function AdminProducts() {
             </TabsContent>
 
             <TabsContent value="pricing" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Selling Price *</Label>
+                  <Label htmlFor="price">Selling Price (Tax Inclusive) *</Label>
                   <Input id="price" type="number" step="0.01" value={formData.price || ''} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })} placeholder="0.00" />
+                  <p className="text-[10px] text-muted-foreground">This price includes all applicable taxes</p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="mrp">MRP (Original Price)</Label>
-                  <Input id="mrp" type="number" step="0.01" value={formData.mrp || ''} onChange={(e) => setFormData({ ...formData, mrp: parseFloat(e.target.value) || null })} placeholder="0.00" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="cost_price">Cost Price</Label>
                   <Input id="cost_price" type="number" step="0.01" value={formData.cost_price || ''} onChange={(e) => setFormData({ ...formData, cost_price: parseFloat(e.target.value) || null })} placeholder="0.00" />
@@ -598,46 +605,17 @@ export default function AdminProducts() {
                   <Input id="tax_rate" type="number" step="0.01" value={formData.tax_rate || 0} onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })} placeholder="0" />
                 </div>
               </div>
-              {formData.mrp && formData.price && formData.mrp > formData.price && (
-                <div className="p-3 bg-accent rounded-lg">
-                  <p className="text-sm text-accent-foreground">
-                    Discount: {Math.round(((formData.mrp - formData.price) / formData.mrp) * 100)}% off
-                  </p>
-                </div>
-              )}
-            </TabsContent>
 
-            <TabsContent value="inventory" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Stock Quantity</Label>
-                  <Input type="number" value={formData.stock_quantity || 0} onChange={(e) => setFormData({ ...formData, stock_quantity: parseInt(e.target.value) || 0 })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Low Stock Alert Threshold</Label>
-                  <Input type="number" value={formData.low_stock_threshold || 5} onChange={(e) => setFormData({ ...formData, low_stock_threshold: parseInt(e.target.value) || 5 })} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Barcode</Label>
-                  <Input value={formData.barcode || ''} onChange={(e) => setFormData({ ...formData, barcode: e.target.value })} placeholder="UPC, EAN, etc." />
-                </div>
-                <div className="space-y-2">
-                  <Label>Shipping Weight (kg)</Label>
-                  <Input type="number" step="0.01" value={formData.shipping_weight || ''} onChange={(e) => setFormData({ ...formData, shipping_weight: parseFloat(e.target.value) || null })} />
-                </div>
-              </div>
-            </TabsContent>
+              <Separator />
 
-            <TabsContent value="variants" className="space-y-4 mt-4">
+              {/* Variants Section */}
               <div className="flex items-center justify-between">
                 <div>
-              <Label className="text-base font-semibold">Product Variants {(formData.productType === 'clothing' || formData.productType === 'footwear') && <span className="text-destructive">*</span>}</Label>
+                  <Label className="text-base font-semibold">Product Variants {(formData.productType === 'clothing' || formData.productType === 'footwear') && <span className="text-destructive">*</span>}</Label>
                   <p className="text-sm text-muted-foreground">
                     {(formData.productType === 'clothing' || formData.productType === 'footwear') 
                       ? 'Variants are mandatory for clothing/footwear products' 
-                      : 'Add sizes, colors, or other customization options'}
+                      : 'Add sizes, colors, or other options. Each variant has its own SP, CP, Tax & SKU.'}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -649,7 +627,7 @@ export default function AdminProducts() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setVariantForms([...variantForms, { name: '', sku: '', price: '', mrp: '', stock_quantity: '0' }])}
+                    onClick={() => setVariantForms([...variantForms, { name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0' }])}
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Add Variant
@@ -665,9 +643,9 @@ export default function AdminProducts() {
               ) : (
                 <div className="space-y-3">
                   {variantForms.map((variant, index) => (
-                    <div key={index} className="grid grid-cols-6 gap-2 items-end p-3 border rounded-lg">
+                    <div key={index} className="grid grid-cols-7 gap-2 items-end p-3 border rounded-lg">
                       <div className="space-y-1">
-                        <Label className="text-xs">Name *</Label>
+                        <Label className="text-xs">Variant Name *</Label>
                         <Input
                           value={variant.name}
                           onChange={(e) => {
@@ -692,7 +670,7 @@ export default function AdminProducts() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Price</Label>
+                        <Label className="text-xs">Selling Price</Label>
                         <Input
                           type="number"
                           value={variant.price}
@@ -705,13 +683,26 @@ export default function AdminProducts() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">MRP</Label>
+                        <Label className="text-xs">Cost Price</Label>
                         <Input
                           type="number"
-                          value={variant.mrp}
+                          value={variant.cost_price}
                           onChange={(e) => {
                             const updated = [...variantForms];
-                            updated[index].mrp = e.target.value;
+                            updated[index].cost_price = e.target.value;
+                            setVariantForms(updated);
+                          }}
+                          className="h-8"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Tax %</Label>
+                        <Input
+                          type="number"
+                          value={variant.tax_rate}
+                          onChange={(e) => {
+                            const updated = [...variantForms];
+                            updated[index].tax_rate = e.target.value;
                             setVariantForms(updated);
                           }}
                           className="h-8"
