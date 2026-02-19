@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { useAdminNotifications } from '@/hooks/useAdminNotifications';
 
 interface MenuItem {
   path: string;
@@ -115,6 +116,14 @@ export function AdminSidebar() {
   const { signOut, profile } = useAuth();
   const location = useLocation();
   const navRef = useRef<HTMLElement>(null);
+  const { unreadCounts, markSectionSeen } = useAdminNotifications();
+
+  // Mark section as seen when navigating to it
+  useEffect(() => {
+    if (location.pathname === '/admin/customers') markSectionSeen('customers');
+    if (location.pathname === '/admin/orders') markSectionSeen('orders');
+    if (location.pathname === '/admin/payments') markSectionSeen('payments');
+  }, [location.pathname, markSectionSeen]);
 
   const setCollapsed = (val: boolean) => {
     setCollapsedState(val);
@@ -142,6 +151,29 @@ export function AdminSidebar() {
   const isActive = (path: string, exact?: boolean) => {
     if (exact) return location.pathname === path;
     return location.pathname.startsWith(path) && path !== '/admin';
+  };
+
+  const getUnreadForPath = (path: string): number => {
+    if (path === '/admin/customers') return unreadCounts['customers'] || 0;
+    if (path === '/admin/orders') return unreadCounts['orders'] || 0;
+    if (path === '/admin/payments') return unreadCounts['payments'] || 0;
+    return 0;
+  };
+
+  const getGroupUnread = (items: MenuItem[]): number => {
+    return items.reduce((sum, item) => sum + getUnreadForPath(item.path), 0);
+  };
+
+  const UnreadBadge = ({ count, small }: { count: number; small?: boolean }) => {
+    if (count <= 0) return null;
+    return (
+      <span className={cn(
+        "flex items-center justify-center rounded-full bg-destructive text-white font-bold flex-shrink-0",
+        small ? "h-2 w-2" : "h-4 min-w-4 px-1 text-[10px]"
+      )}>
+        {!small && (count > 9 ? '9+' : count)}
+      </span>
+    );
   };
 
   return (
@@ -187,6 +219,7 @@ export function AdminSidebar() {
                 // In collapsed mode, show only first item icon
                 return entry.items.map((item) => {
                   const active = isActive(item.path, item.exact);
+                  const itemUnread = getUnreadForPath(item.path);
                   return (
                     <li key={item.path}>
                       <NavLink
@@ -194,13 +227,14 @@ export function AdminSidebar() {
                         end={item.exact}
                         title={item.label}
                         className={cn(
-                          "flex items-center justify-center py-1.5 rounded-md text-sm transition-all",
+                          "flex items-center justify-center py-1.5 rounded-md text-sm transition-all relative",
                           active
                             ? "bg-[hsl(142,76%,36%)] text-white"
                             : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))]"
                         )}
                       >
                         <item.icon className="h-4 w-4" />
+                        {itemUnread > 0 && <span className="absolute top-0.5 right-1 h-2 w-2 rounded-full bg-destructive" />}
                       </NavLink>
                     </li>
                   );
@@ -220,12 +254,14 @@ export function AdminSidebar() {
                   >
                     <entry.icon className="h-4 w-4 flex-shrink-0" />
                     <span className="flex-1 text-left">{entry.label}</span>
+                    {(() => { const gu = getGroupUnread(entry.items); return gu > 0 ? <UnreadBadge count={gu} /> : null; })()}
                     <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-180")} />
                   </button>
                   <div className={cn("overflow-hidden transition-all duration-200", isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0")}>
                     <ul className="ml-4 mt-0.5 space-y-0.5 border-l border-[hsl(var(--sidebar-border))] pl-3">
                       {entry.items.map((item) => {
                         const active = isActive(item.path, item.exact);
+                        const itemUnread = getUnreadForPath(item.path);
                         return (
                           <li key={item.path}>
                             <NavLink
@@ -238,7 +274,8 @@ export function AdminSidebar() {
                                   : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))]"
                               )}
                             >
-                              <span>{item.label}</span>
+                              <span className="flex-1">{item.label}</span>
+                              <UnreadBadge count={itemUnread} />
                             </NavLink>
                           </li>
                         );

@@ -23,6 +23,7 @@ import AdminReports from "./pages/admin/Reports";
 import AdminSettings from "./pages/admin/Settings";
 import AdminAnalytics from "./pages/admin/Analytics";
 import AdminBundles from "./pages/admin/Bundles";
+import AdminNotifications from "./pages/admin/Notifications";
 
 // Public storefront pages
 import HomePage from "./pages/store/Home";
@@ -105,6 +106,7 @@ const AppRoutes = () => (
       <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
       <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
       <Route path="/admin/bundles" element={<AdminRoute><AdminBundles /></AdminRoute>} />
+      <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   </>

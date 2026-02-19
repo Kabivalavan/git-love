@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { Link } from 'react-router-dom';
+import { useAdminNotifications } from '@/hooks/useAdminNotifications';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -17,6 +18,7 @@ interface AdminLayoutProps {
 export function AdminLayout({ children, title, description, actions }: AdminLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { profile } = useAuth();
+  const { totalUnread } = useAdminNotifications();
 
   useEffect(() => {
     const checkSidebar = () => {
@@ -57,8 +59,15 @@ export function AdminLayout({ children, title, description, actions }: AdminLayo
             </div>
           </div>
           <div className="flex items-center gap-2 ml-auto">
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground">
-              <Bell className="h-4.5 w-4.5" />
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground relative" asChild>
+              <Link to="/admin/notifications">
+                <Bell className="h-4.5 w-4.5" />
+                {totalUnread > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-destructive text-white text-[10px] font-bold">
+                    {totalUnread > 9 ? '9+' : totalUnread}
+                  </span>
+                )}
+              </Link>
             </Button>
             <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" asChild>
               <Link to="/admin/settings">
