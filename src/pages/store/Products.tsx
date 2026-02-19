@@ -11,6 +11,7 @@ import { Slider } from '@/components/ui/slider';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from '@/components/ui/pagination';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,6 +19,8 @@ import { useOffers } from '@/hooks/useOffers';
 import { ShimmerProductGrid } from '@/components/ui/shimmer';
 import { SEOHead } from '@/components/seo/SEOHead';
 import type { Product, Category } from '@/types/database';
+
+const ITEMS_PER_PAGE = 12;
 
 export default function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -29,6 +32,8 @@ export default function ProductsPage() {
   const [priceRange, setPriceRange] = useState([0, 10000]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [showInStock, setShowInStock] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const { toast } = useToast();
   const { user } = useAuth();
   const { getProductOffer } = useOffers();
@@ -40,14 +45,21 @@ export default function ProductsPage() {
 
   const [subCategories, setSubCategories] = useState<Category[]>([]);
 
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+
   useEffect(() => {
     fetchCategories();
   }, []);
 
+  // Reset page when filters change
   useEffect(() => {
-    if (categories.length === 0) return; // Wait for categories to load
+    setCurrentPage(1);
+  }, [searchParams, sortBy, priceRange, selectedCategories, showInStock]);
+
+  useEffect(() => {
+    if (categories.length === 0) return;
     fetchProducts();
-  }, [searchParams, sortBy, priceRange, selectedCategories, showInStock, categories]);
+  }, [searchParams, sortBy, priceRange, selectedCategories, showInStock, categories, currentPage]);
 
   // Fetch sub-categories when a category is selected
   useEffect(() => {
@@ -76,9 +88,12 @@ export default function ProductsPage() {
 
   const fetchProducts = async () => {
     setIsLoading(true);
+    const from = (currentPage - 1) * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+
     let query = supabase
       .from('products')
-      .select('*, category:categories(*), images:product_images(*)')
+      .select('*, category:categories(*), images:product_images(*)', { count: 'exact' })
       .eq('is_active', true)
       .gte('price', priceRange[0])
       .lte('price', priceRange[1]);
@@ -114,11 +129,14 @@ export default function ProductsPage() {
         query = query.order('created_at', { ascending: false });
     }
 
-    const { data, error } = await query;
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       setProducts((data || []) as Product[]);
+      setTotalCount(count || 0);
     }
     setIsLoading(false);
   };
@@ -254,7 +272,7 @@ export default function ProductsPage() {
                isBestseller ? 'Best Sellers' :
                searchQuery ? `Search: "${searchQuery}"` : 'All Products'}
             </h1>
-            <p className="text-muted-foreground mt-1">{products.length} products found</p>
+            <p className="text-muted-foreground mt-1">{totalCount} products found</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -414,6 +432,52 @@ export default function ProductsPage() {
                   />
                 ))}
               </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <Pagination className="mt-8">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                    .reduce((acc, page, idx, arr) => {
+                      if (idx > 0 && page - arr[idx - 1] > 1) {
+                        acc.push(-idx);
+                      }
+                      acc.push(page);
+                      return acc;
+                    }, [] as number[])
+                    .map(page =>
+                      page < 0 ? (
+                        <PaginationItem key={`ellipsis-${page}`}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      ) : (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            isActive={page === currentPage}
+                            onClick={() => setCurrentPage(page)}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    )}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             )}
           </div>
         </div>
