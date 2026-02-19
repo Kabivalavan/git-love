@@ -4,8 +4,7 @@ import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Download, LayoutGrid, List, ChevronDown, ChevronUp, Eye } from 'lucide-react';
+import { Plus, LayoutGrid, List, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/ui/image-upload';
 import {
@@ -47,11 +46,32 @@ const EXPENSE_CATEGORIES = [
   { value: 'rent', label: 'Rent', color: 'bg-red-500' },
   { value: 'utilities', label: 'Utilities', color: 'bg-cyan-500' },
   { value: 'software', label: 'Software', color: 'bg-indigo-500' },
+  { value: 'purchase', label: 'Purchase', color: 'bg-pink-500' },
   { value: 'other', label: 'Other', color: 'bg-gray-500' },
 ];
 
 const getCatColor = (cat: string) => EXPENSE_CATEGORIES.find(c => c.value === cat)?.color || 'bg-gray-500';
 const getCatLabel = (cat: string) => EXPENSE_CATEGORIES.find(c => c.value === cat)?.label || cat;
+
+const VIEW_MODE_KEY = 'expenses_view_mode';
+
+const getAmountColor = (amount: number) => {
+  if (amount >= 50000) return 'text-red-700 dark:text-red-400 font-bold';
+  if (amount >= 25000) return 'text-red-600 dark:text-red-400';
+  if (amount >= 10000) return 'text-orange-600 dark:text-orange-400';
+  if (amount >= 5000) return 'text-amber-600 dark:text-amber-400';
+  if (amount >= 1000) return 'text-blue-600 dark:text-blue-400';
+  return 'text-green-600 dark:text-green-400';
+};
+
+const getAmountBadgeClass = (amount: number) => {
+  if (amount >= 50000) return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800';
+  if (amount >= 25000) return 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 border border-red-100 dark:border-red-900';
+  if (amount >= 10000) return 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400 border border-orange-100 dark:border-orange-900';
+  if (amount >= 5000) return 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 border border-amber-100 dark:border-amber-900';
+  if (amount >= 1000) return 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-100 dark:border-blue-900';
+  return 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 border border-green-100 dark:border-green-900';
+};
 
 export default function AdminExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -62,7 +82,9 @@ export default function AdminExpenses() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Expense>>({});
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
+    return (localStorage.getItem(VIEW_MODE_KEY) as 'list' | 'grid') || 'list';
+  });
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterDateRange, setFilterDateRange] = useState<string>('all');
   const [showAllCategories, setShowAllCategories] = useState(false);
@@ -70,6 +92,7 @@ export default function AdminExpenses() {
   const { toast } = useToast();
 
   useEffect(() => { fetchExpenses(); }, []);
+  useEffect(() => { localStorage.setItem(VIEW_MODE_KEY, viewMode); }, [viewMode]);
 
   const fetchExpenses = async () => {
     setIsLoading(true);
@@ -111,7 +134,6 @@ export default function AdminExpenses() {
     const percentChange = lastMonthTotal > 0 ? ((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100 : thisMonthTotal > 0 ? 100 : 0;
     const total = expenses.reduce((s, e) => s + Number(e.amount), 0);
 
-    // Category breakdown for this month
     const categoryBreakdown: Record<string, number> = {};
     thisMonthExpenses.forEach(e => {
       categoryBreakdown[e.category] = (categoryBreakdown[e.category] || 0) + Number(e.amount);
@@ -160,13 +182,6 @@ export default function AdminExpenses() {
     setIsSaving(false);
   };
 
-  const getAmountColor = (amount: number) => {
-    if (amount >= 10000) return 'text-red-600 dark:text-red-400';
-    if (amount >= 5000) return 'text-amber-600 dark:text-amber-400';
-    if (amount >= 1000) return 'text-blue-600 dark:text-blue-400';
-    return 'text-green-600 dark:text-green-400';
-  };
-
   const columns: Column<Expense>[] = [
     { key: 'date', header: 'Date', render: (e) => new Date(e.date).toLocaleDateString() },
     {
@@ -181,7 +196,11 @@ export default function AdminExpenses() {
     { key: 'description', header: 'Description' },
     {
       key: 'amount', header: 'Amount',
-      render: (e) => <span className={`font-semibold ${getAmountColor(Number(e.amount))}`}>₹{Number(e.amount).toLocaleString()}</span>,
+      render: (e) => (
+        <span className={`inline-flex px-2 py-0.5 rounded-md text-sm font-semibold ${getAmountBadgeClass(Number(e.amount))}`}>
+          ₹{Number(e.amount).toLocaleString()}
+        </span>
+      ),
     },
     {
       key: 'receipt_url', header: 'Receipt',
@@ -223,7 +242,7 @@ export default function AdminExpenses() {
                   <div key={cat} className="flex items-center gap-3">
                     <span className={`w-3 h-3 rounded-full flex-shrink-0 ${getCatColor(cat)}`} />
                     <span className="text-sm flex-1">{getCatLabel(cat)}</span>
-                    <span className={`font-semibold text-sm ${getAmountColor(amount)}`}>₹{amount.toLocaleString()}</span>
+                    <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-semibold ${getAmountBadgeClass(amount)}`}>₹{amount.toLocaleString()}</span>
                     <div className="w-24">
                       <Progress value={summary.thisMonthTotal > 0 ? (amount / summary.thisMonthTotal) * 100 : 0} className="h-1.5" />
                     </div>
@@ -299,6 +318,16 @@ export default function AdminExpenses() {
           </Select>
         </div>
 
+        {/* Amount Color Legend */}
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" />Under ₹1K</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" />₹1K–5K</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" />₹5K–10K</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500" />₹10K–25K</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" />₹25K–50K</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-700" />₹50K+</span>
+        </div>
+
         {/* List or Grid View */}
         {viewMode === 'list' ? (
           <DataTable<Expense>
@@ -325,7 +354,9 @@ export default function AdminExpenses() {
                     <span className="text-xs text-muted-foreground">{new Date(expense.date).toLocaleDateString()}</span>
                   </div>
                   <p className="font-medium text-sm mb-1 line-clamp-1">{expense.description}</p>
-                  <p className={`text-lg font-bold ${getAmountColor(Number(expense.amount))}`}>₹{Number(expense.amount).toLocaleString()}</p>
+                  <span className={`inline-flex px-2 py-0.5 rounded-md text-sm font-semibold ${getAmountBadgeClass(Number(expense.amount))}`}>
+                    ₹{Number(expense.amount).toLocaleString()}
+                  </span>
                   {expense.receipt_url && (
                     <Button variant="ghost" size="sm" className="mt-2 h-7 px-2 text-xs" onClick={(ev) => { ev.stopPropagation(); setReceiptViewUrl(expense.receipt_url); }}>
                       <Eye className="h-3 w-3 mr-1" />Receipt
@@ -339,8 +370,8 @@ export default function AdminExpenses() {
         )}
       </div>
 
-      {/* Receipt Viewer Dialog */}
-      <Dialog open={!!receiptViewUrl} onOpenChange={() => setReceiptViewUrl(null)}>
+      {/* Receipt Viewer Dialog - clean close */}
+      <Dialog open={!!receiptViewUrl} onOpenChange={(open) => { if (!open) setReceiptViewUrl(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh]">
           <DialogHeader><DialogTitle>Receipt</DialogTitle></DialogHeader>
           {receiptViewUrl && (
