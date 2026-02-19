@@ -212,13 +212,13 @@ export function ProductCard({
 
         {/* Quick add button */}
         {showQuickAdd && onAddToCart && !isOutOfStock && (
-          <Button className="w-full mt-2" size="sm" variant="outline" onClick={() => onAddToCart(product)}>
-            <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />
+          <Button className="w-full mt-2 h-9 sm:h-9 text-sm sm:text-sm" size="sm" variant="outline" onClick={() => onAddToCart(product)}>
+            <ShoppingCart className="h-4 w-4 mr-1.5" />
             Add to Cart
           </Button>
         )}
         {isOutOfStock && (
-          <Button className="w-full mt-2" size="sm" variant="secondary" disabled>
+          <Button className="w-full mt-2 h-9 sm:h-9 text-sm sm:text-sm" size="sm" variant="secondary" disabled>
             Out of Stock
           </Button>
         )}
