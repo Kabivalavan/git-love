@@ -135,8 +135,19 @@ export default function AdminOffers() {
   };
 
   const handleSave = async () => {
-    if (!formData.name || !formData.value) {
-      toast({ title: 'Error', description: 'Name and value are required', variant: 'destructive' });
+    if (!formData.name) {
+      toast({ title: 'Error', description: 'Name is required', variant: 'destructive' });
+      return;
+    }
+
+    // For buy_x_get_y, value is not needed; for others, value is required
+    if (formData.type !== 'buy_x_get_y' && (!formData.value && formData.value !== 0)) {
+      toast({ title: 'Error', description: 'Discount value is required', variant: 'destructive' });
+      return;
+    }
+
+    if (formData.type === 'buy_x_get_y' && (!formData.buy_quantity || !formData.get_quantity)) {
+      toast({ title: 'Error', description: 'Buy quantity and Get quantity are required', variant: 'destructive' });
       return;
     }
 
@@ -146,15 +157,15 @@ export default function AdminOffers() {
       name: formData.name,
       description: formData.description,
       type: (formData.type || 'percentage') as 'percentage' | 'flat' | 'buy_x_get_y',
-      value: formData.value,
-      buy_quantity: formData.buy_quantity,
-      get_quantity: formData.get_quantity,
-      min_order_value: formData.min_order_value,
-      max_discount: formData.max_discount,
-      category_id: formData.category_id,
-      product_id: formData.product_id,
-      start_date: formData.start_date,
-      end_date: formData.end_date,
+      value: formData.type === 'buy_x_get_y' ? 0 : (formData.value || 0),
+      buy_quantity: formData.buy_quantity || null,
+      get_quantity: formData.get_quantity || null,
+      min_order_value: formData.min_order_value || null,
+      max_discount: formData.max_discount || null,
+      category_id: formData.category_id || null,
+      product_id: formData.product_id || null,
+      start_date: formData.start_date || null,
+      end_date: formData.end_date || null,
       is_active: formData.is_active ?? true,
       auto_apply: formData.auto_apply ?? false,
       show_timer: (formData as any).show_timer ?? false,

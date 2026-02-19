@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Shimmer } from '@/components/ui/shimmer';
+import { useOffers } from '@/hooks/useOffers';
 import type { CartItem, Product, Coupon, ProductVariant } from '@/types/database';
 
 interface CartItemWithProduct extends CartItem {
@@ -26,6 +27,7 @@ export default function CartPage() {
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { getProductOffer, calculateCartDiscount } = useOffers();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -108,15 +110,22 @@ export default function CartPage() {
     const price = item.variant?.price || item.product.price;
     return sum + (price * item.quantity);
   }, 0);
+
+  // Calculate offer discounts
+  const offerDiscount = calculateCartDiscount(
+    cartItems.map(item => ({ product: item.product, quantity: item.quantity }))
+  );
   
-  const discount = appliedCoupon
+  const couponDiscount = appliedCoupon
     ? appliedCoupon.type === 'percentage'
       ? Math.min((subtotal * appliedCoupon.value) / 100, appliedCoupon.max_discount || Infinity)
       : appliedCoupon.value
     : 0;
 
+  const totalDiscount = offerDiscount.totalDiscount + couponDiscount;
+
   const shippingCharge = subtotal >= 500 ? 0 : 50;
-  const total = subtotal - discount + shippingCharge;
+  const total = subtotal - totalDiscount + shippingCharge;
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -179,6 +188,8 @@ export default function CartPage() {
                 || '/placeholder.svg';
               const itemPrice = item.variant?.price || item.product.price;
               const itemMrp = item.variant?.mrp || item.product.mrp;
+              const itemOffer = getProductOffer(item.product);
+              const effectivePrice = itemOffer?.discountedPrice ?? itemPrice;
 
               return (
                 <Card key={item.id}>
@@ -197,10 +208,20 @@ export default function CartPage() {
                           </Badge>
                         )}
                         <p className="text-sm text-muted-foreground mt-0.5">
-                          {itemMrp && itemMrp > itemPrice && (
-                            <span className="line-through mr-2">₹{Number(itemMrp).toFixed(0)}</span>
+                          {(itemOffer && itemOffer.discountAmount > 0) ? (
+                            <>
+                              <span className="line-through mr-2">₹{Number(itemPrice).toFixed(0)}</span>
+                              <span className="font-semibold text-foreground">₹{Number(effectivePrice).toFixed(0)}</span>
+                              <Badge variant="destructive" className="ml-2 text-[10px] animate-pulse">{itemOffer.discountLabel}</Badge>
+                            </>
+                          ) : (
+                            <>
+                              {itemMrp && itemMrp > itemPrice && (
+                                <span className="line-through mr-2">₹{Number(itemMrp).toFixed(0)}</span>
+                              )}
+                              <span className="font-semibold text-foreground">₹{Number(itemPrice).toFixed(0)}</span>
+                            </>
                           )}
-                          <span className="font-semibold text-foreground">₹{Number(itemPrice).toFixed(0)}</span>
                         </p>
                         <div className="flex items-center gap-3 md:gap-4 mt-2">
                           <div className="flex items-center border rounded-md">
@@ -236,7 +257,7 @@ export default function CartPage() {
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="font-bold text-sm md:text-base">₹{(itemPrice * item.quantity).toFixed(0)}</p>
+                        <p className="font-bold text-sm md:text-base">₹{(effectivePrice * item.quantity).toFixed(0)}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -282,10 +303,16 @@ export default function CartPage() {
                     <span className="text-muted-foreground">Subtotal ({totalItems} items)</span>
                     <span>₹{subtotal.toFixed(0)}</span>
                   </div>
-                  {discount > 0 && (
+                  {offerDiscount.totalDiscount > 0 && (
                     <div className="flex justify-between text-sm text-green-600">
-                      <span>Discount</span>
-                      <span>-₹{discount.toFixed(0)}</span>
+                      <span>Offer Discount</span>
+                      <span>-₹{offerDiscount.totalDiscount.toFixed(0)}</span>
+                    </div>
+                  )}
+                  {couponDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Coupon Discount</span>
+                      <span>-₹{couponDiscount.toFixed(0)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-sm">

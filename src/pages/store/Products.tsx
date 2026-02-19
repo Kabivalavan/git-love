@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useOffers } from '@/hooks/useOffers';
 import { ShimmerProductGrid } from '@/components/ui/shimmer';
 import { SEOHead } from '@/components/seo/SEOHead';
 import type { Product, Category } from '@/types/database';
@@ -30,6 +31,7 @@ export default function ProductsPage() {
   const [showInStock, setShowInStock] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { getProductOffer } = useOffers();
 
   const searchQuery = searchParams.get('search') || '';
   const categorySlug = searchParams.get('category') || '';
@@ -349,6 +351,7 @@ export default function ProductsPage() {
                     key={product.id}
                     product={product}
                     onAddToCart={handleAddToCart}
+                    productOffer={getProductOffer(product)}
                   />
                 ))}
               </div>
@@ -360,6 +363,7 @@ export default function ProductsPage() {
                     product={product}
                     variant="horizontal"
                     onAddToCart={handleAddToCart}
+                    productOffer={getProductOffer(product)}
                   />
                 ))}
               </div>

@@ -31,15 +31,12 @@ function OfferTimer({ endDate }: { endDate: string }) {
     const calc = () => {
       const diff = new Date(endDate).getTime() - Date.now();
       if (diff <= 0) { setTimeLeft('Expired'); return; }
-      const h = Math.floor(diff / 3600000);
+      const totalH = Math.floor(diff / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
       const s = Math.floor((diff % 60000) / 1000);
-      if (h > 24) {
-        const d = Math.floor(h / 24);
-        setTimeLeft(`${d}d ${h % 24}h`);
-      } else {
-        setTimeLeft(`${h}h ${m}m ${s}s`);
-      }
+      setTimeLeft(
+        `${String(totalH).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+      );
     };
     calc();
     const interval = setInterval(calc, 1000);
@@ -49,8 +46,8 @@ function OfferTimer({ endDate }: { endDate: string }) {
   if (!timeLeft || timeLeft === 'Expired') return null;
 
   return (
-    <div className="flex items-center gap-1 bg-destructive/90 text-destructive-foreground text-[9px] px-1.5 py-0.5 rounded font-medium">
-      <Clock className="h-2.5 w-2.5" />
+    <div className="flex items-center gap-1 bg-destructive text-destructive-foreground text-[10px] px-2 py-0.5 rounded font-bold animate-pulse">
+      <Clock className="h-3 w-3" />
       {timeLeft}
     </div>
   );

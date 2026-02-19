@@ -1,6 +1,6 @@
 import { useEffect, useState, memo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown } from 'lucide-react';
+import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ProductCard } from '@/components/storefront/ProductCard';
@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { useOffers } from '@/hooks/useOffers';
 import { Shimmer } from '@/components/ui/shimmer';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { ContentSections, type ContentSection } from '@/components/product/ContentSections';
@@ -55,6 +56,25 @@ function FAQAccordionItem({ title, children, defaultOpen = false }: { title: str
   );
 }
 
+function OfferCountdown({ endDate }: { endDate: string }) {
+  const [timeLeft, setTimeLeft] = useState('');
+  useEffect(() => {
+    const calc = () => {
+      const diff = new Date(endDate).getTime() - Date.now();
+      if (diff <= 0) { setTimeLeft('Expired'); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+    };
+    calc();
+    const interval = setInterval(calc, 1000);
+    return () => clearInterval(interval);
+  }, [endDate]);
+  if (!timeLeft || timeLeft === 'Expired') return null;
+  return <span>{timeLeft}</span>;
+}
+
 export default function ProductDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -72,6 +92,7 @@ export default function ProductDetailPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { trackEvent } = useAnalytics();
+  const { getProductOffer } = useOffers();
 
   useEffect(() => {
     if (slug) fetchProduct();
@@ -276,9 +297,17 @@ export default function ProductDetailPage() {
   const currentPrice = selectedVariant?.price || product.price;
   const currentMrp = selectedVariant?.mrp || product.mrp;
   const currentStock = selectedVariant?.stock_quantity ?? product.stock_quantity;
-  const discount = currentMrp && currentMrp > currentPrice
-    ? Math.round(((currentMrp - currentPrice) / currentMrp) * 100)
-    : 0;
+
+  // Get offer for this product
+  const productOffer = getProductOffer(product);
+  const offerPrice = productOffer?.discountedPrice;
+  const displayPrice = offerPrice ?? currentPrice;
+  const showOfferDiscount = productOffer && productOffer.discountAmount > 0;
+  const discount = showOfferDiscount
+    ? Math.round(((currentPrice - displayPrice) / currentPrice) * 100)
+    : currentMrp && currentMrp > currentPrice
+      ? Math.round(((currentMrp - currentPrice) / currentMrp) * 100)
+      : 0;
 
   const avgRating = reviews.length > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length)
@@ -398,14 +427,41 @@ export default function ProductDetailPage() {
 
             {/* Price */}
             <div className="flex items-baseline gap-3 flex-wrap">
-              <span className="text-2xl md:text-3xl font-bold text-foreground">₹{Number(currentPrice).toFixed(0)}</span>
-              {currentMrp && currentMrp > currentPrice && (
+              <span className="text-2xl md:text-3xl font-bold text-foreground">₹{Number(displayPrice).toFixed(0)}</span>
+              {showOfferDiscount && (
+                <>
+                  <span className="text-lg md:text-xl text-muted-foreground line-through">₹{Number(currentPrice).toFixed(0)}</span>
+                  <Badge variant="destructive" className="animate-pulse">{productOffer.discountLabel}</Badge>
+                </>
+              )}
+              {!showOfferDiscount && currentMrp && currentMrp > currentPrice && (
                 <>
                   <span className="text-lg md:text-xl text-muted-foreground line-through">₹{Number(currentMrp).toFixed(0)}</span>
                   <Badge variant="destructive">{discount}% OFF</Badge>
                 </>
               )}
             </div>
+
+            {/* Offer Timer */}
+            {productOffer?.offer?.end_date && (productOffer.offer as any).show_timer && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-destructive text-destructive-foreground text-sm px-3 py-1 rounded font-bold animate-pulse">
+                  <Clock className="h-4 w-4" />
+                  <OfferCountdown endDate={productOffer.offer.end_date} />
+                </div>
+                <span className="text-sm text-muted-foreground">Offer ends soon!</span>
+              </div>
+            )}
+
+            {/* Offer name */}
+            {productOffer && (
+              <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                <p className="text-sm font-medium text-green-700 dark:text-green-400">{productOffer.offer.name}</p>
+                {productOffer.offer.description && (
+                  <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">{productOffer.offer.description}</p>
+                )}
+              </div>
+            )}
 
             {/* Variants */}
             {variants.length > 0 && (

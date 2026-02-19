@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useRazorpay } from '@/hooks/useRazorpay';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { useOffers } from '@/hooks/useOffers';
 import type { Address, CartItem, Product, PaymentMethod, CheckoutSettings } from '@/types/database';
 
 interface CartItemWithProduct extends CartItem {
@@ -50,6 +51,7 @@ export default function CheckoutPage() {
   const { user, profile } = useAuth();
   const { initiatePayment, isLoading: isPaymentLoading } = useRazorpay();
   const { trackEvent } = useAnalytics();
+  const { calculateCartDiscount } = useOffers();
   const navigate = useNavigate();
 
   const isBlocked = profile?.is_blocked === true;
@@ -160,10 +162,13 @@ export default function CheckoutPage() {
       const orderNumber = orderNumberData || `ORD${Date.now()}`;
 
       const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+      const orderOfferDiscount = calculateCartDiscount(
+        cartItems.map(item => ({ product: item.product, quantity: item.quantity }))
+      );
       const freeThreshold = checkoutSettings.free_shipping_threshold;
       const defaultShipping = checkoutSettings.default_shipping_charge;
       const shippingCharge = (freeThreshold > 0 && subtotal >= freeThreshold) ? 0 : defaultShipping;
-      const total = subtotal + shippingCharge;
+      const total = subtotal - orderOfferDiscount.totalDiscount + shippingCharge;
 
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -174,7 +179,7 @@ export default function CheckoutPage() {
           payment_status: 'pending',
           payment_method: paymentMethod,
           subtotal,
-          discount: 0,
+          discount: orderOfferDiscount.totalDiscount,
           tax: 0,
           shipping_charge: shippingCharge,
           total,
@@ -333,10 +338,13 @@ export default function CheckoutPage() {
   }
 
   const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  const offerDiscount = calculateCartDiscount(
+    cartItems.map(item => ({ product: item.product, quantity: item.quantity }))
+  );
   const freeThreshold = checkoutSettings.free_shipping_threshold;
   const defaultShipping = checkoutSettings.default_shipping_charge;
   const shippingCharge = (freeThreshold > 0 && subtotal >= freeThreshold) ? 0 : defaultShipping;
-  const total = subtotal + shippingCharge;
+  const total = subtotal - offerDiscount.totalDiscount + shippingCharge;
 
   return (
     <StorefrontLayout>
@@ -494,6 +502,12 @@ export default function CheckoutPage() {
                     <span className="text-muted-foreground">Subtotal</span>
                     <span>₹{subtotal.toFixed(0)}</span>
                   </div>
+                  {offerDiscount.totalDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Offer Discount</span>
+                      <span>-₹{offerDiscount.totalDiscount.toFixed(0)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Shipping</span>
                     <span>{shippingCharge === 0 ? 'Free' : `₹${shippingCharge}`}</span>
