@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Filter, Grid, List, SlidersHorizontal, X } from 'lucide-react';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ProductCard } from '@/components/storefront/ProductCard';
@@ -38,13 +38,36 @@ export default function ProductsPage() {
   const isFeatured = searchParams.get('featured') === 'true';
   const isBestseller = searchParams.get('bestseller') === 'true';
 
+  const [subCategories, setSubCategories] = useState<Category[]>([]);
+
   useEffect(() => {
     fetchCategories();
   }, []);
 
   useEffect(() => {
+    if (categories.length === 0) return; // Wait for categories to load
     fetchProducts();
-  }, [searchParams, sortBy, priceRange, selectedCategories, showInStock]);
+  }, [searchParams, sortBy, priceRange, selectedCategories, showInStock, categories]);
+
+  // Fetch sub-categories when a category is selected
+  useEffect(() => {
+    if (categorySlug && categories.length > 0) {
+      const parentCat = categories.find(c => c.slug === categorySlug);
+      if (parentCat) {
+        supabase
+          .from('categories')
+          .select('*')
+          .eq('is_active', true)
+          .eq('parent_id', parentCat.id)
+          .order('sort_order')
+          .then(({ data }) => setSubCategories((data || []) as Category[]));
+      } else {
+        setSubCategories([]);
+      }
+    } else {
+      setSubCategories([]);
+    }
+  }, [categorySlug, categories]);
 
   const fetchCategories = async () => {
     const { data } = await supabase.from('categories').select('*').eq('is_active', true).order('sort_order');
@@ -290,6 +313,30 @@ export default function ProductsPage() {
             </div>
           </div>
         </div>
+
+        {/* Sub-categories */}
+        {categorySlug && subCategories.length > 0 && (
+          <div className="flex flex-wrap gap-3 mb-6">
+            {subCategories.map((sub) => (
+              <Link
+                key={sub.id}
+                to={`/products?category=${sub.slug}`}
+                className="group text-center"
+              >
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all duration-300 mx-auto group-hover:shadow-md">
+                  {sub.image_url ? (
+                    <img src={sub.image_url} alt={sub.name} className="w-full h-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+                      <span className="text-sm font-bold text-primary">{sub.name.charAt(0)}</span>
+                    </div>
+                  )}
+                </div>
+                <p className="mt-1.5 text-[10px] sm:text-xs font-medium text-foreground group-hover:text-primary transition-colors truncate max-w-[5rem]">{sub.name}</p>
+              </Link>
+            ))}
+          </div>
+        )}
 
         {/* Active filters */}
         {(selectedCategories.length > 0 || searchQuery || categorySlug) && (

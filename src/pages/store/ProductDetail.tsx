@@ -512,16 +512,16 @@ export default function ProductDetailPage() {
             <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 size="lg"
-                className="flex-1"
+                className="flex-1 h-12 text-base"
                 onClick={handleAddToCart}
                 disabled={isAddingToCart || currentStock === 0}
                 data-action="add-to-cart"
                 data-product-id={product.id}
               >
-                {isAddingToCart ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShoppingCart className="h-4 w-4 mr-2" />}
+                {isAddingToCart ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <ShoppingCart className="h-5 w-5 mr-2" />}
                 {currentStock === 0 ? 'Out of Stock' : 'Add to Cart'}
               </Button>
-              <Button size="lg" variant="secondary" className="flex-1" onClick={handleBuyNow} disabled={currentStock === 0}>
+              <Button size="lg" variant="outline" className="flex-1 h-12 text-base font-semibold border-2" onClick={handleBuyNow} disabled={currentStock === 0}>
                 Buy Now
               </Button>
             </div>
