@@ -44,6 +44,7 @@ export default function ProductsPage() {
   const isBestseller = searchParams.get('bestseller') === 'true';
 
   const [subCategories, setSubCategories] = useState<Category[]>([]);
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
@@ -51,15 +52,20 @@ export default function ProductsPage() {
     fetchCategories();
   }, []);
 
-  // Reset page when filters change
+  // Reset page and sub-category when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchParams, sortBy, priceRange, selectedCategories, showInStock]);
+  }, [searchParams, sortBy, priceRange, selectedCategories, showInStock, selectedSubCategory]);
+
+  // Reset sub-category when category changes
+  useEffect(() => {
+    setSelectedSubCategory(null);
+  }, [categorySlug]);
 
   useEffect(() => {
     if (categories.length === 0) return;
     fetchProducts();
-  }, [searchParams, sortBy, priceRange, selectedCategories, showInStock, categories, currentPage]);
+  }, [searchParams, sortBy, priceRange, selectedCategories, showInStock, categories, currentPage, selectedSubCategory]);
 
   // Fetch sub-categories when a category is selected
   useEffect(() => {
@@ -102,9 +108,15 @@ export default function ProductsPage() {
       query = query.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
     }
 
-    if (categorySlug) {
+    if (selectedSubCategory) {
+      query = query.eq('category_id', selectedSubCategory);
+    } else if (categorySlug) {
       const category = categories.find(c => c.slug === categorySlug);
-      if (category) query = query.eq('category_id', category.id);
+      if (category) {
+        // Include parent category and all its children
+        const childIds = categories.filter(c => c.parent_id === category.id).map(c => c.id);
+        query = query.in('category_id', [category.id, ...childIds]);
+      }
     }
 
     if (selectedCategories.length > 0) {
@@ -335,24 +347,27 @@ export default function ProductsPage() {
         {/* Sub-categories */}
         {categorySlug && subCategories.length > 0 && (
           <div className="flex flex-wrap gap-3 mb-6">
-            {subCategories.map((sub) => (
-              <Link
-                key={sub.id}
-                to={`/products?category=${sub.slug}`}
-                className="group text-center"
-              >
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all duration-300 mx-auto group-hover:shadow-md">
-                  {sub.image_url ? (
-                    <img src={sub.image_url} alt={sub.name} className="w-full h-full object-cover" loading="lazy" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-                      <span className="text-sm font-bold text-primary">{sub.name.charAt(0)}</span>
-                    </div>
-                  )}
-                </div>
-                <p className="mt-1.5 text-[10px] sm:text-xs font-medium text-foreground group-hover:text-primary transition-colors truncate max-w-[5rem]">{sub.name}</p>
-              </Link>
-            ))}
+            {subCategories.map((sub) => {
+              const isSelected = selectedSubCategory === sub.id;
+              return (
+                <button
+                  key={sub.id}
+                  onClick={() => setSelectedSubCategory(isSelected ? null : sub.id)}
+                  className="group text-center"
+                >
+                  <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-muted border-2 transition-all duration-300 mx-auto ${isSelected ? 'border-primary ring-2 ring-primary/30 shadow-lg' : 'border-transparent group-hover:border-primary group-hover:shadow-md'}`}>
+                    {sub.image_url ? (
+                      <img src={sub.image_url} alt={sub.name} className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+                        <span className="text-sm font-bold text-primary">{sub.name.charAt(0)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className={`mt-1.5 text-[10px] sm:text-xs font-medium transition-colors truncate max-w-[5rem] ${isSelected ? 'text-primary font-semibold' : 'text-foreground group-hover:text-primary'}`}>{sub.name}</p>
+                </button>
+              );
+            })}
           </div>
         )}
 
