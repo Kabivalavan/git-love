@@ -1235,6 +1235,7 @@ export type Database = {
         | "utilities"
         | "software"
         | "other"
+        | "purchase"
       offer_type: "percentage" | "flat" | "buy_x_get_y"
       order_status:
         | "new"
@@ -1399,6 +1400,7 @@ export const Constants = {
         "utilities",
         "software",
         "other",
+        "purchase",
       ],
       offer_type: ["percentage", "flat", "buy_x_get_y"],
       order_status: [
