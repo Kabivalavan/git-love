@@ -39,7 +39,7 @@ function FullPageShimmer() {
   return (
     <StorefrontLayout>
       <div className="min-h-screen">
-        <Skeleton className="w-full aspect-[3/1] md:aspect-[3/1]" />
+        <Skeleton className="w-full aspect-[16/9] lg:aspect-[1920/900]" />
         <div className="py-4 bg-muted">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -194,11 +194,28 @@ export default function HomePage() {
       {/* Hero Banner Slider */}
       {banners.length > 0 && (
         <section className="relative">
-          <div className="relative overflow-hidden aspect-[3/1] md:aspect-[3/1]">
+          <div className="relative overflow-hidden aspect-[16/9] sm:aspect-[16/9] md:aspect-[16/9] lg:aspect-[1920/900]">
             {banners.map((banner, index) => (
               <div key={banner.id} className={`absolute inset-0 transition-all duration-700 ${index === currentBanner ? 'opacity-100 z-10 scale-100' : 'opacity-0 z-0 scale-105'}`}>
                 <Link to={banner.redirect_url || '/products'}>
-                  <img src={banner.media_url} alt={banner.title} className="w-full h-full object-cover" />
+                  {/* Mobile image */}
+                  <img
+                    src={banner.media_url_mobile || banner.media_url}
+                    alt={banner.title}
+                    className="w-full h-full object-cover block sm:hidden"
+                  />
+                  {/* Tablet image */}
+                  <img
+                    src={banner.media_url_tablet || banner.media_url}
+                    alt={banner.title}
+                    className="w-full h-full object-cover hidden sm:block lg:hidden"
+                  />
+                  {/* Desktop image */}
+                  <img
+                    src={banner.media_url}
+                    alt={banner.title}
+                    className="w-full h-full object-cover hidden lg:block"
+                  />
                 </Link>
               </div>
             ))}
