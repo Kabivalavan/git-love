@@ -295,7 +295,6 @@ export default function ProductDetailPage() {
   const images = product.images || [];
   const currentImage = images[currentImageIndex]?.image_url || '/placeholder.svg';
   const currentPrice = selectedVariant?.price || product.price;
-  const currentMrp = selectedVariant?.mrp || product.mrp;
   const currentStock = selectedVariant?.stock_quantity ?? product.stock_quantity;
 
   // Get offer for this product
@@ -305,9 +304,7 @@ export default function ProductDetailPage() {
   const showOfferDiscount = productOffer && productOffer.discountAmount > 0;
   const discount = showOfferDiscount
     ? Math.round(((currentPrice - displayPrice) / currentPrice) * 100)
-    : currentMrp && currentMrp > currentPrice
-      ? Math.round(((currentMrp - currentPrice) / currentMrp) * 100)
-      : 0;
+    : 0;
 
   const avgRating = reviews.length > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length)
@@ -369,8 +366,8 @@ export default function ProductDetailPage() {
         </nav>
 
         <div className="grid md:grid-cols-2 gap-4 md:gap-8 mb-8 md:mb-12">
-          {/* Images */}
-          <div className="space-y-3 min-w-0">
+          {/* Images - sticky on desktop */}
+          <div className="space-y-3 min-w-0 md:self-start md:sticky md:top-20">
             <div className="relative aspect-square bg-muted rounded-lg overflow-hidden w-full">
               <img src={currentImage} alt={product.name} className="w-full h-full object-contain" />
               {images.length > 1 && (
@@ -402,7 +399,7 @@ export default function ProductDetailPage() {
             )}
           </div>
 
-          {/* Product Info */}
+          {/* Product Info - scrollable right side on desktop */}
           <div className="space-y-4 md:space-y-6 min-w-0">
             <div>
               {product.badge && <Badge className="mb-2">{product.badge}</Badge>}
@@ -434,12 +431,7 @@ export default function ProductDetailPage() {
                   <Badge variant="destructive" className="animate-pulse">{productOffer.discountLabel}</Badge>
                 </>
               )}
-              {!showOfferDiscount && currentMrp && currentMrp > currentPrice && (
-                <>
-                  <span className="text-lg md:text-xl text-muted-foreground line-through">₹{Number(currentMrp).toFixed(0)}</span>
-                  <Badge variant="destructive">{discount}% OFF</Badge>
-                </>
-              )}
+              <span className="text-xs text-muted-foreground">(Tax Inclusive)</span>
             </div>
 
             {/* Offer Timer */}
@@ -558,17 +550,17 @@ export default function ProductDetailPage() {
                 <p className="text-[10px] md:text-xs font-medium">Easy Returns</p>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Product Details Sections */}
-        <div className="space-y-4 mb-8 md:mb-12">
-          {product.description && (
-            <FAQAccordionItem title="Product Description" defaultOpen>
-              <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">{product.description}</div>
-            </FAQAccordionItem>
-          )}
-          {contentSections.length > 0 && <ContentSections sections={contentSections} />}
+            {/* Product Details Sections - inside right column on desktop */}
+            <div className="space-y-3">
+              {product.description && (
+                <FAQAccordionItem title="Product Description">
+                  <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">{product.description}</div>
+                </FAQAccordionItem>
+              )}
+              {contentSections.length > 0 && <ContentSections sections={contentSections} />}
+            </div>
+          </div>
         </div>
 
         {/* Reviews Section */}

@@ -1,7 +1,8 @@
 import { memo, useState, useRef, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
-import { Play, Pause } from 'lucide-react';
+import { Play, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export interface ContentSection {
   type: 'rich_text' | 'faq' | 'size_guide' | 'ingredients' | 'before_after' | 'spotlight' | 'video';
@@ -19,6 +20,38 @@ export interface ContentSection {
 
 interface ContentSectionsProps {
   sections: ContentSection[];
+}
+
+function CollapsibleSection({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-between w-full px-4 py-3 text-left font-semibold text-foreground hover:bg-muted/50 transition-colors"
+      >
+        <span className="text-base">{title}</span>
+        <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+        </motion.div>
+      </button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0, 0, 0.2, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-1">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 const BeforeAfterSlider = memo(function BeforeAfterSlider({ before, after, title }: { before: string; after: string; title: string }) {
@@ -75,7 +108,6 @@ const BeforeAfterSlider = memo(function BeforeAfterSlider({ before, after, title
 const VideoEmbed = memo(function VideoEmbed({ url, thumbnail }: { url: string; thumbnail?: string }) {
   const [playing, setPlaying] = useState(false);
 
-  // Convert YouTube URLs to embed
   const getEmbedUrl = (u: string) => {
     const ytMatch = u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
     if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`;
@@ -116,27 +148,45 @@ export const ContentSections = memo(function ContentSections({ sections }: Conte
   if (enabled.length === 0) return null;
 
   return (
-    <div className="space-y-8">
-      {enabled.map((section, i) => (
-        <div key={i}>
-          {i > 0 && <Separator className="mb-8" />}
-          <div>
-            <h2 className="text-lg md:text-xl font-bold text-foreground mb-4">
-              {section.title}
-            </h2>
-
-            {section.type === 'faq' && section.items ? (
+    <div className="space-y-3">
+      {enabled.map((section, i) => {
+        // Video and before_after don't collapse well, keep them open
+        if (section.type === 'video' && section.video_url) {
+          return (
+            <CollapsibleSection key={i} title={section.title}>
+              <VideoEmbed url={section.video_url} thumbnail={section.video_thumbnail} />
+            </CollapsibleSection>
+          );
+        }
+        if (section.type === 'before_after' && section.before_image && section.after_image) {
+          return (
+            <CollapsibleSection key={i} title={section.title}>
+              <BeforeAfterSlider before={section.before_image} after={section.after_image} title={section.title} />
+            </CollapsibleSection>
+          );
+        }
+        if (section.type === 'faq' && section.items) {
+          return (
+            <CollapsibleSection key={i} title={section.title}>
               <div className="space-y-4">
                 {section.items.map((item, j) => (
-                  <div key={j}>
-                    <p className="font-semibold text-sm text-foreground mb-1">{item.q}</p>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{item.a}</p>
+                  <div key={j} className="flex gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">
+                      {j + 1}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-sm text-foreground mb-1">{item.q}</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{item.a}</p>
+                    </div>
                   </div>
                 ))}
               </div>
-            ) : section.type === 'before_after' && section.before_image && section.after_image ? (
-              <BeforeAfterSlider before={section.before_image} after={section.after_image} title={section.title} />
-            ) : section.type === 'spotlight' && section.spotlights && section.spotlights.length > 0 ? (
+            </CollapsibleSection>
+          );
+        }
+        if (section.type === 'spotlight' && section.spotlights && section.spotlights.length > 0) {
+          return (
+            <CollapsibleSection key={i} title={section.title}>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {section.spotlights.map((item, j) => (
                   <div key={j} className="border border-border rounded-xl overflow-hidden bg-card">
@@ -152,16 +202,18 @@ export const ContentSections = memo(function ContentSections({ sections }: Conte
                   </div>
                 ))}
               </div>
-            ) : section.type === 'video' && section.video_url ? (
-              <VideoEmbed url={section.video_url} thumbnail={section.video_thumbnail} />
-            ) : (
-              <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap text-sm leading-relaxed">
-                {section.content || 'No content available.'}
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
+            </CollapsibleSection>
+          );
+        }
+        // Default: rich_text, size_guide, ingredients
+        return (
+          <CollapsibleSection key={i} title={section.title}>
+            <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap text-sm leading-relaxed">
+              {section.content || 'No content available.'}
+            </div>
+          </CollapsibleSection>
+        );
+      })}
     </div>
   );
 });
