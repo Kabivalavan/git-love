@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useRazorpay } from '@/hooks/useRazorpay';
+import { useAnalytics } from '@/hooks/useAnalytics';
 import type { Address, CartItem, Product, PaymentMethod, CheckoutSettings } from '@/types/database';
 
 interface CartItemWithProduct extends CartItem {
@@ -48,6 +49,7 @@ export default function CheckoutPage() {
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const { initiatePayment, isLoading: isPaymentLoading } = useRazorpay();
+  const { trackEvent } = useAnalytics();
   const navigate = useNavigate();
 
   const isBlocked = profile?.is_blocked === true;
@@ -60,11 +62,23 @@ export default function CheckoutPage() {
     }
   }, [user]);
 
+  // Track checkout_started when cart items load
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+      trackEvent('checkout_started', {
+        metadata: {
+          cart_value: subtotal,
+          items_count: cartItems.length,
+        },
+      });
+    }
+  }, [cartItems.length > 0]);
+
   const fetchData = async () => {
     if (!user) return;
     setIsLoading(true);
 
-    // Fetch cart
     const { data: cart } = await supabase.from('cart').select('id').eq('user_id', user.id).single();
     if (cart) {
       const { data: items } = await supabase
@@ -74,7 +88,6 @@ export default function CheckoutPage() {
       setCartItems((items || []) as CartItemWithProduct[]);
     }
 
-    // Fetch addresses
     const { data: addressesData } = await supabase
       .from('addresses')
       .select('*')
@@ -86,7 +99,6 @@ export default function CheckoutPage() {
       setSelectedAddress(addressList.find(a => a.is_default)?.id || addressList[0].id);
     }
 
-    // Fetch checkout settings
     const { data: settingsData } = await supabase
       .from('store_settings')
       .select('value')
@@ -95,7 +107,6 @@ export default function CheckoutPage() {
     if (settingsData?.value) {
       const cs = settingsData.value as unknown as CheckoutSettings;
       setCheckoutSettings(cs);
-      // If COD is disabled and current method is cod, switch to online
       if (!cs.cod_enabled && paymentMethod === 'cod') {
         setPaymentMethod('online');
       }
@@ -145,7 +156,6 @@ export default function CheckoutPage() {
     setIsPlacingOrder(true);
 
     try {
-      // Generate order number
       const { data: orderNumberData } = await supabase.rpc('generate_order_number');
       const orderNumber = orderNumberData || `ORD${Date.now()}`;
 
@@ -155,7 +165,6 @@ export default function CheckoutPage() {
       const shippingCharge = (freeThreshold > 0 && subtotal >= freeThreshold) ? 0 : defaultShipping;
       const total = subtotal + shippingCharge;
 
-      // Create order with pending payment status
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -185,7 +194,6 @@ export default function CheckoutPage() {
 
       if (orderError) throw orderError;
 
-      // Create order items
       const orderItems = cartItems.map(item => ({
         order_id: order.id,
         product_id: item.product_id,
@@ -199,7 +207,6 @@ export default function CheckoutPage() {
 
       await supabase.from('order_items').insert(orderItems);
 
-      // Create delivery record
       await supabase.from('deliveries').insert({
         order_id: order.id,
         status: 'pending',
@@ -208,9 +215,7 @@ export default function CheckoutPage() {
         delivery_charge: shippingCharge,
       });
 
-      // Handle payment based on method
       if (paymentMethod === 'cod') {
-        // Create COD payment record
         await supabase.from('payments').insert({
           order_id: order.id,
           amount: total,
@@ -218,10 +223,19 @@ export default function CheckoutPage() {
           status: 'pending',
         });
 
-        // Clear cart and redirect
+        // Track order completed
+        trackEvent('order_completed', {
+          metadata: {
+            order_id: order.id,
+            order_number: orderNumber,
+            total_amount: total,
+            payment_mode: 'cod',
+            items_count: cartItems.length,
+          },
+        });
+
         await clearCartAndRedirect(orderNumber);
       } else if (paymentMethod === 'online') {
-        // Initiate Razorpay payment
         initiatePayment({
           amount: total,
           orderId: order.id,
@@ -230,15 +244,27 @@ export default function CheckoutPage() {
           customerEmail: user.email || undefined,
           customerPhone: address.mobile_number,
           onSuccess: async () => {
+            trackEvent('order_completed', {
+              metadata: {
+                order_id: order.id,
+                order_number: orderNumber,
+                total_amount: total,
+                payment_mode: 'online',
+                items_count: cartItems.length,
+              },
+            });
             await clearCartAndRedirect(orderNumber);
           },
           onFailure: async (error) => {
-            // Update order status to payment failed
             await supabase
               .from('orders')
               .update({ payment_status: 'failed' })
               .eq('id', order.id);
             
+            trackEvent('payment_failed', {
+              metadata: { order_id: order.id, error: error || 'unknown' },
+            });
+
             toast({ 
               title: 'Payment Failed', 
               description: error || 'Please try again or choose a different payment method', 
@@ -247,7 +273,7 @@ export default function CheckoutPage() {
             setIsPlacingOrder(false);
           },
         });
-        return; // Don't reset isPlacingOrder yet - wait for payment result
+        return;
       }
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'Failed to place order', variant: 'destructive' });
@@ -256,7 +282,6 @@ export default function CheckoutPage() {
   };
 
   const clearCartAndRedirect = async (orderNumber: string) => {
-    // Auto-create/update customer profile if not exists
     const { data: existingProfile } = await supabase
       .from('profiles')
       .select('id')
@@ -275,7 +300,6 @@ export default function CheckoutPage() {
       }
     }
 
-    // Clear cart
     const { data: cart } = await supabase.from('cart').select('id').eq('user_id', user!.id).single();
     if (cart) {
       await supabase.from('cart_items').delete().eq('cart_id', cart.id);
@@ -293,35 +317,10 @@ export default function CheckoutPage() {
           <Skeleton className="h-8 w-40 mb-6" />
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardHeader>
-                  <Skeleton className="h-6 w-40" />
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Skeleton className="h-20 w-full" />
-                  <Skeleton className="h-20 w-full" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <Skeleton className="h-6 w-40" />
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="h-16 w-full" />
-                </CardContent>
-              </Card>
+              <Card><CardHeader><Skeleton className="h-6 w-40" /></CardHeader><CardContent className="space-y-3"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></CardContent></Card>
+              <Card><CardHeader><Skeleton className="h-6 w-40" /></CardHeader><CardContent className="space-y-3"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></CardContent></Card>
             </div>
-            <Card>
-              <CardHeader>
-                <Skeleton className="h-6 w-32" />
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </CardContent>
-            </Card>
+            <Card><CardHeader><Skeleton className="h-6 w-32" /></CardHeader><CardContent className="space-y-4"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-full" /><Skeleton className="h-10 w-full" /></CardContent></Card>
           </div>
         </div>
       </StorefrontLayout>
@@ -368,74 +367,41 @@ export default function CheckoutPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label>Full Name *</Label>
-                          <Input
-                            value={newAddress.full_name}
-                            onChange={(e) => setNewAddress({ ...newAddress, full_name: e.target.value })}
-                          />
+                          <Input value={newAddress.full_name} onChange={(e) => setNewAddress({ ...newAddress, full_name: e.target.value })} />
                         </div>
                         <div>
                           <Label>Mobile Number *</Label>
-                          <Input
-                            value={newAddress.mobile_number}
-                            onChange={(e) => setNewAddress({ ...newAddress, mobile_number: e.target.value })}
-                          />
+                          <Input value={newAddress.mobile_number} onChange={(e) => setNewAddress({ ...newAddress, mobile_number: e.target.value })} />
                         </div>
                       </div>
                       <div>
                         <Label>Address Line 1 *</Label>
-                        <Input
-                          value={newAddress.address_line1}
-                          onChange={(e) => setNewAddress({ ...newAddress, address_line1: e.target.value })}
-                        />
+                        <Input value={newAddress.address_line1} onChange={(e) => setNewAddress({ ...newAddress, address_line1: e.target.value })} />
                       </div>
                       <div>
                         <Label>Address Line 2</Label>
-                        <Input
-                          value={newAddress.address_line2}
-                          onChange={(e) => setNewAddress({ ...newAddress, address_line2: e.target.value })}
-                        />
+                        <Input value={newAddress.address_line2} onChange={(e) => setNewAddress({ ...newAddress, address_line2: e.target.value })} />
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         <div>
                           <Label>City *</Label>
-                          <Input
-                            value={newAddress.city}
-                            onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
-                          />
+                          <Input value={newAddress.city} onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })} />
                         </div>
                         <div>
                           <Label>State *</Label>
-                          <Input
-                            value={newAddress.state}
-                            onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
-                          />
+                          <Input value={newAddress.state} onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })} />
                         </div>
                         <div>
                           <Label>Pincode *</Label>
-                          <Input
-                            value={newAddress.pincode}
-                            onChange={(e) => setNewAddress({ ...newAddress, pincode: e.target.value })}
-                          />
+                          <Input value={newAddress.pincode} onChange={(e) => setNewAddress({ ...newAddress, pincode: e.target.value })} />
                         </div>
                       </div>
                       <div>
                         <Label>Landmark</Label>
-                        <Input
-                          value={newAddress.landmark}
-                          onChange={(e) => setNewAddress({ ...newAddress, landmark: e.target.value })}
-                        />
+                        <Input value={newAddress.landmark} onChange={(e) => setNewAddress({ ...newAddress, landmark: e.target.value })} />
                       </div>
-                      <Button 
-                        className="w-full" 
-                        onClick={handleAddAddress}
-                        disabled={isSavingAddress}
-                      >
-                        {isSavingAddress ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Saving...
-                          </>
-                        ) : 'Save Address'}
+                      <Button className="w-full" onClick={handleAddAddress} disabled={isSavingAddress}>
+                        {isSavingAddress ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>) : 'Save Address'}
                       </Button>
                     </div>
                   </DialogContent>
@@ -512,13 +478,10 @@ export default function CheckoutPage() {
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Items */}
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {cartItems.map((item) => (
                     <div key={item.id} className="flex justify-between text-sm">
-                      <span className="flex-1">
-                        {item.product.name} × {item.quantity}
-                      </span>
+                      <span className="flex-1">{item.product.name} × {item.quantity}</span>
                       <span>₹{(item.product.price * item.quantity).toFixed(0)}</span>
                     </div>
                   ))}
@@ -564,10 +527,7 @@ export default function CheckoutPage() {
                   disabled={!selectedAddress || isPlacingOrder || isBlocked || (checkoutSettings.min_order_value > 0 && subtotal < checkoutSettings.min_order_value)}
                 >
                   {isPlacingOrder ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Placing Order...
-                    </>
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Placing Order...</>
                   ) : isBlocked ? 'Account Restricted' : 'Place Order'}
                 </Button>
               </CardContent>
