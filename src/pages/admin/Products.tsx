@@ -125,10 +125,13 @@ export default function AdminProducts() {
     }
     const contentSections = (selectedProduct as any).content_sections as ContentSection[] || [];
     setFormData({ ...selectedProduct, imageUrls, productType: detectedType, contentSections, variant_required: (selectedProduct as any).variant_required || false } as any);
-    setVariantForms(existingVariants);
+    // Always ensure at least 1 variant
+    setVariantForms(existingVariants.length > 0 ? existingVariants : [{ name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0' }]);
     setIsDetailOpen(false);
     setIsFormOpen(true);
   };
+
+  const defaultVariant = (): VariantForm => ({ name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0' });
 
   const handleCreate = () => {
     setFormData({
@@ -143,7 +146,7 @@ export default function AdminProducts() {
       productType: 'general',
       contentSections: [],
     });
-    setVariantForms([]);
+    setVariantForms([defaultVariant()]);
     setSelectedProduct(null);
     setIsFormOpen(true);
   };
@@ -187,33 +190,35 @@ export default function AdminProducts() {
   };
 
   const handleSave = async () => {
-    if (!formData.name || !formData.price) {
-      toast({ title: 'Error', description: 'Name and price are required', variant: 'destructive' });
+    if (!formData.name) {
+      toast({ title: 'Error', description: 'Product name is required', variant: 'destructive' });
       return;
     }
-    // Clothing/footwear must have variants
-    if ((formData.productType === 'clothing' || formData.productType === 'footwear') && variantForms.filter(v => v.name.trim()).length === 0) {
-      toast({ title: 'Variants Required', description: 'Clothing and footwear products must have at least one variant (size)', variant: 'destructive' });
+    const filledVariants = variantForms.filter(v => v.name.trim());
+    if (filledVariants.length === 0) {
+      toast({ title: 'Variant Required', description: 'At least one variant is required. Please fill in the variant name and price.', variant: 'destructive' });
       return;
     }
 
     setIsSaving(true);
 
     const slug = formData.slug || formData.name?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    // Use first variant's price as the product base price
+    const firstVariantPrice = filledVariants[0]?.price ? parseFloat(filledVariants[0].price) : 0;
     const productData = {
       name: formData.name,
       slug,
       description: formData.description,
       short_description: formData.short_description,
       category_id: formData.category_id || null,
-      price: formData.price,
+      price: firstVariantPrice,
       mrp: null,
-      cost_price: formData.cost_price || null,
+      cost_price: null,
       sku: null,
       barcode: formData.barcode || null,
-      stock_quantity: formData.stock_quantity ?? 0,
+      stock_quantity: filledVariants.reduce((sum, v) => sum + (parseInt(v.stock_quantity) || 0), 0),
       low_stock_threshold: formData.low_stock_threshold ?? 5,
-      tax_rate: formData.tax_rate ?? 0,
+      tax_rate: 0,
       shipping_weight: formData.shipping_weight || null,
       is_active: formData.is_active ?? true,
       is_featured: formData.is_featured ?? false,
@@ -588,46 +593,19 @@ export default function AdminProducts() {
                 </div>
               </div>
               {(formData as any).variant_required && (
-                <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 p-2 rounded">
+                <p className="text-xs text-warning-foreground bg-warning/10 p-2 rounded border border-warning/20">
                   ⚠️ Customers must select a variant before adding to cart
                 </p>
               )}
             </TabsContent>
 
             <TabsContent value="pricing" className="space-y-4 mt-4">
-              {/* Base price only shown if NO variants */}
-              {variantForms.length === 0 && (
-                <>
-                  <div className="bg-muted/50 rounded-lg p-4 space-y-4">
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Base Product Pricing (used when no variants)</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="price">Selling Price (Tax Inclusive) *</Label>
-                        <Input id="price" type="number" step="0.01" value={formData.price || ''} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })} placeholder="0.00" className="h-10" />
-                        <p className="text-[10px] text-muted-foreground">This price includes all applicable taxes</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cost_price">Cost Price</Label>
-                        <Input id="cost_price" type="number" step="0.01" value={formData.cost_price || ''} onChange={(e) => setFormData({ ...formData, cost_price: parseFloat(e.target.value) || null })} placeholder="0.00" className="h-10" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="tax_rate">Tax Rate (%)</Label>
-                        <Input id="tax_rate" type="number" step="0.01" value={formData.tax_rate || 0} onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })} placeholder="0" className="h-10" />
-                      </div>
-                    </div>
-                  </div>
-                  <Separator />
-                </>
-              )}
-
-              {/* Variants Section */}
+              {/* Variants Section - always shown, always at least 1 */}
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base font-semibold">Product Variants {(formData.productType === 'clothing' || formData.productType === 'footwear') && <span className="text-destructive">*</span>}</Label>
+                  <Label className="text-base font-semibold">Product Variants <span className="text-destructive">*</span></Label>
                   <p className="text-sm text-muted-foreground">
-                    {(formData.productType === 'clothing' || formData.productType === 'footwear') 
-                      ? 'Variants are mandatory for clothing/footwear products' 
-                      : 'Add sizes, colors, or other options. Each variant has its own SP, CP, Tax & SKU.'}
+                    Add sizes, colors, or other options. Each variant has its own SP, CP, Tax & SKU.
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -647,32 +625,27 @@ export default function AdminProducts() {
                 </div>
               </div>
 
-              {variantForms.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
-                  <p className="font-medium">No variants added yet.</p>
-                  <p className="text-sm mt-1">Add variants for sizes, colors, etc. Each variant has its own pricing.</p>
-                </div>
-              ) : (
-                <>
-                  <p className="text-xs text-primary bg-primary/10 rounded px-3 py-2 font-medium">
-                    ℹ️ The first variant is auto-selected by default on the product page.
-                  </p>
-                  <div className="space-y-4">
-                    {variantForms.map((variant, index) => (
-                      <div key={index} className="border rounded-xl p-4 space-y-3 bg-muted/20">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-foreground">Variant {index + 1}{index === 0 ? ' (Default)' : ''}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive h-8 px-2"
-                            onClick={() => setVariantForms(variantForms.filter((_, i) => i !== index))}
-                          >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Remove
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
+              <p className="text-xs text-primary bg-primary/10 rounded px-3 py-2 font-medium">
+                ℹ️ The first variant is auto-selected by default on the product page.
+              </p>
+              <div className="space-y-4">
+                {variantForms.map((variant, index) => (
+                  <div key={index} className="border rounded-xl p-4 space-y-3 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-foreground">Variant {index + 1}{index === 0 ? ' (Default — auto-selected on product page)' : ''}</span>
+                      {variantForms.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive h-8 px-2"
+                          onClick={() => setVariantForms(variantForms.filter((_, i) => i !== index))}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
                             <Label className="text-sm font-medium">Variant Name *</Label>
                             <Input
@@ -762,32 +735,17 @@ export default function AdminProducts() {
                       </div>
                     ))}
                   </div>
-                </>
-              )}
             </TabsContent>
 
             <TabsContent value="inventory" className="space-y-4 mt-4">
-              {/* Total stock from variants */}
-              {variantForms.length > 0 ? (
-                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                  <p className="text-sm font-semibold text-foreground">Total Stock (from all variants)</p>
-                  <p className="text-3xl font-bold text-primary">
-                    {variantForms.reduce((sum, v) => sum + (parseInt(v.stock_quantity) || 0), 0)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Automatically calculated from variant quantities above</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="stock_quantity">Stock Quantity</Label>
-                  <Input
-                    id="stock_quantity"
-                    type="number"
-                    value={formData.stock_quantity ?? 0}
-                    onChange={(e) => setFormData({ ...formData, stock_quantity: parseInt(e.target.value) || 0 })}
-                    className="h-10"
-                  />
-                </div>
-              )}
+              {/* Total stock always from variants */}
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <p className="text-sm font-semibold text-foreground">Total Stock (from all variants)</p>
+                <p className="text-3xl font-bold text-primary">
+                  {variantForms.reduce((sum, v) => sum + (parseInt(v.stock_quantity) || 0), 0)}
+                </p>
+                <p className="text-xs text-muted-foreground">Automatically calculated from variant quantities</p>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="low_stock_threshold">Low Stock Alert Threshold</Label>
                 <Input
