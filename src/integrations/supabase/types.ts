@@ -466,6 +466,7 @@ export type Database = {
           max_discount: number | null
           min_order_value: number | null
           per_user_limit: number | null
+          show_on_storefront: boolean | null
           start_date: string | null
           type: Database["public"]["Enums"]["offer_type"]
           updated_at: string | null
@@ -483,6 +484,7 @@ export type Database = {
           max_discount?: number | null
           min_order_value?: number | null
           per_user_limit?: number | null
+          show_on_storefront?: boolean | null
           start_date?: string | null
           type: Database["public"]["Enums"]["offer_type"]
           updated_at?: string | null
@@ -500,6 +502,7 @@ export type Database = {
           max_discount?: number | null
           min_order_value?: number | null
           per_user_limit?: number | null
+          show_on_storefront?: boolean | null
           start_date?: string | null
           type?: Database["public"]["Enums"]["offer_type"]
           updated_at?: string | null

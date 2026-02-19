@@ -44,6 +44,7 @@ import TermsConditionsPage from "./pages/store/TermsConditions";
 import ContactUsPage from "./pages/store/ContactUs";
 import FAQPage from "./pages/store/FAQ";
 import WishlistPage from "./pages/store/Wishlist";
+import BundleDetailPage from "./pages/store/BundleDetail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +82,7 @@ const AppRoutes = () => (
       <Route path="/contact" element={<ContactUsPage />} />
       <Route path="/faq" element={<FAQPage />} />
       <Route path="/wishlist" element={<WishlistPage />} />
+      <Route path="/bundles/:slug" element={<BundleDetailPage />} />
       
       {/* User Account */}
       <Route path="/account" element={<AccountPage />}>

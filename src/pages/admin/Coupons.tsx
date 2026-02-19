@@ -39,6 +39,7 @@ interface Coupon {
   start_date: string | null;
   end_date: string | null;
   is_active: boolean;
+  show_on_storefront: boolean;
   created_at: string;
 }
 
@@ -138,6 +139,7 @@ export default function AdminCoupons() {
       start_date: formData.start_date,
       end_date: formData.end_date,
       is_active: formData.is_active ?? true,
+      show_on_storefront: formData.show_on_storefront ?? false,
     };
 
     if (selectedCoupon) {
@@ -402,6 +404,18 @@ export default function AdminCoupons() {
                 onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
               />
               <Label htmlFor="is_active">Active</Label>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Switch
+                id="show_on_storefront"
+                checked={formData.show_on_storefront ?? false}
+                onCheckedChange={(checked) => setFormData({ ...formData, show_on_storefront: checked })}
+              />
+              <div>
+                <Label htmlFor="show_on_storefront">Show on Product Pages</Label>
+                <p className="text-xs text-muted-foreground">Display this coupon on product detail pages for customers</p>
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-4">

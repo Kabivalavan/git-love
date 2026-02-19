@@ -1,0 +1,1 @@
+ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS show_on_storefront boolean DEFAULT false;

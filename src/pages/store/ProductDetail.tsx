@@ -1,6 +1,6 @@
 import { useEffect, useState, memo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock } from 'lucide-react';
+import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ProductCard } from '@/components/storefront/ProductCard';
@@ -89,6 +89,8 @@ export default function ProductDetailPage() {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', comment: '' });
+  const [storeCoupons, setStoreCoupons] = useState<any[]>([]);
+  const [couponsExpanded, setCouponsExpanded] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const { trackEvent } = useAnalytics();
@@ -96,7 +98,18 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (slug) fetchProduct();
+    fetchStoreCoupons();
   }, [slug]);
+
+  const fetchStoreCoupons = async () => {
+    const { data } = await supabase
+      .from('coupons')
+      .select('*')
+      .eq('is_active', true)
+      .eq('show_on_storefront', true)
+      .order('created_at', { ascending: false });
+    setStoreCoupons(data || []);
+  };
 
   const fetchProduct = async () => {
     setIsLoading(true);
@@ -540,6 +553,54 @@ export default function ProductDetailPage() {
                 Share
               </Button>
             </div>
+
+            {/* Available Coupons Section */}
+            {storeCoupons.length > 0 && (
+              <div className="border border-dashed border-primary/40 rounded-xl p-4 bg-primary/3">
+                <div className="flex items-center gap-2 mb-3">
+                  <Tag className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold text-foreground">Available Coupons</span>
+                </div>
+                <div className="space-y-2">
+                  {(couponsExpanded ? storeCoupons : storeCoupons.slice(0, 3)).map((coupon) => (
+                    <div key={coupon.id} className="flex items-center justify-between bg-background rounded-lg px-3 py-2 border border-border">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-mono font-bold text-primary text-sm bg-primary/10 px-2 py-0.5 rounded">
+                          {coupon.code}
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          {coupon.description || (coupon.type === 'percentage' ? `${coupon.value}% off` : `₹${coupon.value} off`)}
+                          {coupon.min_order_value ? ` on orders ≥₹${coupon.min_order_value}` : ''}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs flex-shrink-0"
+                        onClick={() => {
+                          navigator.clipboard.writeText(coupon.code);
+                          toast({ title: 'Copied!', description: `${coupon.code} copied to clipboard` });
+                        }}
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        Copy
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                {storeCoupons.length > 3 && (
+                  <button
+                    onClick={() => setCouponsExpanded(!couponsExpanded)}
+                    className="flex items-center gap-1 text-xs text-primary mt-2 hover:underline"
+                  >
+                    <motion.div animate={{ rotate: couponsExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </motion.div>
+                    {couponsExpanded ? 'Show less' : `Show ${storeCoupons.length - 3} more coupons`}
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Trust Badges */}
             <div className="grid grid-cols-3 gap-2 pt-2">
