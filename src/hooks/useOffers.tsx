@@ -35,10 +35,18 @@ export function useOffers() {
   const getProductOffer = useCallback((product: Product): ProductOffer | null => {
     if (!product || offers.length === 0) return null;
 
+    const now = new Date();
+    // Filter out expired offers client-side as well
+    const activeOffers = offers.filter(o => {
+      if (o.end_date && new Date(o.end_date) < now) return false;
+      if (o.start_date && new Date(o.start_date) > now) return false;
+      return true;
+    });
+
     // Find applicable offers (product-specific first, then category-specific)
-    const productOffer = offers.find(o => o.product_id === product.id);
+    const productOffer = activeOffers.find(o => o.product_id === product.id);
     const categoryOffer = product.category_id 
-      ? offers.find(o => o.category_id === product.category_id && !o.product_id)
+      ? activeOffers.find(o => o.category_id === product.category_id && !o.product_id)
       : null;
 
     const applicableOffer = productOffer || categoryOffer;
