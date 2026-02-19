@@ -9,12 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
-  ArrowLeft, Package, Truck, MapPin, CreditCard, Loader2, Download, RefreshCw, Search, MessageCircle
+  ArrowLeft, Package, Truck, MapPin, CreditCard, Loader2, Download, Search, MessageCircle
 } from 'lucide-react';
 import type { Order, OrderItem, OrderStatus, ShippingAddress, Delivery, DeliveryStatus, Payment, StoreInfo } from '@/types/database';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import jsPDF from 'jspdf';
 
 const ORDER_STATUSES: OrderStatus[] = ['new', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled', 'returned'];
@@ -54,16 +52,13 @@ export default function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [delivery, setDelivery] = useState<Delivery | null>(null);
+  const [deliveryEdit, setDeliveryEdit] = useState<Partial<Delivery>>({});
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUpdatingDelivery, setIsUpdatingDelivery] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [refundAmount, setRefundAmount] = useState('');
-  const [refundReason, setRefundReason] = useState('');
-  const [isRefunding, setIsRefunding] = useState(false);
-  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
   const [customerPhone, setCustomerPhone] = useState('');
   const { toast } = useToast();
@@ -90,7 +85,9 @@ export default function AdminOrders() {
       supabase.from('payments').select('*').eq('order_id', orderId),
     ]);
     setOrderItems((itemsRes.data || []) as unknown as OrderItem[]);
-    setDelivery(deliveryRes.data as unknown as Delivery || null);
+    const del = deliveryRes.data as unknown as Delivery || null;
+    setDelivery(del);
+    setDeliveryEdit(del ? { ...del } : {});
     setPayments((paymentsRes.data || []) as unknown as Payment[]);
   };
 
@@ -152,8 +149,23 @@ export default function AdminOrders() {
     if (!selectedOrder) return;
     setIsUpdating(true);
     const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', selectedOrder.id);
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else {
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      // Auto-create delivery record when status becomes 'packed' (if not already exists)
+      if (newStatus === 'packed' && !delivery) {
+        const { data: newDel } = await supabase.from('deliveries').insert({
+          order_id: selectedOrder.id,
+          status: 'pending',
+          is_cod: selectedOrder.payment_method === 'cod',
+          cod_amount: selectedOrder.payment_method === 'cod' ? selectedOrder.total : null,
+          delivery_charge: selectedOrder.shipping_charge || 0,
+        }).select().single();
+        if (newDel) {
+          setDelivery(newDel as unknown as Delivery);
+          setDeliveryEdit(newDel as unknown as Delivery);
+        }
+      }
       toast({ title: 'Status updated' });
       setSelectedOrder({ ...selectedOrder, status: newStatus });
       fetchOrders();
@@ -161,44 +173,35 @@ export default function AdminOrders() {
     setIsUpdating(false);
   };
 
-  const handleDeliveryUpdate = async (field: string, value: string) => {
+  const handleSaveDelivery = async () => {
     if (!delivery) return;
     setIsUpdatingDelivery(true);
-    const updateData: Record<string, any> = { [field]: value };
-    if (field === 'status' && value === 'delivered') updateData.delivered_at = new Date().toISOString();
+    const updateData = {
+      status: deliveryEdit.status,
+      partner_name: deliveryEdit.partner_name || null,
+      tracking_number: deliveryEdit.tracking_number || null,
+      tracking_url: deliveryEdit.tracking_url || null,
+      estimated_date: deliveryEdit.estimated_date || null,
+      notes: deliveryEdit.notes || null,
+      delivered_at: deliveryEdit.status === 'delivered' ? new Date().toISOString() : delivery.delivered_at,
+    };
     const { error } = await supabase.from('deliveries').update(updateData).eq('id', delivery.id);
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
     else {
-      toast({ title: 'Delivery updated' });
-      setDelivery({ ...delivery, ...updateData } as Delivery);
+      toast({ title: 'Delivery saved' });
+      const updated = { ...delivery, ...updateData } as Delivery;
+      setDelivery(updated);
+      setDeliveryEdit(updated);
     }
     setIsUpdatingDelivery(false);
   };
 
-  const handleRefund = async () => {
-    if (!selectedOrder || !refundAmount) return;
-    setIsRefunding(true);
-    const { error } = await supabase.from('payments').insert({
-      order_id: selectedOrder.id,
-      amount: -Number(refundAmount),
-      method: selectedOrder.payment_method || 'online',
-      status: 'refunded',
-      refund_amount: Number(refundAmount),
-      refund_reason: refundReason || null,
-    });
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else {
-      await supabase.from('orders').update({ payment_status: 'refunded' }).eq('id', selectedOrder.id);
-      toast({ title: 'Refund processed' });
-      setSelectedOrder({ ...selectedOrder, payment_status: 'refunded' });
-      setRefundDialogOpen(false);
-      setRefundAmount('');
-      setRefundReason('');
-      fetchOrderDetails(selectedOrder.id);
-      fetchOrders();
-    }
-    setIsRefunding(false);
+  // Keep old handleDeliveryUpdate for status select inline
+  const handleDeliveryUpdate = async (field: string, value: string) => {
+    setDeliveryEdit(prev => ({ ...prev, [field]: value }));
   };
+
+
 
   const getAddress = (): ShippingAddress | null => {
     if (!selectedOrder?.shipping_address) return null;
@@ -210,114 +213,157 @@ export default function AdminOrders() {
     const doc = new jsPDF();
     const addr = getAddress();
     const pw = doc.internal.pageSize.getWidth();
-    
-    // Border
-    doc.setDrawColor(40);
-    doc.setLineWidth(0.5);
-    doc.rect(8, 8, pw - 16, doc.internal.pageSize.getHeight() - 16);
+    const ph = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const rightEdge = pw - margin;
 
-    // Company Header
+    // Outer border
+    doc.setDrawColor(60);
+    doc.setLineWidth(0.6);
+    doc.rect(8, 8, pw - 16, ph - 16);
+
+    // === HEADER BAND ===
+    doc.setFillColor(30, 30, 30);
+    doc.rect(8, 8, pw - 16, 32, 'F');
+
+    // Company name (left)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text(storeInfo?.name || 'Company', margin + 2, 22);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    let chy = 27;
+    if (storeInfo?.address) { doc.text(storeInfo.address, margin + 2, chy); chy += 4; }
+    if (storeInfo?.contact_phone) { doc.text(`Ph: ${storeInfo.contact_phone}`, margin + 2, chy); chy += 4; }
+    if (storeInfo?.contact_email) { doc.text(`Email: ${storeInfo.contact_email}`, margin + 2, chy); }
+
+    // TAX INVOICE (right)
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text(storeInfo?.name || 'INVOICE', 15, 22);
+    doc.text('TAX INVOICE', rightEdge - 2, 22, { align: 'right' });
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
-    let hy = 28;
-    if (storeInfo?.address) { doc.text(storeInfo.address, 15, hy); hy += 4; }
-    if (storeInfo?.contact_phone) { doc.text(`Phone: ${storeInfo.contact_phone}`, 15, hy); hy += 4; }
-    if (storeInfo?.contact_email) { doc.text(`Email: ${storeInfo.contact_email}`, 15, hy); hy += 4; }
+    doc.text(`Invoice #: ${selectedOrder.order_number}`, rightEdge - 2, 28, { align: 'right' });
+    doc.text(`Date: ${new Date(selectedOrder.created_at).toLocaleDateString('en-IN')}`, rightEdge - 2, 33, { align: 'right' });
 
-    // Invoice title on right
-    doc.setFontSize(14);
+    // Reset text color
+    doc.setTextColor(0, 0, 0);
+
+    // Payment status badge area
+    const pmMethod = (selectedOrder.payment_method || 'N/A').toUpperCase();
+    const pmStatus = (selectedOrder.payment_status || '').toUpperCase();
+    doc.setFillColor(pmStatus === 'PAID' ? 34 : 220, pmStatus === 'PAID' ? 197 : 120, pmStatus === 'PAID' ? 94 : 0);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
-    doc.text('TAX INVOICE', pw - 15, 22, { align: 'right' });
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Invoice #: ${selectedOrder.order_number}`, pw - 15, 28, { align: 'right' });
-    doc.text(`Date: ${new Date(selectedOrder.created_at).toLocaleDateString('en-IN')}`, pw - 15, 33, { align: 'right' });
-    doc.text(`Payment: ${(selectedOrder.payment_method || 'N/A').toUpperCase()} - ${(selectedOrder.payment_status || '').toUpperCase()}`, pw - 15, 38, { align: 'right' });
+    doc.setTextColor(255, 255, 255);
+    const pmText = `${pmMethod} · ${pmStatus}`;
+    const pmW = doc.getTextWidth(pmText) + 6;
+    doc.rect(rightEdge - pmW - 2, 41, pmW + 4, 7, 'F');
+    doc.text(pmText, rightEdge, 46, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
 
-    // Divider
-    doc.setDrawColor(100);
+    // Divider after header
+    doc.setDrawColor(200);
     doc.setLineWidth(0.3);
-    doc.line(12, 44, pw - 12, 44);
+    doc.line(margin, 52, rightEdge, 52);
 
-    // Bill To / Ship To
+    // BILL TO
+    doc.setFillColor(248, 248, 248);
+    doc.rect(margin, 54, (pw - 28) / 2 - 2, 38, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.text('BILL TO / SHIP TO:', 15, 51);
-    doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
+    doc.setTextColor(80, 80, 80);
+    doc.text('BILL TO / SHIP TO:', margin + 3, 61);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
     if (addr) {
-      let ay = 56;
-      doc.text(addr.full_name, 15, ay); ay += 4;
-      doc.text(addr.address_line1, 15, ay); ay += 4;
-      if (addr.address_line2) { doc.text(addr.address_line2, 15, ay); ay += 4; }
-      doc.text(`${addr.city}, ${addr.state} - ${addr.pincode}`, 15, ay); ay += 4;
-      doc.text(`Phone: ${addr.mobile_number}`, 15, ay);
+      let ay = 67;
+      doc.setFont('helvetica', 'bold');
+      doc.text(addr.full_name, margin + 3, ay); ay += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.text(addr.address_line1, margin + 3, ay); ay += 4;
+      if (addr.address_line2) { doc.text(addr.address_line2, margin + 3, ay); ay += 4; }
+      doc.text(`${addr.city}, ${addr.state} - ${addr.pincode}`, margin + 3, ay); ay += 4;
+      doc.text(`Ph: ${addr.mobile_number}`, margin + 3, ay);
     }
 
-    // Items table
-    let y = 80;
-    // Table header background
-    doc.setFillColor(240, 240, 240);
-    doc.rect(12, y - 5, pw - 24, 8, 'F');
-    doc.setDrawColor(40);
-    doc.setLineWidth(0.3);
-    doc.line(12, y - 5, pw - 12, y - 5);
-    doc.line(12, y + 3, pw - 12, y + 3);
-
+    // ITEMS TABLE
+    let y = 97;
+    // Table header row
+    doc.setFillColor(30, 30, 30);
+    doc.rect(margin, y - 5, pw - 28, 9, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    const cols = [15, 25, 100, 125, 150, 175];
-    doc.text('S.No', cols[0], y);
-    doc.text('Product', cols[1], y);
-    doc.text('Variant', cols[2], y);
-    doc.text('Qty', cols[3], y);
-    doc.text('Rate', cols[4], y);
-    doc.text('Amount', cols[5], y);
-    y += 8;
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 255, 255);
+    // Columns: sno(14), product(40), variant(90), qty(130), rate(155), amount(180)
+    const C = { sno: margin + 2, prod: margin + 10, var: margin + 80, qty: margin + 118, rate: margin + 140, amt: rightEdge - 2 };
+    doc.text('S.No', C.sno, y);
+    doc.text('Product', C.prod, y);
+    doc.text('Variant', C.var, y);
+    doc.text('Qty', C.qty, y);
+    doc.text('Rate', C.rate, y);
+    doc.text('Amount', C.amt, y + 0.5, { align: 'right' });
+    y += 7;
+    doc.setTextColor(0, 0, 0);
 
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
     orderItems.forEach((item, idx) => {
-      doc.text(String(idx + 1), cols[0], y);
-      doc.text(item.product_name.substring(0, 38), cols[1], y);
-      doc.text(item.variant_name || '-', cols[2], y);
-      doc.text(String(item.quantity), cols[3], y);
-      doc.text(`Rs ${Number(item.price).toFixed(2)}`, cols[4], y);
-      doc.text(`Rs ${Number(item.total).toFixed(2)}`, cols[5], y);
-      y += 7;
-      // Row border
-      doc.setDrawColor(220);
-      doc.line(12, y - 3, pw - 12, y - 3);
+      const rowBg = idx % 2 === 0;
+      if (rowBg) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(margin, y - 5, pw - 28, 8, 'F');
+      }
+      doc.text(String(idx + 1), C.sno, y);
+      doc.text(item.product_name.substring(0, 35), C.prod, y);
+      doc.text((item.variant_name || '-').substring(0, 18), C.var, y);
+      doc.text(String(item.quantity), C.qty, y);
+      doc.text(`Rs ${Number(item.price).toFixed(2)}`, C.rate, y);
+      doc.text(`Rs ${Number(item.total).toFixed(2)}`, C.amt, y, { align: 'right' });
+      y += 8;
+      doc.setDrawColor(230);
+      doc.setLineWidth(0.2);
+      doc.line(margin, y - 3, rightEdge, y - 3);
     });
 
-    // Totals section
+    // Totals section (right-aligned box)
     y += 4;
-    doc.setDrawColor(40);
-    doc.line(cols[4] - 5, y - 2, pw - 12, y - 2);
-    y += 3;
+    const totBoxX = pw / 2 + 10;
+    const totBoxW = rightEdge - totBoxX;
+    doc.setDrawColor(180);
+    doc.setLineWidth(0.3);
+    doc.line(totBoxX, y, rightEdge, y);
+    y += 5;
     doc.setFontSize(8);
-    doc.text('Subtotal:', cols[4], y); doc.text(`Rs ${Number(selectedOrder.subtotal).toFixed(2)}`, cols[5], y); y += 6;
-    if (Number(selectedOrder.discount) > 0) {
-      doc.text('Discount:', cols[4], y); doc.text(`-Rs ${Number(selectedOrder.discount).toFixed(2)}`, cols[5], y); y += 6;
-    }
-    doc.text('Shipping:', cols[4], y); doc.text(`Rs ${Number(selectedOrder.shipping_charge).toFixed(2)}`, cols[5], y); y += 6;
-    if (Number(selectedOrder.tax) > 0) {
-      doc.text('Tax:', cols[4], y); doc.text(`Rs ${Number(selectedOrder.tax).toFixed(2)}`, cols[5], y); y += 6;
-    }
+    doc.setFont('helvetica', 'normal');
+
+    const printTotRow = (label: string, val: string, bold = false) => {
+      if (bold) { doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); } else { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); }
+      doc.text(label, totBoxX, y);
+      doc.text(val, rightEdge, y, { align: 'right' });
+      y += bold ? 0 : 6;
+    };
+
+    printTotRow('Subtotal:', `Rs ${Number(selectedOrder.subtotal).toFixed(2)}`);
+    if (Number(selectedOrder.discount) > 0) printTotRow('Discount:', `-Rs ${Number(selectedOrder.discount).toFixed(2)}`);
+    printTotRow('Shipping:', `Rs ${Number(selectedOrder.shipping_charge).toFixed(2)}`);
+    if (Number(selectedOrder.tax) > 0) printTotRow('Tax:', `Rs ${Number(selectedOrder.tax).toFixed(2)}`);
     doc.setDrawColor(40);
-    doc.line(cols[4] - 5, y - 2, pw - 12, y - 2);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('Grand Total:', cols[4], y + 2); doc.text(`Rs ${Number(selectedOrder.total).toFixed(2)}`, cols[5], y + 2);
+    doc.setLineWidth(0.5);
+    doc.line(totBoxX, y, rightEdge, y);
+    y += 5;
+    printTotRow('Grand Total:', `Rs ${Number(selectedOrder.total).toFixed(2)}`, true);
 
     // Footer
-    const footerY = doc.internal.pageSize.getHeight() - 25;
-    doc.setDrawColor(100);
-    doc.line(12, footerY, pw - 12, footerY);
-    doc.setFont('helvetica', 'normal');
+    const footerY = ph - 22;
+    doc.setDrawColor(150);
+    doc.setLineWidth(0.3);
+    doc.line(margin, footerY, rightEdge, footerY);
+    doc.setFont('helvetica', 'italic');
     doc.setFontSize(7);
+    doc.setTextColor(100, 100, 100);
     doc.text('Thank you for your purchase!', pw / 2, footerY + 6, { align: 'center' });
     doc.text(`${storeInfo?.name || ''} | ${storeInfo?.contact_email || ''} | ${storeInfo?.contact_phone || ''}`, pw / 2, footerY + 11, { align: 'center' });
 
@@ -330,6 +376,7 @@ export default function AdminOrders() {
     const addr = getAddress();
     const pw = doc.internal.pageSize.getWidth();
     const ph = doc.internal.pageSize.getHeight();
+    const margin = 8;
 
     // Border
     doc.setDrawColor(40);
@@ -343,56 +390,66 @@ export default function AdminOrders() {
 
     doc.setDrawColor(100);
     doc.setLineWidth(0.3);
-    doc.line(8, 20, pw - 8, 20);
+    doc.line(margin, 20, pw - margin, 20);
 
     // Order info row
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Order #: ${selectedOrder.order_number}`, 10, 26);
+    doc.text(`Order #: ${selectedOrder.order_number}`, margin + 2, 26);
     doc.text(`Date: ${new Date(selectedOrder.created_at).toLocaleDateString('en-IN')}`, pw / 2, 26, { align: 'center' });
-    doc.text(`Payment: ${selectedOrder.payment_method?.toUpperCase() || 'N/A'} (${selectedOrder.payment_status?.toUpperCase()})`, pw - 10, 26, { align: 'right' });
+    doc.text(`Payment: ${selectedOrder.payment_method?.toUpperCase() || 'N/A'} (${selectedOrder.payment_status?.toUpperCase()})`, pw - margin - 2, 26, { align: 'right' });
 
-    doc.line(8, 29, pw - 8, 29);
+    doc.line(margin, 29, pw - margin, 29);
 
-    // Two column: Ship To / Payment Info
+    // Two columns: DELIVER TO (left) | Company details (right)
     const colMid = pw / 2;
+
+    // LEFT: Deliver To
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.text('DELIVER TO:', 10, 35);
-
+    doc.text('DELIVER TO:', margin + 2, 36);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     if (addr) {
-      let ay = 40;
-      doc.text(addr.full_name, 10, ay); ay += 4;
-      doc.text(addr.address_line1, 10, ay); ay += 4;
-      if (addr.address_line2) { doc.text(addr.address_line2, 10, ay); ay += 4; }
-      doc.text(`${addr.city}, ${addr.state} - ${addr.pincode}`, 10, ay); ay += 4;
-      doc.text(`Phone: ${addr.mobile_number}`, 10, ay);
-      if (addr.landmark) { ay += 4; doc.text(`Landmark: ${addr.landmark}`, 10, ay); }
+      let ay = 42;
+      doc.setFont('helvetica', 'bold');
+      doc.text(addr.full_name, margin + 2, ay); ay += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.text(addr.address_line1, margin + 2, ay); ay += 4;
+      if (addr.address_line2) { doc.text(addr.address_line2, margin + 2, ay); ay += 4; }
+      doc.text(`${addr.city}, ${addr.state} - ${addr.pincode}`, margin + 2, ay); ay += 4;
+      doc.text(`Phone: ${addr.mobile_number}`, margin + 2, ay);
+      if (addr.landmark) { ay += 4; doc.text(`Landmark: ${addr.landmark}`, margin + 2, ay); }
     }
 
     // Vertical divider
     doc.setDrawColor(180);
-    doc.line(colMid, 30, colMid, 62);
+    doc.line(colMid, 30, colMid, 64);
 
-    // COD info on right
+    // RIGHT: Company / Store details
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text(storeInfo?.name || 'Company', colMid + 5, 36);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    let cy = 41;
+    if (storeInfo?.address) { doc.text(storeInfo.address, colMid + 5, cy); cy += 4; }
+    if (storeInfo?.contact_phone) { doc.text(`Ph: ${storeInfo.contact_phone}`, colMid + 5, cy); cy += 4; }
+    if (storeInfo?.contact_email) { doc.text(`Email: ${storeInfo.contact_email}`, colMid + 5, cy); cy += 4; }
+
+    // COD info below company
     if (delivery?.is_cod) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text('COD COLLECTION:', colMid + 5, 35);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.text(`Rs ${Number(delivery.cod_amount).toFixed(0)}`, colMid + 5, 42);
       doc.setFontSize(8);
-      doc.text(`Status: ${delivery.cod_collected ? 'Collected' : 'Pending'}`, colMid + 5, 48);
+      cy += 2;
+      doc.text(`COD: Rs ${Number(delivery.cod_amount).toFixed(0)} (${delivery.cod_collected ? 'Collected' : 'Pending'})`, colMid + 5, cy);
     }
 
     // Items table
-    let y = 66;
+    let y = 68;
     doc.setDrawColor(40);
     doc.setLineWidth(0.5);
-    doc.line(8, y - 2, pw - 8, y - 2);
+    doc.line(margin, y - 2, pw - margin, y - 2);
 
     // Table header
     doc.setFont('helvetica', 'bold');
@@ -405,7 +462,7 @@ export default function AdminOrders() {
     doc.text('Rate (Rs)', cols[4], y);
     doc.text('Amount (Rs)', cols[5], y);
     y += 2;
-    doc.line(8, y, pw - 8, y);
+    doc.line(margin, y, pw - margin, y);
     y += 5;
 
     // Table rows
@@ -421,7 +478,7 @@ export default function AdminOrders() {
     });
 
     // Totals
-    doc.line(8, y, pw - 8, y);
+    doc.line(margin, y, pw - margin, y);
     y += 5;
     doc.setFontSize(8);
     doc.text('Subtotal:', cols[4], y); doc.text(`Rs ${Number(selectedOrder.subtotal).toFixed(0)}`, cols[5], y); y += 5;
@@ -429,7 +486,7 @@ export default function AdminOrders() {
       doc.text('Discount:', cols[4], y); doc.text(`-Rs ${Number(selectedOrder.discount).toFixed(0)}`, cols[5], y); y += 5;
     }
     doc.text('Shipping:', cols[4], y); doc.text(`Rs ${Number(selectedOrder.shipping_charge).toFixed(0)}`, cols[5], y); y += 5;
-    doc.line(cols[4], y - 2, pw - 8, y - 2);
+    doc.line(cols[4], y - 2, pw - margin, y - 2);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.text('Grand Total:', cols[4], y + 2); doc.text(`Rs ${Number(selectedOrder.total).toFixed(0)}`, cols[5], y + 2);
@@ -438,7 +495,7 @@ export default function AdminOrders() {
     y = ph - 22;
     doc.setDrawColor(100);
     doc.setLineWidth(0.3);
-    doc.line(8, y - 4, pw - 8, y - 4);
+    doc.line(margin, y - 4, pw - margin, y - 4);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.text('Received By: ___________________', 10, y);
@@ -468,32 +525,6 @@ export default function AdminOrders() {
             <Button variant="outline" size="sm" onClick={generateChallanPDF}>
               <Download className="h-4 w-4 mr-1" /> Challan
             </Button>
-            <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="destructive" size="sm">
-                  <RefreshCw className="h-4 w-4 mr-1" /> Refund
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Process Refund</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 mt-2">
-                  <div>
-                    <Label>Refund Amount (Max: ₹{Number(selectedOrder.total).toFixed(2)})</Label>
-                    <Input type="number" value={refundAmount} onChange={e => setRefundAmount(e.target.value)} placeholder="Enter amount" max={Number(selectedOrder.total)} />
-                  </div>
-                  <div>
-                    <Label>Reason</Label>
-                    <Textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} placeholder="Refund reason" rows={3} />
-                  </div>
-                  <Button onClick={handleRefund} disabled={isRefunding || !refundAmount} className="w-full">
-                    {isRefunding ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                    Process Refund
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
         </div>
 
@@ -587,13 +618,13 @@ export default function AdminOrders() {
             {delivery && (
               <Card>
                 <CardHeader className="py-3 px-4">
-                  <CardTitle className="text-base flex items-center gap-2"><Truck className="h-4 w-4" /> Delivery</CardTitle>
+                  <CardTitle className="text-base flex items-center gap-2"><Truck className="h-4 w-4" /> Delivery Details</CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 pb-4">
+                <CardContent className="px-4 pb-4 space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <Label className="text-xs">Status</Label>
-                      <Select value={delivery.status} onValueChange={v => handleDeliveryUpdate('status', v)} disabled={isUpdatingDelivery}>
+                      <Select value={deliveryEdit.status || delivery.status} onValueChange={v => handleDeliveryUpdate('status', v)}>
                         <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {DELIVERY_STATUSES.map(s => (
@@ -603,27 +634,40 @@ export default function AdminOrders() {
                       </Select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Partner</Label>
-                      <Input className="h-9" value={delivery.partner_name || ''} onChange={e => handleDeliveryUpdate('partner_name', e.target.value)} placeholder="BlueDart, Delhivery" />
+                      <Label className="text-xs">Courier / Partner</Label>
+                      <Input className="h-9" value={deliveryEdit.partner_name || ''} onChange={e => setDeliveryEdit(p => ({ ...p, partner_name: e.target.value }))} placeholder="BlueDart, Delhivery, DTDC..." />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Tracking #</Label>
-                      <Input className="h-9" value={delivery.tracking_number || ''} onChange={e => handleDeliveryUpdate('tracking_number', e.target.value)} />
+                      <Label className="text-xs">Tracking Number</Label>
+                      <Input className="h-9" value={deliveryEdit.tracking_number || ''} onChange={e => setDeliveryEdit(p => ({ ...p, tracking_number: e.target.value }))} placeholder="AWB / Consignment #" />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Tracking URL</Label>
-                      <Input className="h-9" value={delivery.tracking_url || ''} onChange={e => handleDeliveryUpdate('tracking_url', e.target.value)} />
+                      <Input className="h-9" value={deliveryEdit.tracking_url || ''} onChange={e => setDeliveryEdit(p => ({ ...p, tracking_url: e.target.value }))} placeholder="https://..." />
+                    </div>
+                    <div className="space-y-1.5 col-span-2">
+                      <Label className="text-xs">Expected Delivery Date</Label>
+                      <Input type="datetime-local" className="h-9" value={deliveryEdit.estimated_date?.slice(0, 16) || ''} onChange={e => setDeliveryEdit(p => ({ ...p, estimated_date: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1.5 col-span-2">
+                      <Label className="text-xs">Notes</Label>
+                      <Input className="h-9" value={deliveryEdit.notes || ''} onChange={e => setDeliveryEdit(p => ({ ...p, notes: e.target.value }))} placeholder="Any delivery notes..." />
                     </div>
                   </div>
                   {delivery.is_cod && (
-                    <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-950 rounded text-xs">
-                      <span className="font-medium text-amber-800 dark:text-amber-200">COD: ₹{Number(delivery.cod_amount).toFixed(2)}</span>
-                      <span className="ml-2 text-amber-700 dark:text-amber-300">Collected: {delivery.cod_collected ? 'Yes' : 'No'}</span>
+                    <div className="p-2 bg-amber-50 dark:bg-amber-950 rounded text-xs flex items-center gap-3">
+                      <span className="font-medium text-amber-800 dark:text-amber-200">COD: ₹{Number(delivery.cod_amount).toFixed(0)}</span>
+                      <span className="text-amber-700 dark:text-amber-300">· {delivery.cod_collected ? '✓ Collected' : 'Pending collection'}</span>
                     </div>
                   )}
+                  <Button size="sm" className="w-full" onClick={handleSaveDelivery} disabled={isUpdatingDelivery}>
+                    {isUpdatingDelivery ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                    Save Delivery Details
+                  </Button>
                 </CardContent>
               </Card>
             )}
+
 
             {/* Refund history */}
             {payments.filter(p => p.status === 'refunded').length > 0 && (

@@ -5,18 +5,8 @@ import { DetailPanel, DetailField, DetailSection } from '@/components/admin/Deta
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { ExternalLink, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ExternalLink } from 'lucide-react';
 
 interface Delivery {
   id: string;
@@ -50,8 +40,6 @@ export default function AdminDeliveries() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [editData, setEditData] = useState<Partial<Delivery>>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -75,38 +63,7 @@ export default function AdminDeliveries() {
 
   const handleRowClick = (delivery: Delivery) => {
     setSelectedDelivery(delivery);
-    setEditData(delivery);
     setIsDetailOpen(true);
-  };
-
-  const handleUpdate = async () => {
-    if (!selectedDelivery) return;
-    setIsUpdating(true);
-
-    const updateData = {
-      status: editData.status as 'pending' | 'assigned' | 'picked' | 'in_transit' | 'delivered' | 'failed',
-      partner_name: editData.partner_name,
-      tracking_number: editData.tracking_number,
-      tracking_url: editData.tracking_url,
-      estimated_date: editData.estimated_date,
-      delivered_at: editData.status === 'delivered' ? new Date().toISOString() : editData.delivered_at,
-      cod_collected: editData.cod_collected,
-      notes: editData.notes,
-    };
-
-    const { error } = await supabase
-      .from('deliveries')
-      .update(updateData)
-      .eq('id', selectedDelivery.id);
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Success', description: 'Delivery updated successfully' });
-      fetchDeliveries();
-      setSelectedDelivery({ ...selectedDelivery, ...updateData } as Delivery);
-    }
-    setIsUpdating(false);
   };
 
   const getStatusColor = (status: string) => {
@@ -150,8 +107,13 @@ export default function AdminDeliveries() {
   return (
     <AdminLayout
       title="Deliveries"
-      description="Track and manage order deliveries"
+      description="View delivery records — manage delivery details from inside each Order"
     >
+      <div className="mb-3 flex items-center gap-2 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground border">
+        <Info className="h-4 w-4 shrink-0" />
+        <span>Delivery records are created automatically when an order is marked as <strong>Packed</strong>. To update courier, tracking ID, and expected delivery — open the order and use the Delivery Details section.</span>
+      </div>
+
       <DataTable<Delivery>
         columns={columns}
         data={deliveries}
@@ -174,106 +136,46 @@ export default function AdminDeliveries() {
         {selectedDelivery && (
           <div className="space-y-6">
             <DetailSection title="Status">
-              <div className="col-span-2 space-y-2">
-                <Label>Delivery Status</Label>
-                <Select
-                  value={editData.status || selectedDelivery.status}
-                  onValueChange={(value) => setEditData({ ...editData, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DELIVERY_STATUSES.map((status) => (
-                      <SelectItem key={status.value} value={status.value}>
-                        {status.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <DetailField label="Delivery Status" value={
+                DELIVERY_STATUSES.find(s => s.value === selectedDelivery.status)?.label || selectedDelivery.status
+              } />
             </DetailSection>
 
             <DetailSection title="Shipping Partner">
-              <div className="space-y-2">
-                <Label>Partner Name</Label>
-                <Input
-                  value={editData.partner_name || ''}
-                  onChange={(e) => setEditData({ ...editData, partner_name: e.target.value })}
-                  placeholder="e.g., BlueDart, Delhivery"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Tracking Number</Label>
-                <Input
-                  value={editData.tracking_number || ''}
-                  onChange={(e) => setEditData({ ...editData, tracking_number: e.target.value })}
-                />
-              </div>
+              <DetailField label="Partner Name" value={selectedDelivery.partner_name || '—'} />
+              <DetailField label="Tracking Number" value={selectedDelivery.tracking_number || '—'} />
             </DetailSection>
 
-            <div className="space-y-2">
-              <Label>Tracking URL</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={editData.tracking_url || ''}
-                  onChange={(e) => setEditData({ ...editData, tracking_url: e.target.value })}
-                  placeholder="https://..."
-                  className="flex-1"
-                />
-                {editData.tracking_url && (
-                  <Button variant="outline" size="icon" asChild>
-                    <a href={editData.tracking_url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </Button>
-                )}
+            {selectedDelivery.tracking_url && (
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Tracking URL</p>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={selectedDelivery.tracking_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
+                    <ExternalLink className="h-3.5 w-3.5" /> Open Tracking
+                  </a>
+                </Button>
               </div>
-            </div>
+            )}
 
-            <div className="space-y-2">
-              <Label>Estimated Delivery Date</Label>
-              <Input
-                type="datetime-local"
-                value={editData.estimated_date?.slice(0, 16) || ''}
-                onChange={(e) => setEditData({ ...editData, estimated_date: e.target.value })}
-              />
-            </div>
+            <DetailSection title="Dates">
+              <DetailField label="Estimated Delivery" value={selectedDelivery.estimated_date ? new Date(selectedDelivery.estimated_date).toLocaleString() : '—'} />
+              <DetailField label="Delivered At" value={selectedDelivery.delivered_at ? new Date(selectedDelivery.delivered_at).toLocaleString() : '—'} />
+              <DetailField label="Created" value={new Date(selectedDelivery.created_at).toLocaleString()} />
+            </DetailSection>
 
             {selectedDelivery.is_cod && (
               <DetailSection title="COD Details">
                 <DetailField label="COD Amount" value={`₹${selectedDelivery.cod_amount}`} />
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="cod_collected"
-                    checked={editData.cod_collected}
-                    onChange={(e) => setEditData({ ...editData, cod_collected: e.target.checked })}
-                    className="h-4 w-4 rounded border-border"
-                  />
-                  <Label htmlFor="cod_collected">COD Collected</Label>
-                </div>
+                <DetailField label="Collected" value={selectedDelivery.cod_collected ? 'Yes ✓' : 'No'} />
               </DetailSection>
             )}
 
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                rows={3}
-                value={editData.notes || ''}
-                onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
-                placeholder="Add delivery notes..."
-              />
-            </div>
-
-            <DetailSection title="Timestamps">
-              <DetailField label="Created" value={new Date(selectedDelivery.created_at).toLocaleString()} />
-              <DetailField label="Delivered At" value={selectedDelivery.delivered_at ? new Date(selectedDelivery.delivered_at).toLocaleString() : '-'} />
-            </DetailSection>
-
-            <Button onClick={handleUpdate} disabled={isUpdating} className="w-full">
-              {isUpdating ? 'Updating...' : 'Update Delivery'}
-            </Button>
+            {selectedDelivery.notes && (
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Notes</p>
+                <p className="text-sm">{selectedDelivery.notes}</p>
+              </div>
+            )}
           </div>
         )}
       </DetailPanel>
