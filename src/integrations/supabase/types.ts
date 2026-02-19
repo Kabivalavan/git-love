@@ -162,6 +162,8 @@ export type Database = {
           id: string
           is_active: boolean | null
           media_url: string
+          media_url_mobile: string | null
+          media_url_tablet: string | null
           position: Database["public"]["Enums"]["banner_position"]
           redirect_url: string | null
           show_on_desktop: boolean | null
@@ -178,6 +180,8 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           media_url: string
+          media_url_mobile?: string | null
+          media_url_tablet?: string | null
           position: Database["public"]["Enums"]["banner_position"]
           redirect_url?: string | null
           show_on_desktop?: boolean | null
@@ -194,6 +198,8 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           media_url?: string
+          media_url_mobile?: string | null
+          media_url_tablet?: string | null
           position?: Database["public"]["Enums"]["banner_position"]
           redirect_url?: string | null
           show_on_desktop?: boolean | null

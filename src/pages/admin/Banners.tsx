@@ -31,6 +31,8 @@ interface Banner {
   position: string;
   type: string;
   media_url: string;
+  media_url_tablet: string | null;
+  media_url_mobile: string | null;
   redirect_url: string | null;
   start_date: string | null;
   end_date: string | null;
@@ -137,6 +139,8 @@ export default function AdminBanners() {
       position: (formData.position || 'home_top') as 'home_top' | 'home_middle' | 'category' | 'offer' | 'popup',
       type: (formData.type || 'image') as 'image' | 'video',
       media_url: formData.media_url,
+      media_url_tablet: formData.media_url_tablet || null,
+      media_url_mobile: formData.media_url_mobile || null,
       redirect_url: formData.redirect_url,
       start_date: formData.start_date,
       end_date: formData.end_date,
@@ -263,14 +267,40 @@ export default function AdminBanners() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Banner Image *</Label>
+              <Label>Desktop Banner *</Label>
+              <p className="text-xs text-muted-foreground">Recommended: 1920 × 900 px</p>
               <ImageUpload
                 bucket="banners"
                 value={formData.media_url}
                 onChange={(url) => setFormData({ ...formData, media_url: url || '' })}
                 aspectRatio="banner"
-                placeholder="Upload banner image (recommended: 1920x640)"
+                placeholder="Upload desktop banner (1920 × 900 px)"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tablet Banner <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                <p className="text-xs text-muted-foreground">Recommended: 1024 × 600 px</p>
+                <ImageUpload
+                  bucket="banners"
+                  value={formData.media_url_tablet || undefined}
+                  onChange={(url) => setFormData({ ...formData, media_url_tablet: url || null })}
+                  aspectRatio="video"
+                  placeholder="Upload tablet banner (1024 × 600 px)"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Mobile Banner <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                <p className="text-xs text-muted-foreground">Recommended: 768 × 900 px</p>
+                <ImageUpload
+                  bucket="banners"
+                  value={formData.media_url_mobile || undefined}
+                  onChange={(url) => setFormData({ ...formData, media_url_mobile: url || null })}
+                  aspectRatio="square"
+                  placeholder="Upload mobile banner (768 × 900 px)"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

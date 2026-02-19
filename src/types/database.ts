@@ -105,6 +105,8 @@ export interface Banner {
   position: BannerPosition;
   type: BannerType;
   media_url: string;
+  media_url_tablet: string | null;
+  media_url_mobile: string | null;
   redirect_url: string | null;
   start_date: string | null;
   end_date: string | null;
