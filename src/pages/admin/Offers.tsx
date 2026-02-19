@@ -45,9 +45,7 @@ interface Offer {
 }
 
 const OFFER_TYPES = [
-  { value: 'percentage', label: 'Percentage Off' },
   { value: 'flat', label: 'Flat Discount' },
-  { value: 'buy_x_get_y', label: 'Buy X Get Y' },
 ];
 
 export default function AdminOffers() {
@@ -79,7 +77,21 @@ export default function AdminOffers() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      setOffers((data || []) as Offer[]);
+      const now = new Date().toISOString();
+      const allOffers = (data || []) as Offer[];
+      
+      // Auto-deactivate expired offers
+      const expired = allOffers.filter(o => o.is_active && o.end_date && o.end_date < now);
+      if (expired.length > 0) {
+        await Promise.all(expired.map(o =>
+          supabase.from('offers').update({ is_active: false }).eq('id', o.id)
+        ));
+        allOffers.forEach(o => {
+          if (o.is_active && o.end_date && o.end_date < now) o.is_active = false;
+        });
+      }
+      
+      setOffers(allOffers);
     }
     setIsLoading(false);
   };
