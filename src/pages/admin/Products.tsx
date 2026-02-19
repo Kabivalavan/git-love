@@ -330,7 +330,10 @@ export default function AdminProducts() {
 
   const filteredProducts = selectedCategoryFilter === 'all'
     ? products
-    : products.filter(p => p.category_id === selectedCategoryFilter);
+    : products.filter(p => {
+        const childIds = categories.filter(c => c.parent_id === selectedCategoryFilter).map(c => c.id);
+        return p.category_id === selectedCategoryFilter || childIds.includes(p.category_id || '');
+      });
 
   return (
     <AdminLayout
@@ -343,8 +346,8 @@ export default function AdminProducts() {
         </Button>
       }
     >
-      {/* Category filter chips */}
-      {categories.length > 0 && (
+      {/* Category filter chips - only show parent categories */}
+      {categories.filter(c => !c.parent_id).length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           <button
             onClick={() => setSelectedCategoryFilter('all')}
@@ -357,8 +360,10 @@ export default function AdminProducts() {
           >
             All ({products.length})
           </button>
-          {categories.map((cat) => {
-            const count = products.filter(p => p.category_id === cat.id).length;
+          {categories.filter(c => !c.parent_id).map((cat) => {
+            // Count products in this parent category and all its children
+            const childIds = categories.filter(c => c.parent_id === cat.id).map(c => c.id);
+            const count = products.filter(p => p.category_id === cat.id || childIds.includes(p.category_id || '')).length;
             return (
               <button
                 key={cat.id}
@@ -590,23 +595,30 @@ export default function AdminProducts() {
             </TabsContent>
 
             <TabsContent value="pricing" className="space-y-4 mt-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Selling Price (Tax Inclusive) *</Label>
-                  <Input id="price" type="number" step="0.01" value={formData.price || ''} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })} placeholder="0.00" />
-                  <p className="text-[10px] text-muted-foreground">This price includes all applicable taxes</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cost_price">Cost Price</Label>
-                  <Input id="cost_price" type="number" step="0.01" value={formData.cost_price || ''} onChange={(e) => setFormData({ ...formData, cost_price: parseFloat(e.target.value) || null })} placeholder="0.00" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tax_rate">Tax Rate (%)</Label>
-                  <Input id="tax_rate" type="number" step="0.01" value={formData.tax_rate || 0} onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })} placeholder="0" />
-                </div>
-              </div>
-
-              <Separator />
+              {/* Base price only shown if NO variants */}
+              {variantForms.length === 0 && (
+                <>
+                  <div className="bg-muted/50 rounded-lg p-4 space-y-4">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Base Product Pricing (used when no variants)</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="price">Selling Price (Tax Inclusive) *</Label>
+                        <Input id="price" type="number" step="0.01" value={formData.price || ''} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })} placeholder="0.00" className="h-10" />
+                        <p className="text-[10px] text-muted-foreground">This price includes all applicable taxes</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cost_price">Cost Price</Label>
+                        <Input id="cost_price" type="number" step="0.01" value={formData.cost_price || ''} onChange={(e) => setFormData({ ...formData, cost_price: parseFloat(e.target.value) || null })} placeholder="0.00" className="h-10" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="tax_rate">Tax Rate (%)</Label>
+                        <Input id="tax_rate" type="number" step="0.01" value={formData.tax_rate || 0} onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })} placeholder="0" className="h-10" />
+                      </div>
+                    </div>
+                  </div>
+                  <Separator />
+                </>
+              )}
 
               {/* Variants Section */}
               <div className="flex items-center justify-between">
@@ -636,103 +648,180 @@ export default function AdminProducts() {
               </div>
 
               {variantForms.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground border rounded-lg">
-                  <p>No variants added yet.</p>
-                  <p className="text-sm">Add variants for sizes, colors, etc.</p>
+                <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
+                  <p className="font-medium">No variants added yet.</p>
+                  <p className="text-sm mt-1">Add variants for sizes, colors, etc. Each variant has its own pricing.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {variantForms.map((variant, index) => (
-                    <div key={index} className="grid grid-cols-7 gap-2 items-end p-3 border rounded-lg">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Variant Name *</Label>
-                        <Input
-                          value={variant.name}
-                          onChange={(e) => {
-                            const updated = [...variantForms];
-                            updated[index].name = e.target.value;
-                            setVariantForms(updated);
-                          }}
-                          placeholder="e.g., L, Red"
-                          className="h-8"
-                        />
+                <>
+                  <p className="text-xs text-primary bg-primary/10 rounded px-3 py-2 font-medium">
+                    ℹ️ The first variant is auto-selected by default on the product page.
+                  </p>
+                  <div className="space-y-4">
+                    {variantForms.map((variant, index) => (
+                      <div key={index} className="border rounded-xl p-4 space-y-3 bg-muted/20">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-foreground">Variant {index + 1}{index === 0 ? ' (Default)' : ''}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive h-8 px-2"
+                            onClick={() => setVariantForms(variantForms.filter((_, i) => i !== index))}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Remove
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-sm font-medium">Variant Name *</Label>
+                            <Input
+                              value={variant.name}
+                              onChange={(e) => {
+                                const updated = [...variantForms];
+                                updated[index].name = e.target.value;
+                                setVariantForms(updated);
+                              }}
+                              placeholder="e.g., L, Red, 500ml"
+                              className="h-10"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-sm font-medium">SKU</Label>
+                            <Input
+                              value={variant.sku}
+                              onChange={(e) => {
+                                const updated = [...variantForms];
+                                updated[index].sku = e.target.value;
+                                setVariantForms(updated);
+                              }}
+                              placeholder="SKU-001"
+                              className="h-10"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-sm font-medium">Selling Price (₹) *</Label>
+                            <Input
+                              type="number"
+                              value={variant.price}
+                              onChange={(e) => {
+                                const updated = [...variantForms];
+                                updated[index].price = e.target.value;
+                                setVariantForms(updated);
+                              }}
+                              placeholder="0.00"
+                              className="h-10"
+                            />
+                            <p className="text-[10px] text-muted-foreground">Tax inclusive</p>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-sm font-medium">Cost Price (₹)</Label>
+                            <Input
+                              type="number"
+                              value={variant.cost_price}
+                              onChange={(e) => {
+                                const updated = [...variantForms];
+                                updated[index].cost_price = e.target.value;
+                                setVariantForms(updated);
+                              }}
+                              placeholder="0.00"
+                              className="h-10"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-sm font-medium">Tax Rate (%)</Label>
+                            <Input
+                              type="number"
+                              value={variant.tax_rate}
+                              onChange={(e) => {
+                                const updated = [...variantForms];
+                                updated[index].tax_rate = e.target.value;
+                                setVariantForms(updated);
+                              }}
+                              placeholder="0"
+                              className="h-10"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-sm font-medium">Stock Qty</Label>
+                            <Input
+                              type="number"
+                              value={variant.stock_quantity}
+                              onChange={(e) => {
+                                const updated = [...variantForms];
+                                updated[index].stock_quantity = e.target.value;
+                                setVariantForms(updated);
+                              }}
+                              placeholder="0"
+                              className="h-10"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">SKU</Label>
-                        <Input
-                          value={variant.sku}
-                          onChange={(e) => {
-                            const updated = [...variantForms];
-                            updated[index].sku = e.target.value;
-                            setVariantForms(updated);
-                          }}
-                          className="h-8"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Selling Price</Label>
-                        <Input
-                          type="number"
-                          value={variant.price}
-                          onChange={(e) => {
-                            const updated = [...variantForms];
-                            updated[index].price = e.target.value;
-                            setVariantForms(updated);
-                          }}
-                          className="h-8"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Cost Price</Label>
-                        <Input
-                          type="number"
-                          value={variant.cost_price}
-                          onChange={(e) => {
-                            const updated = [...variantForms];
-                            updated[index].cost_price = e.target.value;
-                            setVariantForms(updated);
-                          }}
-                          className="h-8"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Tax %</Label>
-                        <Input
-                          type="number"
-                          value={variant.tax_rate}
-                          onChange={(e) => {
-                            const updated = [...variantForms];
-                            updated[index].tax_rate = e.target.value;
-                            setVariantForms(updated);
-                          }}
-                          className="h-8"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Stock</Label>
-                        <Input
-                          type="number"
-                          value={variant.stock_quantity}
-                          onChange={(e) => {
-                            const updated = [...variantForms];
-                            updated[index].stock_quantity = e.target.value;
-                            setVariantForms(updated);
-                          }}
-                          className="h-8"
-                        />
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => setVariantForms(variantForms.filter((_, i) => i !== index))}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent value="inventory" className="space-y-4 mt-4">
+              {/* Total stock from variants */}
+              {variantForms.length > 0 ? (
+                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                  <p className="text-sm font-semibold text-foreground">Total Stock (from all variants)</p>
+                  <p className="text-3xl font-bold text-primary">
+                    {variantForms.reduce((sum, v) => sum + (parseInt(v.stock_quantity) || 0), 0)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Automatically calculated from variant quantities above</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="stock_quantity">Stock Quantity</Label>
+                  <Input
+                    id="stock_quantity"
+                    type="number"
+                    value={formData.stock_quantity ?? 0}
+                    onChange={(e) => setFormData({ ...formData, stock_quantity: parseInt(e.target.value) || 0 })}
+                    className="h-10"
+                  />
                 </div>
               )}
+              <div className="space-y-2">
+                <Label htmlFor="low_stock_threshold">Low Stock Alert Threshold</Label>
+                <Input
+                  id="low_stock_threshold"
+                  type="number"
+                  value={formData.low_stock_threshold ?? 5}
+                  onChange={(e) => setFormData({ ...formData, low_stock_threshold: parseInt(e.target.value) || 5 })}
+                  className="h-10"
+                  placeholder="5"
+                />
+                <p className="text-xs text-muted-foreground">You'll be alerted when stock falls below this number</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="shipping_weight">Shipping Weight (kg)</Label>
+                <Input
+                  id="shipping_weight"
+                  type="number"
+                  step="0.01"
+                  value={formData.shipping_weight || ''}
+                  onChange={(e) => setFormData({ ...formData, shipping_weight: parseFloat(e.target.value) || null })}
+                  className="h-10"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="barcode">Barcode</Label>
+                <Input
+                  id="barcode"
+                  value={formData.barcode || ''}
+                  onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                  className="h-10"
+                  placeholder="Barcode / EAN"
+                />
+              </div>
             </TabsContent>
 
             <TabsContent value="images" className="space-y-4 mt-4">

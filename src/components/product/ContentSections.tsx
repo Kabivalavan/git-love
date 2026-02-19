@@ -160,9 +160,12 @@ export const ContentSections = memo(function ContentSections({ sections }: Conte
         }
         if (section.type === 'before_after' && section.before_image && section.after_image) {
           return (
-            <CollapsibleSection key={i} title={section.title}>
-              <BeforeAfterSlider before={section.before_image} after={section.after_image} title={section.title} />
-            </CollapsibleSection>
+            <div key={i} className="border rounded-lg overflow-hidden">
+              <div className="px-4 py-3 font-semibold text-foreground bg-muted/30 border-b">{section.title}</div>
+              <div className="p-4">
+                <BeforeAfterSlider before={section.before_image} after={section.after_image} title={section.title} />
+              </div>
+            </div>
           );
         }
         if (section.type === 'faq' && section.items) {
@@ -186,23 +189,26 @@ export const ContentSections = memo(function ContentSections({ sections }: Conte
         }
         if (section.type === 'spotlight' && section.spotlights && section.spotlights.length > 0) {
           return (
-            <CollapsibleSection key={i} title={section.title}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {section.spotlights.map((item, j) => (
-                  <div key={j} className="border border-border rounded-xl overflow-hidden bg-card">
-                    {item.image_url && (
-                      <div className="aspect-square bg-muted">
-                        <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
+            <div key={i} className="border rounded-lg overflow-hidden">
+              <div className="px-4 py-3 font-semibold text-foreground bg-muted/30 border-b">{section.title}</div>
+              <div className="p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {section.spotlights.map((item, j) => (
+                    <div key={j} className="border border-border rounded-xl overflow-hidden bg-card">
+                      {item.image_url && (
+                        <div className="aspect-square bg-muted">
+                          <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
+                        </div>
+                      )}
+                      <div className="p-4">
+                        <h3 className="font-semibold text-foreground text-sm">{item.name}</h3>
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{item.description}</p>
                       </div>
-                    )}
-                    <div className="p-4">
-                      <h3 className="font-semibold text-foreground text-sm">{item.name}</h3>
-                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{item.description}</p>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </CollapsibleSection>
+            </div>
           );
         }
         // Default: rich_text, size_guide, ingredients

@@ -197,11 +197,11 @@ export default function ProductsPage() {
 
   const FilterContent = () => (
     <div className="space-y-6">
-      {/* Categories */}
+      {/* Categories - only show parent categories */}
       <div>
         <h3 className="font-semibold mb-3">Categories</h3>
         <div className="space-y-2">
-          {categories.map((cat) => (
+          {categories.filter(c => !c.parent_id).map((cat) => (
             <div key={cat.id} className="flex items-center gap-2">
               <Checkbox
                 id={cat.id}
