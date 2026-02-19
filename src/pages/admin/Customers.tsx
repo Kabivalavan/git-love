@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, ShoppingCart, DollarSign, MessageCircle, LayoutGrid, List, UserPlus, Clock } from 'lucide-react';
+import { Users, ShoppingCart, DollarSign, MessageCircle, LayoutGrid, List, UserPlus, Filter, MapPin } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Shimmer } from '@/components/ui/shimmer';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const VIEW_MODE_KEY = 'admin-customers-view-mode';
 
@@ -35,11 +36,13 @@ export default function AdminCustomers() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [customerCart, setCustomerCart] = useState<any[]>([]);
+  const [customerAddresses, setCustomerAddresses] = useState<any[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [stats, setStats] = useState({ total: 0, active: 0, blocked: 0, todayCount: 0 });
   const [storeName, setStoreName] = useState('Our Store');
   const [viewMode, setViewMode] = useState<string>(() => localStorage.getItem(VIEW_MODE_KEY) || 'list');
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -103,25 +106,40 @@ export default function AdminCustomers() {
   const handleRowClick = async (customer: Customer) => {
     setSelectedCustomer(customer);
     setIsDetailOpen(true);
+    setCustomerCart([]);
+    setCustomerAddresses([]);
+    setCustomerOrders([]);
 
-    const { data } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('user_id', customer.user_id)
-      .order('created_at', { ascending: false })
-      .limit(10);
-    setCustomerOrders(data || []);
+    // Fetch orders, cart, and addresses in parallel
+    const [ordersRes, cartRes, addressesRes] = await Promise.all([
+      supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', customer.user_id)
+        .order('created_at', { ascending: false })
+        .limit(10),
+      supabase
+        .from('cart')
+        .select('id')
+        .eq('user_id', customer.user_id)
+        .maybeSingle(),
+      supabase
+        .from('addresses')
+        .select('*')
+        .eq('user_id', customer.user_id)
+        .order('is_default', { ascending: false }),
+    ]);
 
-    // Fetch cart with proper joins
-    const { data: cart } = await supabase.from('cart').select('id').eq('user_id', customer.user_id).single();
-    if (cart) {
+    setCustomerOrders(ordersRes.data || []);
+    setCustomerAddresses(addressesRes.data || []);
+
+    // Fetch cart items if cart exists
+    if (cartRes.data?.id) {
       const { data: items } = await supabase
         .from('cart_items')
-        .select('*, product:products(name, price, images:product_images(image_url, is_primary))')
-        .eq('cart_id', cart.id);
+        .select('id, quantity, product_id, products(name, price, images:product_images(image_url, is_primary))')
+        .eq('cart_id', cartRes.data.id);
       setCustomerCart(items || []);
-    } else {
-      setCustomerCart([]);
     }
   };
 
@@ -132,8 +150,8 @@ export default function AdminCustomers() {
   };
 
   const getAbandonedCartMsg = (customer: Customer) => {
-    const items = customerCart.map((i: any) => i.product?.name).filter(Boolean).join(', ');
-    const totalPrice = customerCart.reduce((sum: number, i: any) => sum + (Number(i.product?.price || 0) * i.quantity), 0);
+    const items = customerCart.map((i: any) => i.products?.name).filter(Boolean).join(', ');
+    const totalPrice = customerCart.reduce((sum: number, i: any) => sum + (Number(i.products?.price || 0) * i.quantity), 0);
     return `Hi ${customer.full_name || 'there'} 👋\nYou left something awesome in your cart 🛒\n\n🛍 ${items || 'Your items'}\n💰 Price: Rs ${totalPrice.toFixed(0)}\n\nComplete your order now before it goes out of stock 👇\n\n– ${storeName}`;
   };
 
@@ -164,6 +182,15 @@ export default function AdminCustomers() {
   };
 
   const filteredCustomers = customers.filter(c => {
+    // Status filter
+    if (statusFilter === 'active' && c.is_blocked) return false;
+    if (statusFilter === 'blocked' && !c.is_blocked) return false;
+    if (statusFilter === 'today') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (new Date(c.created_at) < today) return false;
+    }
+    // Search filter
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (c.full_name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.mobile_number?.includes(q));
@@ -209,19 +236,13 @@ export default function AdminCustomers() {
     },
   ];
 
-  const todayCustomers = customers.filter(c => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return new Date(c.created_at) >= today;
-  });
-
   return (
     <AdminLayout
       title="Customers"
       description="View and manage customer accounts"
     >
       <div className="space-y-6">
-        {/* Today's Snapshot */}
+        {/* Today's Snapshot - simple count only */}
         {stats.todayCount > 0 && (
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="py-3 px-4">
@@ -229,23 +250,12 @@ export default function AdminCustomers() {
                 <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
                   <UserPlus className="h-4 w-4 text-primary" />
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold">{stats.todayCount} new customer{stats.todayCount > 1 ? 's' : ''} today</p>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {todayCustomers.slice(0, 5).map(c => (
-                      <Badge key={c.id} variant="secondary" className="text-xs cursor-pointer" onClick={() => handleRowClick(c)}>
-                        {c.full_name || c.mobile_number || 'Unknown'}
-                      </Badge>
-                    ))}
-                    {todayCustomers.length > 5 && (
-                      <Badge variant="outline" className="text-xs">+{todayCustomers.length - 5} more</Badge>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  Today
-                </div>
+                <p className="text-sm font-semibold flex-1">
+                  {stats.todayCount} new customer{stats.todayCount > 1 ? 's' : ''} today
+                </p>
+                <Button variant="ghost" size="sm" className="text-xs" onClick={() => setStatusFilter('today')}>
+                  View
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -253,7 +263,7 @@ export default function AdminCustomers() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
+          <Card className="cursor-pointer hover:shadow-sm transition-shadow" onClick={() => setStatusFilter('all')}>
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Customers</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -262,7 +272,7 @@ export default function AdminCustomers() {
               <p className="text-2xl font-bold">{stats.total}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="cursor-pointer hover:shadow-sm transition-shadow" onClick={() => setStatusFilter('active')}>
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-medium text-muted-foreground">Active</CardTitle>
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
@@ -271,7 +281,7 @@ export default function AdminCustomers() {
               <p className="text-2xl font-bold text-green-600">{stats.active}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="cursor-pointer hover:shadow-sm transition-shadow" onClick={() => setStatusFilter('blocked')}>
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-medium text-muted-foreground">Blocked</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -282,9 +292,9 @@ export default function AdminCustomers() {
           </Card>
         </div>
 
-        {/* View toggle + search */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1">
+        {/* View toggle + search + filter */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
             <input
               type="text"
               placeholder="Search customers..."
@@ -292,6 +302,18 @@ export default function AdminCustomers() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full max-w-sm px-3 py-2 text-sm border rounded-md bg-background"
             />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px]">
+                <Filter className="h-3 w-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="blocked">Blocked</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v)}>
             <ToggleGroupItem value="list" aria-label="List view">
@@ -404,6 +426,33 @@ export default function AdminCustomers() {
               <DetailField label="Total Spent" value={`₹${(selectedCustomer.total_spent || 0).toFixed(2)}`} />
             </DetailSection>
 
+            {/* Shipping Addresses */}
+            {customerAddresses.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  <MapPin className="h-4 w-4" /> Shipping Addresses ({customerAddresses.length})
+                </h3>
+                <div className="space-y-2">
+                  {customerAddresses.map((addr: any) => (
+                    <div key={addr.id} className="p-3 bg-muted/50 rounded-lg text-sm">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium">{addr.full_name}</span>
+                        {addr.label && <Badge variant="outline" className="text-[10px]">{addr.label}</Badge>}
+                        {addr.is_default && <Badge variant="secondary" className="text-[10px]">Default</Badge>}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {addr.address_line1}{addr.address_line2 ? `, ${addr.address_line2}` : ''}{addr.landmark ? ` (${addr.landmark})` : ''}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {addr.city}, {addr.state} – {addr.pincode}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{addr.mobile_number}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
               <div>
                 <Label className="text-sm font-medium">Block Customer</Label>
@@ -424,15 +473,16 @@ export default function AdminCustomers() {
                 </h3>
                 <div className="space-y-2">
                   {customerCart.map((item: any) => {
-                    const imgUrl = item.product?.images?.find((img: any) => img.is_primary)?.image_url || item.product?.images?.[0]?.image_url;
+                    const product = item.products;
+                    const imgUrl = product?.images?.find((img: any) => img.is_primary)?.image_url || product?.images?.[0]?.image_url;
                     return (
                       <div key={item.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
                         {imgUrl && (
                           <img src={imgUrl} alt="" className="h-10 w-10 rounded object-cover" />
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{item.product?.name || 'Unknown'}</p>
-                          <p className="text-xs text-muted-foreground">Qty: {item.quantity} · Rs {Number(item.product?.price || 0).toFixed(0)}</p>
+                          <p className="font-medium text-sm truncate">{product?.name || 'Unknown'}</p>
+                          <p className="text-xs text-muted-foreground">Qty: {item.quantity} · ₹{Number(product?.price || 0).toFixed(0)}</p>
                         </div>
                       </div>
                     );
@@ -481,7 +531,7 @@ export default function AdminCustomers() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">Rs {Number(order.total).toFixed(0)}</p>
+                        <p className="font-medium">₹{Number(order.total).toFixed(0)}</p>
                         <Badge variant="secondary" className="text-xs">{order.status}</Badge>
                       </div>
                     </div>
