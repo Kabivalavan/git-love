@@ -46,8 +46,6 @@ interface Banner {
 const POSITIONS = [
   { value: 'home_top', label: 'Home Top Slider' },
   { value: 'home_middle', label: 'Home Middle' },
-  { value: 'category', label: 'Category Page' },
-  { value: 'offer', label: 'Offer Banner' },
   { value: 'popup', label: 'Popup (1 only, shows after 4s)' },
 ];
 
@@ -76,7 +74,22 @@ export default function AdminBanners() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      setBanners((data || []) as Banner[]);
+      const now = new Date().toISOString();
+      const allBanners = (data || []) as Banner[];
+      
+      // Auto-deactivate expired banners
+      const expired = allBanners.filter(b => b.is_active && b.end_date && b.end_date < now);
+      if (expired.length > 0) {
+        await Promise.all(expired.map(b =>
+          supabase.from('banners').update({ is_active: false }).eq('id', b.id)
+        ));
+        // Re-mark them locally
+        allBanners.forEach(b => {
+          if (b.is_active && b.end_date && b.end_date < now) b.is_active = false;
+        });
+      }
+      
+      setBanners(allBanners);
     }
     setIsLoading(false);
   };
@@ -132,6 +145,15 @@ export default function AdminBanners() {
       return;
     }
 
+    // Prevent duplicate popup banners
+    if (formData.position === 'popup') {
+      const existingPopup = banners.find(b => b.position === 'popup' && b.id !== selectedBanner?.id);
+      if (existingPopup) {
+        toast({ title: 'Error', description: 'Only one popup banner is allowed. Delete the existing one first.', variant: 'destructive' });
+        return;
+      }
+    }
+
     setIsSaving(true);
 
     const bannerData = {
@@ -139,8 +161,8 @@ export default function AdminBanners() {
       position: (formData.position || 'home_top') as 'home_top' | 'home_middle' | 'category' | 'offer' | 'popup',
       type: (formData.type || 'image') as 'image' | 'video',
       media_url: formData.media_url,
-      media_url_tablet: formData.media_url_tablet || null,
-      media_url_mobile: formData.media_url_mobile || null,
+      media_url_tablet: null,
+      media_url_mobile: null,
       redirect_url: formData.redirect_url,
       start_date: formData.start_date,
       end_date: formData.end_date,
@@ -267,41 +289,18 @@ export default function AdminBanners() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Desktop Banner *</Label>
+              <Label>Banner Image *</Label>
               <p className="text-xs text-muted-foreground">Recommended: 1920 × 900 px</p>
               <ImageUpload
                 bucket="banners"
                 value={formData.media_url}
                 onChange={(url) => setFormData({ ...formData, media_url: url || '' })}
                 aspectRatio="banner"
-                placeholder="Upload desktop banner (1920 × 900 px)"
+                placeholder="Upload banner (1920 × 900 px)"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Tablet Banner <span className="text-muted-foreground text-xs">(optional)</span></Label>
-                <p className="text-xs text-muted-foreground">Recommended: 1024 × 600 px</p>
-                <ImageUpload
-                  bucket="banners"
-                  value={formData.media_url_tablet || undefined}
-                  onChange={(url) => setFormData({ ...formData, media_url_tablet: url || null })}
-                  aspectRatio="video"
-                  placeholder="Upload tablet banner (1024 × 600 px)"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Mobile Banner <span className="text-muted-foreground text-xs">(optional)</span></Label>
-                <p className="text-xs text-muted-foreground">Recommended: 768 × 900 px</p>
-                <ImageUpload
-                  bucket="banners"
-                  value={formData.media_url_mobile || undefined}
-                  onChange={(url) => setFormData({ ...formData, media_url_mobile: url || null })}
-                  aspectRatio="square"
-                  placeholder="Upload mobile banner (768 × 900 px)"
-                />
-              </div>
-            </div>
+
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
