@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRazorpay } from '@/hooks/useRazorpay';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { useOffers } from '@/hooks/useOffers';
-import type { Address, CartItem, Product, PaymentMethod, CheckoutSettings } from '@/types/database';
+import type { Address, CartItem, Product, PaymentMethod, CheckoutSettings, Coupon } from '@/types/database';
 
 interface CartItemWithProduct extends CartItem {
   product: Product;
@@ -29,6 +29,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [isLoading, setIsLoading] = useState(true);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings>({
     cod_enabled: true,
     min_order_value: 0,
@@ -59,6 +60,19 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (user) {
       fetchData();
+      // Load coupon from cart
+      const savedCoupon = localStorage.getItem('applied_coupon');
+      if (savedCoupon) {
+        try {
+          const coupon = JSON.parse(savedCoupon) as Coupon;
+          // Verify coupon hasn't expired
+          if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
+            localStorage.removeItem('applied_coupon');
+          } else {
+            setAppliedCoupon(coupon);
+          }
+        } catch { localStorage.removeItem('applied_coupon'); }
+      }
     } else {
       navigate('/auth');
     }
@@ -165,10 +179,16 @@ export default function CheckoutPage() {
       const orderOfferDiscount = calculateCartDiscount(
         cartItems.map(item => ({ product: item.product, quantity: item.quantity }))
       );
+      const orderCouponDiscount = appliedCoupon
+        ? appliedCoupon.type === 'percentage'
+          ? Math.min((subtotal * appliedCoupon.value) / 100, appliedCoupon.max_discount || Infinity)
+          : appliedCoupon.value
+        : 0;
+      const orderTotalDiscount = orderOfferDiscount.totalDiscount + orderCouponDiscount;
       const freeThreshold = checkoutSettings.free_shipping_threshold;
       const defaultShipping = checkoutSettings.default_shipping_charge;
       const shippingCharge = (freeThreshold > 0 && subtotal >= freeThreshold) ? 0 : defaultShipping;
-      const total = subtotal - orderOfferDiscount.totalDiscount + shippingCharge;
+      const total = subtotal - orderTotalDiscount + shippingCharge;
 
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -179,7 +199,9 @@ export default function CheckoutPage() {
           payment_status: 'pending',
           payment_method: paymentMethod,
           subtotal,
-          discount: orderOfferDiscount.totalDiscount,
+          discount: orderTotalDiscount,
+          coupon_id: appliedCoupon?.id || null,
+          coupon_code: appliedCoupon?.code || null,
           tax: 0,
           shipping_charge: shippingCharge,
           total,
@@ -310,6 +332,9 @@ export default function CheckoutPage() {
       await supabase.from('cart_items').delete().eq('cart_id', cart.id);
     }
 
+    // Clear coupon from localStorage
+    localStorage.removeItem('applied_coupon');
+
     toast({ title: 'Order placed!', description: `Order #${orderNumber} has been placed successfully` });
     setIsPlacingOrder(false);
     navigate(`/order-success?order=${orderNumber}`);
@@ -341,10 +366,16 @@ export default function CheckoutPage() {
   const offerDiscount = calculateCartDiscount(
     cartItems.map(item => ({ product: item.product, quantity: item.quantity }))
   );
+  const couponDiscount = appliedCoupon
+    ? appliedCoupon.type === 'percentage'
+      ? Math.min((subtotal * appliedCoupon.value) / 100, appliedCoupon.max_discount || Infinity)
+      : appliedCoupon.value
+    : 0;
+  const totalDiscount = offerDiscount.totalDiscount + couponDiscount;
   const freeThreshold = checkoutSettings.free_shipping_threshold;
   const defaultShipping = checkoutSettings.default_shipping_charge;
   const shippingCharge = (freeThreshold > 0 && subtotal >= freeThreshold) ? 0 : defaultShipping;
-  const total = subtotal - offerDiscount.totalDiscount + shippingCharge;
+  const total = subtotal - totalDiscount + shippingCharge;
 
   return (
     <StorefrontLayout>
@@ -506,6 +537,12 @@ export default function CheckoutPage() {
                     <div className="flex justify-between text-sm text-green-600">
                       <span>Offer Discount</span>
                       <span>-₹{offerDiscount.totalDiscount.toFixed(0)}</span>
+                    </div>
+                  )}
+                  {couponDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Coupon ({appliedCoupon?.code})</span>
+                      <span>-₹{couponDiscount.toFixed(0)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-sm">
