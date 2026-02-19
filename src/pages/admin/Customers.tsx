@@ -9,7 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, ShoppingCart, DollarSign, MessageCircle } from 'lucide-react';
+import { Users, ShoppingCart, DollarSign, MessageCircle, LayoutGrid, List, UserPlus, Clock } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Shimmer } from '@/components/ui/shimmer';
+
+const VIEW_MODE_KEY = 'admin-customers-view-mode';
 
 interface Customer {
   id: string;
@@ -32,9 +36,15 @@ export default function AdminCustomers() {
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [customerCart, setCustomerCart] = useState<any[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [stats, setStats] = useState({ total: 0, active: 0, blocked: 0 });
+  const [stats, setStats] = useState({ total: 0, active: 0, blocked: 0, todayCount: 0 });
   const [storeName, setStoreName] = useState('Our Store');
+  const [viewMode, setViewMode] = useState<string>(() => localStorage.getItem(VIEW_MODE_KEY) || 'list');
+  const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
+
+  useEffect(() => {
+    localStorage.setItem(VIEW_MODE_KEY, viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     fetchCustomers();
@@ -46,7 +56,6 @@ export default function AdminCustomers() {
   const fetchCustomers = async () => {
     setIsLoading(true);
     
-    // Fetch profiles
     const { data: profiles, error } = await supabase
       .from('profiles')
       .select('*')
@@ -58,7 +67,6 @@ export default function AdminCustomers() {
       return;
     }
 
-    // Fetch order counts and totals for each customer
     const { data: orders } = await supabase
       .from('orders')
       .select('user_id, total');
@@ -82,10 +90,12 @@ export default function AdminCustomers() {
 
     setCustomers(customersWithStats);
     
-    // Calculate stats
     const total = customersWithStats.length;
     const blocked = customersWithStats.filter((c: Customer) => c.is_blocked).length;
-    setStats({ total, active: total - blocked, blocked });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayCount = customersWithStats.filter((c: Customer) => new Date(c.created_at) >= today).length;
+    setStats({ total, active: total - blocked, blocked, todayCount });
 
     setIsLoading(false);
   };
@@ -94,7 +104,6 @@ export default function AdminCustomers() {
     setSelectedCustomer(customer);
     setIsDetailOpen(true);
 
-    // Fetch customer orders
     const { data } = await supabase
       .from('orders')
       .select('*')
@@ -103,12 +112,12 @@ export default function AdminCustomers() {
       .limit(10);
     setCustomerOrders(data || []);
 
-    // Fetch customer cart items
+    // Fetch cart with proper joins
     const { data: cart } = await supabase.from('cart').select('id').eq('user_id', customer.user_id).single();
     if (cart) {
       const { data: items } = await supabase
         .from('cart_items')
-        .select('*, product:products(name, price, images:product_images(image_url))')
+        .select('*, product:products(name, price, images:product_images(image_url, is_primary))')
         .eq('cart_id', cart.id);
       setCustomerCart(items || []);
     } else {
@@ -154,6 +163,12 @@ export default function AdminCustomers() {
     setIsUpdating(false);
   };
 
+  const filteredCustomers = customers.filter(c => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (c.full_name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.mobile_number?.includes(q));
+  });
+
   const columns: Column<Customer>[] = [
     {
       key: 'full_name',
@@ -194,12 +209,48 @@ export default function AdminCustomers() {
     },
   ];
 
+  const todayCustomers = customers.filter(c => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(c.created_at) >= today;
+  });
+
   return (
     <AdminLayout
       title="Customers"
       description="View and manage customer accounts"
     >
       <div className="space-y-6">
+        {/* Today's Snapshot */}
+        {stats.todayCount > 0 && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="py-3 px-4">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+                  <UserPlus className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">{stats.todayCount} new customer{stats.todayCount > 1 ? 's' : ''} today</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {todayCustomers.slice(0, 5).map(c => (
+                      <Badge key={c.id} variant="secondary" className="text-xs cursor-pointer" onClick={() => handleRowClick(c)}>
+                        {c.full_name || c.mobile_number || 'Unknown'}
+                      </Badge>
+                    ))}
+                    {todayCustomers.length > 5 && (
+                      <Badge variant="outline" className="text-xs">+{todayCustomers.length - 5} more</Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  Today
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
@@ -231,17 +282,92 @@ export default function AdminCustomers() {
           </Card>
         </div>
 
-        <DataTable<Customer>
-          columns={columns}
-          data={customers}
-          isLoading={isLoading}
-          onRowClick={handleRowClick}
-          searchable
-          searchPlaceholder="Search customers..."
-          searchKeys={['full_name', 'email', 'mobile_number']}
-          getRowId={(c) => c.id}
-          emptyMessage="No customers found."
-        />
+        {/* View toggle + search */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="Search customers..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full max-w-sm px-3 py-2 text-sm border rounded-md bg-background"
+            />
+          </div>
+          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v)}>
+            <ToggleGroupItem value="list" aria-label="List view">
+              <List className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="grid" aria-label="Grid view">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        {viewMode === 'list' ? (
+          <DataTable<Customer>
+            columns={columns}
+            data={filteredCustomers}
+            isLoading={isLoading}
+            onRowClick={handleRowClick}
+            searchable={false}
+            getRowId={(c) => c.id}
+            emptyMessage="No customers found."
+          />
+        ) : (
+          isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map(i => <Shimmer key={i} className="h-48" />)}
+            </div>
+          ) : filteredCustomers.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">No customers found.</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredCustomers.map((c) => (
+                <Card
+                  key={c.id}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => handleRowClick(c)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      {c.avatar_url ? (
+                        <img src={c.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover" />
+                      ) : (
+                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                          {(c.full_name?.[0] || c.email?.[0] || '?').toUpperCase()}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">{c.full_name || 'No name'}</p>
+                        <p className="text-xs text-muted-foreground truncate">{c.email}</p>
+                      </div>
+                      <Badge variant={c.is_blocked ? 'destructive' : 'default'} className="text-xs flex-shrink-0">
+                        {c.is_blocked ? 'Blocked' : 'Active'}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-muted/50 rounded-md p-2">
+                        <p className="text-xs text-muted-foreground">Orders</p>
+                        <p className="font-semibold text-sm">{c.order_count || 0}</p>
+                      </div>
+                      <div className="bg-muted/50 rounded-md p-2">
+                        <p className="text-xs text-muted-foreground">Spent</p>
+                        <p className="font-semibold text-sm">₹{(c.total_spent || 0).toFixed(0)}</p>
+                      </div>
+                      <div className="bg-muted/50 rounded-md p-2">
+                        <p className="text-xs text-muted-foreground">Phone</p>
+                        <p className="font-semibold text-xs truncate">{c.mobile_number || '—'}</p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-2">
+                      Joined {new Date(c.created_at).toLocaleDateString()}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )
+        )}
       </div>
 
       <DetailPanel
@@ -297,17 +423,20 @@ export default function AdminCustomers() {
                   <ShoppingCart className="h-4 w-4" /> Cart Items ({customerCart.length})
                 </h3>
                 <div className="space-y-2">
-                  {customerCart.map((item: any) => (
-                    <div key={item.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
-                      {item.product?.images?.[0]?.image_url && (
-                        <img src={item.product.images[0].image_url} alt="" className="h-10 w-10 rounded object-cover" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{item.product?.name || 'Unknown'}</p>
-                        <p className="text-xs text-muted-foreground">Qty: {item.quantity} · Rs {Number(item.product?.price || 0).toFixed(0)}</p>
+                  {customerCart.map((item: any) => {
+                    const imgUrl = item.product?.images?.find((img: any) => img.is_primary)?.image_url || item.product?.images?.[0]?.image_url;
+                    return (
+                      <div key={item.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
+                        {imgUrl && (
+                          <img src={imgUrl} alt="" className="h-10 w-10 rounded object-cover" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{item.product?.name || 'Unknown'}</p>
+                          <p className="text-xs text-muted-foreground">Qty: {item.quantity} · Rs {Number(item.product?.price || 0).toFixed(0)}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

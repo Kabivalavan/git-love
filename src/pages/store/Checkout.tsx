@@ -50,6 +50,8 @@ export default function CheckoutPage() {
   const { initiatePayment, isLoading: isPaymentLoading } = useRazorpay();
   const navigate = useNavigate();
 
+  const isBlocked = profile?.is_blocked === true;
+
   useEffect(() => {
     if (user) {
       fetchData();
@@ -548,18 +550,25 @@ export default function CheckoutPage() {
                   </p>
                 )}
 
+                {isBlocked && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-center">
+                    <p className="text-sm text-destructive font-medium">Your account has been restricted</p>
+                    <p className="text-xs text-muted-foreground mt-1">Please contact support to resolve this issue</p>
+                  </div>
+                )}
+
                 <Button
                   className="w-full"
                   size="lg"
                   onClick={placeOrder}
-                  disabled={!selectedAddress || isPlacingOrder || (checkoutSettings.min_order_value > 0 && subtotal < checkoutSettings.min_order_value)}
+                  disabled={!selectedAddress || isPlacingOrder || isBlocked || (checkoutSettings.min_order_value > 0 && subtotal < checkoutSettings.min_order_value)}
                 >
                   {isPlacingOrder ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Placing Order...
                     </>
-                  ) : 'Place Order'}
+                  ) : isBlocked ? 'Account Restricted' : 'Place Order'}
                 </Button>
               </CardContent>
             </Card>
