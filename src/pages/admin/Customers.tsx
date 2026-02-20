@@ -150,8 +150,8 @@ export default function AdminCustomers() {
   };
 
   const getAbandonedCartMsg = (customer: Customer) => {
-    const items = customerCart.map((i: any) => i.products?.name).filter(Boolean).join(', ');
-    const totalPrice = customerCart.reduce((sum: number, i: any) => sum + (Number(i.products?.price || 0) * i.quantity), 0);
+    const items = customerCart.map((i: any) => i.product?.name).filter(Boolean).join(', ');
+    const totalPrice = customerCart.reduce((sum: number, i: any) => sum + (Number(i.product?.price || 0) * i.quantity), 0);
     return `Hi ${customer.full_name || 'there'} 👋\nYou left something awesome in your cart 🛒\n\n🛍 ${items || 'Your items'}\n💰 Price: Rs ${totalPrice.toFixed(0)}\n\nComplete your order now before it goes out of stock 👇\n\n– ${storeName}`;
   };
 

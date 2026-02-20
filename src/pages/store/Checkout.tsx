@@ -20,6 +20,7 @@ import type { Address, CartItem, Product, PaymentMethod, CheckoutSettings, Coupo
 
 interface CartItemWithProduct extends CartItem {
   product: Product;
+  variant?: any;
 }
 
 export default function CheckoutPage() {
@@ -99,7 +100,7 @@ export default function CheckoutPage() {
     if (cart) {
       const { data: items } = await supabase
         .from('cart_items')
-        .select('*, product:products(*)')
+        .select('*, product:products(*), variant:product_variants(*)')
         .eq('cart_id', cart.id);
       setCartItems((items || []) as CartItemWithProduct[]);
     }
@@ -221,16 +222,22 @@ export default function CheckoutPage() {
 
       if (orderError) throw orderError;
 
-      const orderItems = cartItems.map(item => ({
-        order_id: order.id,
-        product_id: item.product_id,
-        variant_id: item.variant_id,
-        product_name: item.product.name,
-        sku: item.product.sku,
-        price: item.product.price,
-        quantity: item.quantity,
-        total: item.product.price * item.quantity,
-      }));
+      const orderItems = cartItems.map(item => {
+        const effectivePrice = item.variant?.price ?? item.product.price;
+        const effectiveSku = item.variant?.sku ?? item.product.sku;
+        const variantName = item.variant?.name ?? null;
+        return {
+          order_id: order.id,
+          product_id: item.product_id,
+          variant_id: item.variant_id,
+          product_name: item.product.name,
+          variant_name: variantName,
+          sku: effectiveSku,
+          price: effectivePrice,
+          quantity: item.quantity,
+          total: effectivePrice * item.quantity,
+        };
+      });
 
       await supabase.from('order_items').insert(orderItems);
 
