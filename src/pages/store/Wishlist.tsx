@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ProductCard } from '@/components/storefront/ProductCard';
@@ -8,33 +8,36 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Heart, Trash2 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ShimmerProductGrid } from '@/components/ui/shimmer';
 import type { Product, Wishlist } from '@/types/database';
 
 export default function WishlistPage() {
-  const [wishlistItems, setWishlistItems] = useState<(Wishlist & { product: Product })[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (user) fetchWishlist();
-  }, [user]);
-
-  const fetchWishlist = async () => {
-    if (!user) return;
-    setIsLoading(true);
-    const { data } = await supabase
-      .from('wishlist')
-      .select('*, product:products(*, category:categories(*), images:product_images(*))')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-    setWishlistItems((data || []) as unknown as (Wishlist & { product: Product })[]);
-    setIsLoading(false);
-  };
+  const { data: wishlistItems = [], isLoading } = useQuery({
+    queryKey: ['wishlist', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data } = await supabase
+        .from('wishlist')
+        .select('*, product:products(*, category:categories(*), images:product_images(*))')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      return (data || []) as unknown as (Wishlist & { product: Product })[];
+    },
+    enabled: !!user,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
 
   const handleRemove = async (wishlistId: string) => {
     await supabase.from('wishlist').delete().eq('id', wishlistId);
-    setWishlistItems(prev => prev.filter(i => i.id !== wishlistId));
+    queryClient.setQueryData(['wishlist', user?.id], (old: any[]) =>
+      (old || []).filter((i) => i.id !== wishlistId)
+    );
     toast({ title: 'Removed from wishlist' });
   };
 
@@ -78,11 +81,7 @@ export default function WishlistPage() {
         <h1 className="text-2xl font-bold mb-6">My Wishlist</h1>
 
         {isLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="animate-pulse bg-muted rounded-lg aspect-[3/4]" />
-            ))}
-          </div>
+          <ShimmerProductGrid items={4} />
         ) : wishlistItems.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">

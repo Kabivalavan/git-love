@@ -1,4 +1,3 @@
- import { useState, useEffect } from 'react';
  import { Link } from 'react-router-dom';
  import { Card, CardContent } from '@/components/ui/card';
  import { Badge } from '@/components/ui/badge';
@@ -6,8 +5,10 @@
  import { supabase } from '@/integrations/supabase/client';
  import { useAuth } from '@/hooks/useAuth';
  import { Package, ChevronRight } from 'lucide-react';
+ import { useQuery } from '@tanstack/react-query';
+ import { ShimmerList } from '@/components/ui/shimmer';
  import type { Order, OrderStatus } from '@/types/database';
- 
+
  const statusColors: Record<OrderStatus, 'default' | 'secondary' | 'destructive'> = {
    new: 'secondary',
    confirmed: 'default',
@@ -17,40 +18,30 @@
    cancelled: 'destructive',
    returned: 'destructive',
  };
- 
+
  export default function MyOrdersPage() {
-   const [orders, setOrders] = useState<Order[]>([]);
-   const [isLoading, setIsLoading] = useState(true);
    const { user } = useAuth();
- 
-   useEffect(() => {
-     if (user) fetchOrders();
-   }, [user]);
- 
-   const fetchOrders = async () => {
-     if (!user) return;
-     setIsLoading(true);
-     
-     const { data } = await supabase
-       .from('orders')
-       .select('*')
-       .eq('user_id', user.id)
-       .order('created_at', { ascending: false });
-     
-     setOrders((data || []) as unknown as Order[]);
-     setIsLoading(false);
-   };
- 
+
+   const { data: orders = [], isLoading } = useQuery({
+     queryKey: ['my-orders', user?.id],
+     queryFn: async () => {
+       if (!user) return [];
+       const { data } = await supabase
+         .from('orders')
+         .select('*')
+         .eq('user_id', user.id)
+         .order('created_at', { ascending: false });
+       return (data || []) as unknown as Order[];
+     },
+     enabled: !!user,
+     staleTime: 2 * 60 * 1000,
+     gcTime: 10 * 60 * 1000,
+   });
+
    if (isLoading) {
-     return (
-       <div className="space-y-4">
-         {[1, 2, 3].map((i) => (
-           <div key={i} className="animate-pulse h-32 bg-muted rounded-lg"></div>
-         ))}
-       </div>
-     );
+     return <ShimmerList items={3} />;
    }
- 
+
    if (orders.length === 0) {
      return (
        <Card>
@@ -65,7 +56,7 @@
        </Card>
      );
    }
- 
+
    return (
      <div className="space-y-4">
        <h2 className="text-xl font-semibold">My Orders</h2>

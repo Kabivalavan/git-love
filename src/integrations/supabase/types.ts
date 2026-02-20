@@ -945,6 +945,7 @@ export type Database = {
           attributes: Json | null
           created_at: string | null
           id: string
+          in_hold: number
           is_active: boolean | null
           mrp: number | null
           name: string
@@ -958,6 +959,7 @@ export type Database = {
           attributes?: Json | null
           created_at?: string | null
           id?: string
+          in_hold?: number
           is_active?: boolean | null
           mrp?: number | null
           name: string
@@ -971,6 +973,7 @@ export type Database = {
           attributes?: Json | null
           created_at?: string | null
           id?: string
+          in_hold?: number
           is_active?: boolean | null
           mrp?: number | null
           name?: string
@@ -1000,6 +1003,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          in_hold: number
           is_active: boolean | null
           is_bestseller: boolean | null
           is_featured: boolean | null
@@ -1026,6 +1030,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          in_hold?: number
           is_active?: boolean | null
           is_bestseller?: boolean | null
           is_featured?: boolean | null
@@ -1052,6 +1057,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          in_hold?: number
           is_active?: boolean | null
           is_bestseller?: boolean | null
           is_featured?: boolean | null
@@ -1158,6 +1164,61 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_holds: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          order_id: string | null
+          product_id: string
+          quantity: number
+          user_id: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          order_id?: string | null
+          product_id: string
+          quantity?: number
+          user_id: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          order_id?: string | null
+          product_id?: string
+          quantity?: number
+          user_id?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_holds_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_holds_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_holds_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -1271,6 +1332,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_holds: { Args: never; Returns: undefined }
+      finalize_order_stock: { Args: { p_order_id: string }; Returns: undefined }
       generate_order_number: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
@@ -1282,6 +1345,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      place_stock_hold: {
+        Args: { p_items: Json; p_user_id: string }
+        Returns: Json
+      }
+      release_stock_hold: {
+        Args: { p_order_id?: string; p_user_id: string }
+        Returns: undefined
       }
     }
     Enums: {

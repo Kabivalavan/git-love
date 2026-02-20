@@ -68,7 +68,6 @@ export default function CheckoutPage() {
       if (savedCoupon) {
         try {
           const coupon = JSON.parse(savedCoupon) as Coupon;
-          // Verify coupon hasn't expired
           if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
             localStorage.removeItem('applied_coupon');
           } else {
@@ -80,6 +79,33 @@ export default function CheckoutPage() {
       navigate('/auth');
     }
   }, [user]);
+
+  // Place stock hold when cart items load (3-min window)
+  useEffect(() => {
+    if (!user || cartItems.length === 0) return;
+    const items = cartItems.map(item => ({
+      product_id: item.product_id,
+      variant_id: item.variant_id || null,
+      quantity: item.quantity,
+    }));
+    supabase.rpc('place_stock_hold', {
+      p_user_id: user.id,
+      p_items: items as any,
+    }).then(({ data, error }) => {
+      if (!error && data && !(data as any).success) {
+        toast({
+          title: 'Stock unavailable',
+          description: 'Some items are out of stock. Please update your cart.',
+          variant: 'destructive',
+        });
+        navigate('/cart');
+      }
+    });
+    // Release hold on unmount (if order wasn't placed)
+    return () => {
+      // Cleanup handled server-side by expiry
+    };
+  }, [user, cartItems.length]);
 
   // Track checkout_started when cart items load
   useEffect(() => {

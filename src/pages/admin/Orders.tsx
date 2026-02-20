@@ -171,11 +171,19 @@ export default function AdminOrders() {
         await supabase.from('deliveries').update({ status: 'in_transit' }).eq('id', delivery.id);
         setDelivery({ ...delivery, status: 'in_transit' });
         setDeliveryEdit(prev => ({ ...prev, status: 'in_transit' }));
+        // Finalize stock: deduct real stock, release hold (only on shipped)
+        await supabase.rpc('finalize_order_stock', { p_order_id: selectedOrder.id });
       }
       if (newStatus === 'delivered' && delivery) {
         await supabase.from('deliveries').update({ status: 'delivered', delivered_at: new Date().toISOString() }).eq('id', delivery.id);
         setDelivery({ ...delivery, status: 'delivered', delivered_at: new Date().toISOString() });
         setDeliveryEdit(prev => ({ ...prev, status: 'delivered' }));
+        // If shipped was skipped, finalize stock now (idempotent)
+        await supabase.rpc('finalize_order_stock', { p_order_id: selectedOrder.id });
+      }
+      // Release hold on cancel/return without stock deduction
+      if (newStatus === 'cancelled' || newStatus === 'returned') {
+        await supabase.rpc('release_stock_hold', { p_user_id: selectedOrder.user_id, p_order_id: selectedOrder.id });
       }
       toast({ title: 'Status updated' });
       setSelectedOrder({ ...selectedOrder, status: newStatus });
