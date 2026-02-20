@@ -350,7 +350,6 @@ export default function AdminAnalytics() {
             <TabsTrigger value="funnel">Funnel</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="engagement">Engagement</TabsTrigger>
-            <TabsTrigger value="revenue">Revenue</TabsTrigger>
             <TabsTrigger value="audience">Audience</TabsTrigger>
           </TabsList>
 

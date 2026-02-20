@@ -4,25 +4,47 @@ import { Facebook, Instagram, Twitter, Youtube, Mail, Phone, MapPin } from 'luci
 import { supabase } from '@/integrations/supabase/client';
 import type { StoreInfo, SocialLinks } from '@/types/database';
 
+// Cache footer data so it doesn't reload on every render
+let _footerCache: { storeInfo: StoreInfo | null; socialLinks: SocialLinks | null } | null = null;
+let _footerFetching = false;
+let _footerListeners: Array<(data: typeof _footerCache) => void> = [];
+
+async function fetchFooterData() {
+  if (_footerCache) return _footerCache;
+  if (_footerFetching) {
+    return new Promise<typeof _footerCache>((resolve) => { _footerListeners.push(resolve as any); });
+  }
+  _footerFetching = true;
+  const { data } = await supabase.from('store_settings').select('key, value').in('key', ['store_info', 'social_links']);
+  const result = { storeInfo: null as StoreInfo | null, socialLinks: null as SocialLinks | null };
+  data?.forEach((item) => {
+    if (item.key === 'store_info') result.storeInfo = item.value as unknown as StoreInfo;
+    if (item.key === 'social_links') result.socialLinks = item.value as unknown as SocialLinks;
+  });
+  _footerCache = result;
+  _footerFetching = false;
+  _footerListeners.forEach(l => l(result));
+  _footerListeners = [];
+  return result;
+}
+
 export function Footer() {
-  const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
-  const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(null);
+  const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(_footerCache?.storeInfo ?? null);
+  const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(_footerCache?.socialLinks ?? null);
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
-    const { data } = await supabase
-      .from('store_settings')
-      .select('key, value')
-      .in('key', ['store_info', 'social_links']);
-    
-    data?.forEach((item) => {
-      if (item.key === 'store_info') setStoreInfo(item.value as unknown as StoreInfo);
-      if (item.key === 'social_links') setSocialLinks(item.value as unknown as SocialLinks);
+    if (_footerCache) {
+      setStoreInfo(_footerCache.storeInfo);
+      setSocialLinks(_footerCache.socialLinks);
+      return;
+    }
+    fetchFooterData().then(data => {
+      if (data) {
+        setStoreInfo(data.storeInfo);
+        setSocialLinks(data.socialLinks);
+      }
     });
-  };
+  }, []);
 
   return (
     <footer className="bg-slate-900 text-slate-200">

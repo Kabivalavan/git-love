@@ -35,6 +35,11 @@ interface AnnouncementSettings {
   link: string;
 }
 
+function buildAddress(info: any): string {
+  const parts = [info.address_line1, info.city, info.state].filter(Boolean);
+  return info.pincode ? `${parts.join(', ')} - ${info.pincode}` : parts.join(', ');
+}
+
 export default function AdminSettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState<string | null>(null);
@@ -356,14 +361,54 @@ export default function AdminSettings() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address">Store Address</Label>
-                <Textarea
-                  id="address"
-                  value={storeInfo.address || ''}
-                  onChange={(e) => setStoreInfo({ ...storeInfo, address: e.target.value || null })}
-                  placeholder="123 Main Street, City, State - 123456"
-                  rows={3}
+                <Label htmlFor="address_line1">Address Line 1</Label>
+                <Input
+                  id="address_line1"
+                  value={(storeInfo as any).address_line1 || ''}
+                  onChange={(e) => {
+                    const updated = { ...(storeInfo as any), address_line1: e.target.value };
+                    setStoreInfo({ ...updated, address: buildAddress(updated) } as any);
+                  }}
+                  placeholder="Building / Street / Area"
                 />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    value={(storeInfo as any).city || ''}
+                    onChange={(e) => {
+                      const updated = { ...(storeInfo as any), city: e.target.value };
+                      setStoreInfo({ ...updated, address: buildAddress(updated) } as any);
+                    }}
+                    placeholder="City"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="state">State</Label>
+                  <Input
+                    id="state"
+                    value={(storeInfo as any).state || ''}
+                    onChange={(e) => {
+                      const updated = { ...(storeInfo as any), state: e.target.value };
+                      setStoreInfo({ ...updated, address: buildAddress(updated) } as any);
+                    }}
+                    placeholder="State"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pincode">Pincode</Label>
+                  <Input
+                    id="pincode"
+                    value={(storeInfo as any).pincode || ''}
+                    onChange={(e) => {
+                      const updated = { ...(storeInfo as any), pincode: e.target.value };
+                      setStoreInfo({ ...updated, address: buildAddress(updated) } as any);
+                    }}
+                    placeholder="123456"
+                  />
+                </div>
               </div>
 
               <Button 

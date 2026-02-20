@@ -166,6 +166,17 @@ export default function AdminOrders() {
           setDeliveryEdit(newDel as unknown as Delivery);
         }
       }
+      // Auto-update delivery status when order is shipped or delivered
+      if (newStatus === 'shipped' && delivery) {
+        await supabase.from('deliveries').update({ status: 'in_transit' }).eq('id', delivery.id);
+        setDelivery({ ...delivery, status: 'in_transit' });
+        setDeliveryEdit(prev => ({ ...prev, status: 'in_transit' }));
+      }
+      if (newStatus === 'delivered' && delivery) {
+        await supabase.from('deliveries').update({ status: 'delivered', delivered_at: new Date().toISOString() }).eq('id', delivery.id);
+        setDelivery({ ...delivery, status: 'delivered', delivered_at: new Date().toISOString() });
+        setDeliveryEdit(prev => ({ ...prev, status: 'delivered' }));
+      }
       toast({ title: 'Status updated' });
       setSelectedOrder({ ...selectedOrder, status: newStatus });
       fetchOrders();

@@ -1,12 +1,13 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { AdminSidebar } from './AdminSidebar';
 import { cn } from '@/lib/utils';
-import { Bell, Search, Settings } from 'lucide-react';
+import { Bell, Search, Settings, LayoutDashboard, ShoppingCart, Users, Package, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, NavLink } from 'react-router-dom';
 import { useAdminNotifications } from '@/hooks/useAdminNotifications';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -15,10 +16,18 @@ interface AdminLayoutProps {
   actions?: ReactNode;
 }
 
+const mobileBottomNav = [
+  { path: '/admin', icon: LayoutDashboard, label: 'Home', exact: true },
+  { path: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
+  { path: '/admin/products', icon: Package, label: 'Items' },
+  { path: '/admin/customers', icon: Users, label: 'Customers' },
+];
+
 export function AdminLayout({ children, title, description, actions }: AdminLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { profile } = useAuth();
   const { totalUnread } = useAdminNotifications();
+  const location = useLocation();
 
   useEffect(() => {
     const checkSidebar = () => {
@@ -42,14 +51,31 @@ export function AdminLayout({ children, title, description, actions }: AdminLayo
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminSidebar />
+      {/* Desktop Sidebar - hidden on mobile */}
+      <div className="hidden md:block">
+        <AdminSidebar />
+      </div>
       <main className={cn(
         "min-h-screen transition-all duration-300",
-        sidebarCollapsed ? "ml-16" : "ml-56"
+        "md:ml-56",
+        sidebarCollapsed ? "md:ml-16" : "md:ml-56",
+        "pb-16 md:pb-0" // bottom padding for mobile nav
       )}>
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-card border-b border-border h-14 flex items-center px-6 gap-4">
-          <div className="flex-1 max-w-md">
+        <header className="sticky top-0 z-30 bg-card border-b border-border h-14 flex items-center px-4 md:px-6 gap-4">
+          {/* Mobile: hamburger for full sidebar */}
+          <Sheet>
+            <SheetTrigger asChild className="md:hidden">
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-64 bg-[hsl(var(--sidebar-background))]">
+              <AdminSidebar />
+            </SheetContent>
+          </Sheet>
+
+          <div className="flex-1 max-w-md hidden md:block">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -82,7 +108,7 @@ export function AdminLayout({ children, title, description, actions }: AdminLayo
 
         {/* Page header */}
         {(title || description || actions) && (
-          <div className="px-6 pt-5 pb-4">
+          <div className="px-4 md:px-6 pt-5 pb-4">
             <div className="flex items-center justify-between">
               <div>
                 {title && (
@@ -96,8 +122,72 @@ export function AdminLayout({ children, title, description, actions }: AdminLayo
             </div>
           </div>
         )}
-        <div className="px-6 pb-6">{children}</div>
+        <div className="px-4 md:px-6 pb-6">{children}</div>
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[hsl(var(--sidebar-background))] border-t border-[hsl(var(--sidebar-border))] md:hidden">
+        <div className="flex items-center justify-around h-14">
+          {mobileBottomNav.map((item) => {
+            const isActive = item.exact
+              ? location.pathname === item.path
+              : location.pathname.startsWith(item.path);
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.exact}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors",
+                  isActive
+                    ? "text-[hsl(142,76%,36%)]"
+                    : "text-[hsl(var(--sidebar-foreground))] opacity-70"
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                <span className="text-[10px] font-medium">{item.label}</span>
+              </NavLink>
+            );
+          })}
+          {/* More button - opens sheet */}
+          <Sheet>
+            <SheetTrigger className={cn(
+              "flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors",
+              "text-[hsl(var(--sidebar-foreground))] opacity-70"
+            )}>
+              <Menu className="h-5 w-5" />
+              <span className="text-[10px] font-medium">More</span>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="bg-[hsl(var(--sidebar-background))] text-[hsl(var(--sidebar-foreground))] rounded-t-2xl pb-8">
+              <div className="grid grid-cols-3 gap-4 pt-6">
+                {[
+                  { path: '/admin/analytics', icon: '📊', label: 'Analytics' },
+                  { path: '/admin/deliveries', icon: '🚚', label: 'Deliveries' },
+                  { path: '/admin/payments', icon: '💳', label: 'Payments' },
+                  { path: '/admin/categories', icon: '📁', label: 'Categories' },
+                  { path: '/admin/bundles', icon: '📦', label: 'Collections' },
+                  { path: '/admin/offers', icon: '🏷️', label: 'Offers' },
+                  { path: '/admin/banners', icon: '🖼️', label: 'Banners' },
+                  { path: '/admin/expenses', icon: '🧾', label: 'Expenses' },
+                  { path: '/admin/reports', icon: '📈', label: 'Reports' },
+                  { path: '/admin/notifications', icon: '🔔', label: 'Alerts' },
+                  { path: '/admin/settings', icon: '⚙️', label: 'Settings' },
+                  { path: '/', icon: '🛍️', label: 'View Store' },
+                ].map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl bg-[hsl(var(--sidebar-accent))] hover:opacity-90 transition-opacity"
+                  >
+                    <span className="text-2xl">{item.icon}</span>
+                    <span className="text-xs text-white text-center">{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </nav>
     </div>
   );
 }
