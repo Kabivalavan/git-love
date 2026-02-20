@@ -111,13 +111,14 @@ export default function BundleDetailPage() {
         cartId = newCart.id;
       }
 
-      // Add each bundle product to cart
+      // Add each bundle product to cart, tagged with bundle_id and bundle_name
       for (const item of bundle.items) {
         const { data: existing } = await supabase
           .from('cart_items')
           .select('id, quantity')
           .eq('cart_id', cartId)
           .eq('product_id', item.product.id)
+          .eq('bundle_id', bundle.id)
           .is('variant_id', null)
           .single();
 
@@ -129,7 +130,13 @@ export default function BundleDetailPage() {
         } else {
           await supabase
             .from('cart_items')
-            .insert({ cart_id: cartId, product_id: item.product.id, quantity: item.quantity });
+            .insert({
+              cart_id: cartId,
+              product_id: item.product.id,
+              quantity: item.quantity,
+              bundle_id: bundle.id,
+              bundle_name: bundle.name,
+            });
         }
       }
 

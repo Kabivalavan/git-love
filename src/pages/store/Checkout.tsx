@@ -21,6 +21,8 @@ import type { Address, CartItem, Product, PaymentMethod, CheckoutSettings, Coupo
 interface CartItemWithProduct extends CartItem {
   product: Product;
   variant?: any;
+  bundle_id?: string | null;
+  bundle_name?: string | null;
 }
 
 export default function CheckoutPage() {
@@ -100,9 +102,10 @@ export default function CheckoutPage() {
     if (cart) {
       const { data: items } = await supabase
         .from('cart_items')
-        .select('*, product:products(*), variant:product_variants(*)')
+        .select('*, product:products(*), variant:product_variants(*), bundle_id, bundle_name')
         .eq('cart_id', cart.id);
       setCartItems((items || []) as CartItemWithProduct[]);
+
     }
 
     const { data: addressesData } = await supabase
@@ -176,7 +179,7 @@ export default function CheckoutPage() {
       const { data: orderNumberData } = await supabase.rpc('generate_order_number');
       const orderNumber = orderNumberData || `ORD${Date.now()}`;
 
-      const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+      const subtotal = cartItems.reduce((sum, item) => sum + ((item.variant?.price ?? item.product.price) * item.quantity), 0);
       const orderOfferDiscount = calculateCartDiscount(
         cartItems.map(item => ({ product: item.product, quantity: item.quantity }))
       );
@@ -236,6 +239,8 @@ export default function CheckoutPage() {
           price: effectivePrice,
           quantity: item.quantity,
           total: effectivePrice * item.quantity,
+          bundle_id: item.bundle_id ?? null,
+          bundle_name: item.bundle_name ?? null,
         };
       });
 
@@ -369,7 +374,7 @@ export default function CheckoutPage() {
     return null;
   }
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  const subtotal = cartItems.reduce((sum, item) => sum + ((item.variant?.price ?? item.product.price) * item.quantity), 0);
   const offerDiscount = calculateCartDiscount(
     cartItems.map(item => ({ product: item.product, quantity: item.quantity }))
   );
@@ -524,13 +529,22 @@ export default function CheckoutPage() {
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {cartItems.map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span className="flex-1">{item.product.name} × {item.quantity}</span>
-                      <span>₹{(item.product.price * item.quantity).toFixed(0)}</span>
-                    </div>
-                  ))}
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {cartItems.map((item) => {
+                    const effectivePrice = item.variant?.price ?? item.product.price;
+                    return (
+                      <div key={item.id} className="flex justify-between text-sm gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate font-medium">{item.product.name}</p>
+                          {item.variant && (
+                            <p className="text-xs text-muted-foreground">{item.variant.name}{item.variant.sku ? ` · ${item.variant.sku}` : ''}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground">₹{effectivePrice} × {item.quantity}</p>
+                        </div>
+                        <span className="font-medium flex-shrink-0">₹{(effectivePrice * item.quantity).toFixed(0)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <Separator />
