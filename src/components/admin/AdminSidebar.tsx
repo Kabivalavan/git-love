@@ -27,6 +27,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminNotifications } from '@/hooks/useAdminNotifications';
 
@@ -48,6 +49,7 @@ type SidebarEntry = MenuItem | MenuGroup;
 function isGroup(entry: SidebarEntry): entry is MenuGroup {
   return 'items' in entry;
 }
+
 
 const sidebarEntries: SidebarEntry[] = [
   { path: '/admin', icon: LayoutDashboard, label: 'Home', exact: true },
@@ -177,17 +179,18 @@ export function AdminSidebar() {
   };
 
   return (
+    <TooltipProvider delayDuration={0}>
     <aside
       className={cn(
         "fixed left-0 top-0 z-40 h-screen transition-all duration-300 flex flex-col",
         "bg-[hsl(var(--sidebar-background))] text-[hsl(var(--sidebar-foreground))]",
-        collapsed ? "w-16" : "w-56"
+        collapsed ? "w-14" : "w-56"
       )}
     >
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-4 border-b border-[hsl(var(--sidebar-border))]">
+      <div className={cn("flex items-center gap-2 px-3 py-4 border-b border-[hsl(var(--sidebar-border))]", collapsed && "justify-center")}>
         <div className="h-8 w-8 rounded-lg bg-[hsl(var(--sidebar-primary))] flex items-center justify-center flex-shrink-0">
-          <Store className="h-4.5 w-4.5 text-white" />
+          <Store className="h-4 w-4 text-white" />
         </div>
         {!collapsed && (
           <span className="font-semibold text-sm text-white tracking-wide">Commerce</span>
@@ -209,33 +212,37 @@ export function AdminSidebar() {
 
       {/* Navigation */}
       <nav ref={navRef} className="flex-1 overflow-y-auto py-2">
-        <ul className="space-y-0.5 px-2">
+        <ul className="space-y-0.5 px-1.5">
           {sidebarEntries.map((entry, idx) => {
             if (isGroup(entry)) {
               const isOpen = openGroups[entry.label] ?? false;
               const hasActive = entry.items.some(item => isActive(item.path, item.exact));
 
               if (collapsed) {
-                // In collapsed mode, show only first item icon
+                // In collapsed mode: show each item as icon with tooltip
                 return entry.items.map((item) => {
                   const active = isActive(item.path, item.exact);
                   const itemUnread = getUnreadForPath(item.path);
                   return (
                     <li key={item.path}>
-                      <NavLink
-                        to={item.path}
-                        end={item.exact}
-                        title={item.label}
-                        className={cn(
-                          "flex items-center justify-center py-1.5 rounded-md text-sm transition-all relative",
-                          active
-                            ? "bg-[hsl(142,76%,36%)] text-white"
-                            : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))]"
-                        )}
-                      >
-                        <item.icon className="h-4 w-4" />
-                        {itemUnread > 0 && <span className="absolute top-0.5 right-1 h-2 w-2 rounded-full bg-destructive" />}
-                      </NavLink>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <NavLink
+                            to={item.path}
+                            end={item.exact}
+                            className={cn(
+                              "flex items-center justify-center h-9 w-full rounded-md transition-all relative",
+                              active
+                                ? "bg-[hsl(142,76%,36%)] text-white"
+                                : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))]"
+                            )}
+                          >
+                            <item.icon className="h-4.5 w-4.5" />
+                            {itemUnread > 0 && <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-destructive" />}
+                          </NavLink>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="text-xs">{item.label}</TooltipContent>
+                      </Tooltip>
                     </li>
                   );
                 });
@@ -288,6 +295,29 @@ export function AdminSidebar() {
 
             // Single menu item
             const active = isActive(entry.path, entry.exact);
+            if (collapsed) {
+              return (
+                <li key={entry.path}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <NavLink
+                        to={entry.path}
+                        end={entry.exact}
+                        className={cn(
+                          "flex items-center justify-center h-9 w-full rounded-md transition-all relative",
+                          active
+                            ? "bg-[hsl(142,76%,36%)] text-white"
+                            : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))]"
+                        )}
+                      >
+                        <entry.icon className="h-4.5 w-4.5" />
+                      </NavLink>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="text-xs">{entry.label}</TooltipContent>
+                  </Tooltip>
+                </li>
+              );
+            }
             return (
               <li key={entry.path}>
                 <NavLink
@@ -301,7 +331,7 @@ export function AdminSidebar() {
                   )}
                 >
                   <entry.icon className="h-4 w-4 flex-shrink-0" />
-                  {!collapsed && <span>{entry.label}</span>}
+                  <span>{entry.label}</span>
                 </NavLink>
               </li>
             );
@@ -310,7 +340,7 @@ export function AdminSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-2 border-t border-[hsl(var(--sidebar-border))]">
+      <div className="p-1.5 border-t border-[hsl(var(--sidebar-border))]">
         {!collapsed && profile && (
           <div className="px-3 py-2 mb-1">
             <p className="text-xs font-medium text-white truncate">
@@ -321,18 +351,31 @@ export function AdminSidebar() {
             </p>
           </div>
         )}
-        <Button
-          variant="ghost"
-          className={cn(
-            "w-full justify-start gap-2.5 text-[13px] text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))] hover:text-white",
-            collapsed && "justify-center"
-          )}
-          onClick={signOut}
-        >
-          <LogOut className="h-4 w-4" />
-          {!collapsed && <span>Sign Out</span>}
-        </Button>
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-center text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))] hover:text-white h-9"
+                onClick={signOut}
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">Sign Out</TooltipContent>
+          </Tooltip>
+        ) : (
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-2.5 text-[13px] text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))] hover:text-white"
+            onClick={signOut}
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Sign Out</span>
+          </Button>
+        )}
       </div>
     </aside>
+    </TooltipProvider>
   );
 }

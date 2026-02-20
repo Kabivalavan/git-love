@@ -17,7 +17,10 @@ import type { CartItem, Product, Coupon, ProductVariant } from '@/types/database
 interface CartItemWithProduct extends CartItem {
   product: Product;
   variant?: ProductVariant;
+  bundle_id?: string | null;
+  bundle_name?: string | null;
 }
+
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
@@ -180,6 +183,18 @@ export default function CartPage() {
     );
   }
 
+  // Group items: bundles together, individual items separate
+  const bundleGroups: Record<string, CartItemWithProduct[]> = {};
+  const individualItems: CartItemWithProduct[] = [];
+  cartItems.forEach(item => {
+    if (item.bundle_id) {
+      if (!bundleGroups[item.bundle_id]) bundleGroups[item.bundle_id] = [];
+      bundleGroups[item.bundle_id].push(item);
+    } else {
+      individualItems.push(item);
+    }
+  });
+
   return (
     <StorefrontLayout>
       <div className="container mx-auto px-4 py-6 md:py-8">
@@ -188,7 +203,46 @@ export default function CartPage() {
         <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-3 md:space-y-4">
-            {cartItems.map((item) => {
+            {/* Bundle groups */}
+            {Object.entries(bundleGroups).map(([bundleId, items]) => (
+              <Card key={bundleId} className="border-primary/30 bg-primary/5">
+                <CardContent className="p-3 md:p-4">
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-primary/20">
+                    <span className="text-sm font-semibold text-primary">🎁 {items[0]?.bundle_name || 'Bundle Deal'}</span>
+                    <Badge variant="secondary" className="text-[10px]">{items.length} items</Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {items.map((item) => {
+                      const primaryImage = item.product.images?.find(img => img.is_primary)?.image_url
+                        || item.product.images?.[0]?.image_url
+                        || '/placeholder.svg';
+                      const itemPrice = item.variant?.price || item.product.price;
+                      return (
+                        <div key={item.id} className="flex gap-3 items-center">
+                          <div className="w-12 h-12 bg-muted rounded-lg overflow-hidden flex-shrink-0">
+                            <img src={primaryImage} alt={item.product.name} className="w-full h-full object-cover" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{item.product.name}</p>
+                            {item.variant && <p className="text-xs text-muted-foreground">{item.variant.name}</p>}
+                            <p className="text-xs text-muted-foreground">₹{itemPrice} × {item.quantity}</p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="font-bold text-sm">₹{(itemPrice * item.quantity).toFixed(0)}</p>
+                            <Button variant="ghost" size="sm" className="text-destructive text-xs h-6 px-1" onClick={() => removeItem(item.id)}>
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            {/* Individual items */}
+            {individualItems.map((item) => {
               const primaryImage = item.product.images?.find(img => img.is_primary)?.image_url
                 || item.product.images?.[0]?.image_url
                 || '/placeholder.svg';
@@ -206,11 +260,11 @@ export default function CartPage() {
                       </Link>
                       <div className="flex-1 min-w-0">
                         <Link to={`/product/${item.product.slug}`}>
-                          <h3 className="font-medium text-sm md:text-base hover:text-primary transition-colors truncate">{item.product.name}</h3>
+                          <h3 className="font-medium text-sm md:text-base truncate">{item.product.name}</h3>
                         </Link>
                         {item.variant && (
                           <Badge variant="outline" className="text-[10px] mt-0.5">
-                            Variant: {item.variant.name}
+                            {item.variant.name}
                           </Badge>
                         )}
                         <p className="text-sm text-muted-foreground mt-0.5">
@@ -218,7 +272,7 @@ export default function CartPage() {
                             <>
                               <span className="line-through mr-2">₹{Number(itemPrice).toFixed(0)}</span>
                               <span className="font-semibold text-foreground">₹{Number(effectivePrice).toFixed(0)}</span>
-                              <Badge variant="destructive" className="ml-2 text-[10px] animate-pulse">{itemOffer.discountLabel}</Badge>
+                              <Badge variant="destructive" className="ml-2 text-[10px]">{itemOffer.discountLabel}</Badge>
                             </>
                           ) : (
                             <>
@@ -254,7 +308,7 @@ export default function CartPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-destructive hover:text-destructive text-xs h-7"
+                            className="text-destructive text-xs h-7"
                             onClick={() => removeItem(item.id)}
                           >
                             <Trash2 className="h-3 w-3 mr-1" />

@@ -319,6 +319,8 @@ export type Database = {
       }
       cart_items: {
         Row: {
+          bundle_id: string | null
+          bundle_name: string | null
           cart_id: string
           created_at: string | null
           id: string
@@ -328,6 +330,8 @@ export type Database = {
           variant_id: string | null
         }
         Insert: {
+          bundle_id?: string | null
+          bundle_name?: string | null
           cart_id: string
           created_at?: string | null
           id?: string
@@ -337,6 +341,8 @@ export type Database = {
           variant_id?: string | null
         }
         Update: {
+          bundle_id?: string | null
+          bundle_name?: string | null
           cart_id?: string
           created_at?: string | null
           id?: string
@@ -346,6 +352,13 @@ export type Database = {
           variant_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "cart_items_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "bundles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cart_items_cart_id_fkey"
             columns: ["cart_id"]
@@ -693,6 +706,8 @@ export type Database = {
       }
       order_items: {
         Row: {
+          bundle_id: string | null
+          bundle_name: string | null
           created_at: string | null
           id: string
           order_id: string
@@ -706,6 +721,8 @@ export type Database = {
           variant_name: string | null
         }
         Insert: {
+          bundle_id?: string | null
+          bundle_name?: string | null
           created_at?: string | null
           id?: string
           order_id: string
@@ -719,6 +736,8 @@ export type Database = {
           variant_name?: string | null
         }
         Update: {
+          bundle_id?: string | null
+          bundle_name?: string | null
           created_at?: string | null
           id?: string
           order_id?: string
@@ -732,6 +751,13 @@ export type Database = {
           variant_name?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "order_items_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "bundles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]

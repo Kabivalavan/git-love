@@ -242,7 +242,10 @@ export interface OrderItem {
   quantity: number;
   total: number;
   created_at: string;
+  bundle_id?: string | null;
+  bundle_name?: string | null;
 }
+
 
 export interface Delivery {
   id: string;

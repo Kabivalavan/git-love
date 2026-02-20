@@ -157,3 +157,20 @@
     @apply zoho-card transition-shadow hover:shadow-md;
   }
 }
+
+/* Disable hover effects on touch/mobile devices to prevent stuck hover states */
+@media (hover: none) and (pointer: coarse) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  .hover\:shadow-md:hover,
+  .hover\:shadow-lg:hover,
+  .hover\:scale-105:hover,
+  .hover\:opacity-90:hover,
+  .group:hover .group-hover\:shadow-md {
+    box-shadow: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
+

@@ -599,20 +599,57 @@ export default function AdminOrders() {
               <CardHeader className="py-3 px-4"><CardTitle className="text-base">Order Items</CardTitle></CardHeader>
               <CardContent className="px-4 pb-4">
                 <div className="space-y-3">
-                  {orderItems.map((item) => (
-                    <div key={item.id} className="flex justify-between items-start p-3 bg-muted/50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-sm">{item.product_name}</p>
-                        {item.variant_name && (
-                          <Badge className={`text-[10px] mt-0.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200`}>
-                            {item.variant_name}
-                          </Badge>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-0.5">SKU: {item.sku || 'N/A'} · Qty: {item.quantity} × ₹{Number(item.price).toFixed(2)}</p>
-                      </div>
-                      <p className="font-semibold text-sm">₹{Number(item.total).toFixed(2)}</p>
-                    </div>
-                  ))}
+                  {/* Group bundle items */}
+                  {(() => {
+                    const bundleGroups: Record<string, any[]> = {};
+                    const individuals: any[] = [];
+                    orderItems.forEach(item => {
+                      if (item.bundle_id) {
+                        if (!bundleGroups[item.bundle_id]) bundleGroups[item.bundle_id] = [];
+                        bundleGroups[item.bundle_id].push(item);
+                      } else {
+                        individuals.push(item);
+                      }
+                    });
+                    return (
+                      <>
+                        {Object.entries(bundleGroups).map(([bId, items]) => (
+                          <div key={bId} className="border border-primary/30 rounded-lg overflow-hidden">
+                            <div className="bg-primary/10 px-3 py-2 flex items-center gap-2">
+                              <span className="text-xs font-semibold text-primary">🎁 Bundle: {items[0]?.bundle_name || 'Bundle Deal'}</span>
+                            </div>
+                            <div className="divide-y">
+                              {items.map((item: any) => (
+                                <div key={item.id} className="flex justify-between items-start p-3">
+                                  <div>
+                                    <p className="font-medium text-sm">{item.product_name}</p>
+                                    {item.variant_name && (
+                                      <Badge className="text-[10px] mt-0.5 bg-secondary text-secondary-foreground">{item.variant_name}</Badge>
+                                    )}
+                                    <p className="text-xs text-muted-foreground mt-0.5">SKU: {item.sku || 'N/A'} · Qty: {item.quantity} × ₹{Number(item.price).toFixed(2)}</p>
+                                  </div>
+                                  <p className="font-semibold text-sm">₹{Number(item.total).toFixed(2)}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        {individuals.map((item: any) => (
+                          <div key={item.id} className="flex justify-between items-start p-3 bg-muted/50 rounded-lg">
+                            <div>
+                              <p className="font-medium text-sm">{item.product_name}</p>
+                              {item.variant_name && (
+                                <Badge className="text-[10px] mt-0.5 bg-secondary text-secondary-foreground">{item.variant_name}</Badge>
+                              )}
+                              <p className="text-xs text-muted-foreground mt-0.5">SKU: {item.sku || 'N/A'} · Qty: {item.quantity} × ₹{Number(item.price).toFixed(2)}</p>
+                            </div>
+                            <p className="font-semibold text-sm">₹{Number(item.total).toFixed(2)}</p>
+                          </div>
+                        ))}
+                      </>
+                    );
+                  })()}
+
                   <Separator />
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>₹{Number(selectedOrder.subtotal).toFixed(2)}</span></div>
