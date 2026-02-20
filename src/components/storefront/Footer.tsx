@@ -31,17 +31,20 @@ async function fetchFooterData() {
 export function Footer() {
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(_footerCache?.storeInfo ?? null);
   const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(_footerCache?.socialLinks ?? null);
+  const [isLoaded, setIsLoaded] = useState(!!_footerCache);
 
   useEffect(() => {
     if (_footerCache) {
       setStoreInfo(_footerCache.storeInfo);
       setSocialLinks(_footerCache.socialLinks);
+      setIsLoaded(true);
       return;
     }
     fetchFooterData().then(data => {
       if (data) {
         setStoreInfo(data.storeInfo);
         setSocialLinks(data.socialLinks);
+        setIsLoaded(true);
       }
     });
   }, []);

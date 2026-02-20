@@ -202,6 +202,15 @@ export default function AdminCoupons() {
       render: (c) => `${c.used_count}${c.usage_limit ? ` / ${c.usage_limit}` : ''}`,
     },
     {
+      key: 'show_on_storefront',
+      header: 'Show on Page',
+      render: (c) => (
+        <Badge variant={c.show_on_storefront ? 'default' : 'outline'}>
+          {c.show_on_storefront ? 'Visible' : 'Hidden'}
+        </Badge>
+      ),
+    },
+    {
       key: 'is_active',
       header: 'Status',
       render: (c) => (
