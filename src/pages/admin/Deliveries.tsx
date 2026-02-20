@@ -5,8 +5,9 @@ import { DetailPanel, DetailField, DetailSection } from '@/components/admin/Deta
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { ExternalLink, Info } from 'lucide-react';
+import { ExternalLink, Info, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Delivery {
   id: string;
@@ -40,6 +41,8 @@ export default function AdminDeliveries() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [codFilter, setCodFilter] = useState<string>('all');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -70,6 +73,14 @@ export default function AdminDeliveries() {
     const found = DELIVERY_STATUSES.find(s => s.value === status);
     return (found?.color || 'secondary') as 'default' | 'secondary' | 'destructive';
   };
+
+  const filteredDeliveries = deliveries.filter(d => {
+    if (statusFilter !== 'all' && d.status !== statusFilter) return false;
+    if (codFilter === 'cod' && !d.is_cod) return false;
+    if (codFilter === 'prepaid' && d.is_cod) return false;
+    if (codFilter === 'cod_pending' && (!d.is_cod || d.cod_collected)) return false;
+    return true;
+  });
 
   const columns: Column<Delivery>[] = [
     {
@@ -114,9 +125,45 @@ export default function AdminDeliveries() {
         <span>Delivery records are created automatically when an order is marked as <strong>Packed</strong>. To update courier, tracking ID, and expected delivery — open the order and use the Delivery Details section.</span>
       </div>
 
+      {/* Filters */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Filter className="h-4 w-4" />
+          <span>Filter:</span>
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[160px] h-9">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            {DELIVERY_STATUSES.map(s => (
+              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={codFilter} onValueChange={setCodFilter}>
+          <SelectTrigger className="w-[160px] h-9">
+            <SelectValue placeholder="Payment Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Payment Types</SelectItem>
+            <SelectItem value="cod">COD</SelectItem>
+            <SelectItem value="prepaid">Prepaid</SelectItem>
+            <SelectItem value="cod_pending">COD Pending</SelectItem>
+          </SelectContent>
+        </Select>
+        {(statusFilter !== 'all' || codFilter !== 'all') && (
+          <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={() => { setStatusFilter('all'); setCodFilter('all'); }}>
+            Clear filters
+          </Button>
+        )}
+        <span className="text-xs text-muted-foreground ml-auto">{filteredDeliveries.length} of {deliveries.length} deliveries</span>
+      </div>
+
       <DataTable<Delivery>
         columns={columns}
-        data={deliveries}
+        data={filteredDeliveries}
         isLoading={isLoading}
         onRowClick={handleRowClick}
         searchable

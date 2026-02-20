@@ -250,6 +250,7 @@ export default function AdminCoupons() {
               <DetailField label="Type" value={COUPON_TYPES.find(t => t.value === selectedCoupon.type)?.label} />
               <DetailField label="Value" value={formatValue(selectedCoupon)} />
               <DetailField label="Status" value={selectedCoupon.is_active ? 'Active' : 'Inactive'} />
+              <DetailField label="Show on Product Pages" value={selectedCoupon.show_on_storefront ? 'Yes ✓' : 'No'} />
             </DetailSection>
             <DetailSection title="Conditions">
               <DetailField label="Min Order Value" value={selectedCoupon.min_order_value ? `₹${selectedCoupon.min_order_value}` : '-'} />

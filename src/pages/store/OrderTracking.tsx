@@ -6,7 +6,7 @@
  import { Separator } from '@/components/ui/separator';
  import { supabase } from '@/integrations/supabase/client';
  import { useAuth } from '@/hooks/useAuth';
- import { ArrowLeft, Package, Truck, CheckCircle, MapPin } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, MapPin } from 'lucide-react';
  import type { Order, OrderItem, Delivery, ShippingAddress, OrderStatus } from '@/types/database';
  import { cn } from '@/lib/utils';
  
@@ -114,20 +114,56 @@
            </CardContent>
          </Card>
  
-         <Card>
-           <CardHeader><CardTitle className="text-lg flex items-center gap-2"><MapPin className="h-5 w-5" />Shipping Address</CardTitle></CardHeader>
-           <CardContent>
-             {address && (
-               <div className="text-sm space-y-1">
-                 <p className="font-medium">{address.full_name}</p>
-                 <p>{address.address_line1}</p>
-                 <p>{address.city}, {address.state} - {address.pincode}</p>
-                 <p className="text-muted-foreground">Phone: {address.mobile_number}</p>
-               </div>
-             )}
-           </CardContent>
-         </Card>
-       </div>
-     </div>
-   );
- }
+          <Card>
+            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><MapPin className="h-5 w-5" />Shipping Address</CardTitle></CardHeader>
+            <CardContent>
+              {address && (
+                <div className="text-sm space-y-1">
+                  <p className="font-medium">{address.full_name}</p>
+                  <p>{address.address_line1}</p>
+                  <p>{address.city}, {address.state} - {address.pincode}</p>
+                  <p className="text-muted-foreground">Phone: {address.mobile_number}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Delivery Info */}
+        {delivery && (delivery.tracking_number || delivery.partner_name || delivery.tracking_url || delivery.estimated_date) && (
+          <Card>
+            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Truck className="h-5 w-5" />Shipment Details</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                {delivery.partner_name && (
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Courier</p>
+                    <p className="font-medium">{delivery.partner_name}</p>
+                  </div>
+                )}
+                {delivery.tracking_number && (
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Tracking Number</p>
+                    <p className="font-mono font-medium">{delivery.tracking_number}</p>
+                  </div>
+                )}
+                {delivery.estimated_date && (
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Expected Delivery</p>
+                    <p className="font-medium">{new Date(delivery.estimated_date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                  </div>
+                )}
+              </div>
+              {delivery.tracking_url && (
+                <Button asChild variant="outline" size="sm" className="w-full sm:w-auto gap-2">
+                  <a href={delivery.tracking_url} target="_blank" rel="noopener noreferrer">
+                    <Truck className="h-4 w-4" /> Track Shipment
+                  </a>
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+}

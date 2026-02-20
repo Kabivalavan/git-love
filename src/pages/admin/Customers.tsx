@@ -137,7 +137,7 @@ export default function AdminCustomers() {
     if (cartRes.data?.id) {
       const { data: items } = await supabase
         .from('cart_items')
-        .select('id, quantity, product_id, products(name, price, images:product_images(image_url, is_primary))')
+        .select('id, quantity, product_id, product:products(name, price, images:product_images(image_url, is_primary))')
         .eq('cart_id', cartRes.data.id);
       setCustomerCart(items || []);
     }
@@ -473,7 +473,7 @@ export default function AdminCustomers() {
                 </h3>
                 <div className="space-y-2">
                   {customerCart.map((item: any) => {
-                    const product = item.products;
+                    const product = item.product;
                     const imgUrl = product?.images?.find((img: any) => img.is_primary)?.image_url || product?.images?.[0]?.image_url;
                     return (
                       <div key={item.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
