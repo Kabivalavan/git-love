@@ -339,12 +339,28 @@ export default function AdminProducts() {
     },
     {
       key: 'stock_quantity',
-      header: 'Stock',
-      render: (p) => (
-        <Badge variant={p.stock_quantity <= p.low_stock_threshold ? 'destructive' : 'secondary'}>
-          {p.stock_quantity}
-        </Badge>
-      ),
+      header: 'In Stock',
+      render: (p) => {
+        const inHold = (p as any).in_hold || 0;
+        const available = Math.max(0, p.stock_quantity - inHold);
+        return (
+          <Badge variant={available <= p.low_stock_threshold ? 'destructive' : 'secondary'}>
+            {available}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: 'in_hold' as any,
+      header: 'In Hold',
+      render: (p) => {
+        const inHold = (p as any).in_hold || 0;
+        return (
+          <Badge variant={inHold > 0 ? 'outline' : 'secondary'} className={inHold > 0 ? 'border-amber-500 text-amber-700 dark:text-amber-400' : ''}>
+            {inHold}
+          </Badge>
+        );
+      },
     },
     {
       key: 'category',
@@ -462,6 +478,8 @@ export default function AdminProducts() {
             </DetailSection>
             <DetailSection title="Inventory">
               <DetailField label="Total Stock" value={selectedProduct.stock_quantity} />
+              <DetailField label="In Hold" value={(selectedProduct as any).in_hold || 0} />
+              <DetailField label="Available" value={Math.max(0, selectedProduct.stock_quantity - ((selectedProduct as any).in_hold || 0))} />
               <DetailField label="Low Stock Threshold" value={selectedProduct.low_stock_threshold} />
               <DetailField label="Weight" value={selectedProduct.shipping_weight ? `${selectedProduct.shipping_weight} kg` : '-'} />
             </DetailSection>
