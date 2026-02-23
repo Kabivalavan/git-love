@@ -149,14 +149,39 @@ export default function AdminCustomers() {
     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
+  const promoImageUrl = `${window.location.origin}/images/whatsapp-promo.jpeg`;
+
   const getAbandonedCartMsg = (customer: Customer) => {
     const items = customerCart.map((i: any) => i.product?.name).filter(Boolean).join(', ');
     const totalPrice = customerCart.reduce((sum: number, i: any) => sum + (Number(i.product?.price || 0) * i.quantity), 0);
-    return `Hi ${customer.full_name || 'there'} 👋\nYou left something awesome in your cart 🛒\n\n🛍 ${items || 'Your items'}\n💰 Price: Rs ${totalPrice.toFixed(0)}\n\nComplete your order now before it goes out of stock 👇\n\n– ${storeName}`;
+    return [
+      `Hi ${customer.full_name || 'there'} \u{1F44B}`,
+      `You left something awesome in your cart \u{1F6D2}`,
+      ``,
+      `\u{1F6CD}\uFE0F ${items || 'Your items'}`,
+      `\u{1F4B0} Price: Rs ${totalPrice.toFixed(0)}`,
+      ``,
+      `Complete your order now before it goes out of stock \u{1F447}`,
+      ``,
+      `\u{1F5BC}\uFE0F Check this out: ${promoImageUrl}`,
+      ``,
+      `\u2013 ${storeName}`,
+    ].join('\n');
   };
 
   const getOfferMsg = (customer: Customer) => {
-    return `Hi ${customer.full_name || 'there'} 🎉\nSpecial offer just for you!\n\n💥 Flat __% OFF\n🏷 Coupon Code: ____\n⏰ Valid till: ____\n\nShop now 👇\n\n– ${storeName}`;
+    return [
+      `Hi ${customer.full_name || 'there'} \u{1F389}`,
+      `Special offer just for you!`,
+      ``,
+      `\u{1F4A5} Flat __% OFF`,
+      `\u{1F3F7}\uFE0F Coupon Code: ____`,
+      `\u23F0 Valid till: ____`,
+      ``,
+      `Shop now \u{1F447}`,
+      ``,
+      `\u2013 ${storeName}`,
+    ].join('\n');
   };
 
   const handleBlockToggle = async (blocked: boolean) => {
