@@ -10,9 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Save, Store, Palette, Truck, Link as LinkIcon, Bell, CreditCard, Megaphone, Loader2, CheckCircle2, XCircle, ExternalLink, Shield, Unplug } from 'lucide-react';
+import { Save, Store, Palette, Truck, Link as LinkIcon, Bell, CreditCard, Megaphone, Loader2, CheckCircle2, XCircle, ExternalLink, Shield, Unplug, Mail, Send, Eye, EyeOff } from 'lucide-react';
 import type { StoreInfo, ThemeSettings, CheckoutSettings, SocialLinks } from '@/types/database';
 import { useStorefrontTheme, THEME_OPTIONS, type StorefrontTheme } from '@/hooks/useTheme';
 import { cn } from '@/lib/utils';
@@ -87,6 +88,29 @@ export default function AdminSettings() {
     is_active: true,
     link: '',
   });
+  const [smtpConfig, setSmtpConfig] = useState({
+    host: '',
+    port: 587,
+    encryption: 'STARTTLS' as 'STARTTLS' | 'SSL/TLS' | 'None',
+    username: '',
+    password: '',
+    from_name: '',
+    from_email: '',
+  });
+  const [smtpConnected, setSmtpConnected] = useState(false);
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
+  const [emailAutomation, setEmailAutomation] = useState({
+    welcome: true,
+    browse_abandonment: true,
+    cart_abandonment: true,
+    order_confirmation: true,
+    payment_confirmation: true,
+    order_shipped: true,
+    out_for_delivery: true,
+    order_delivered: true,
+    review_request: true,
+  });
   const { toast } = useToast();
 
   const { theme: storefrontTheme, setTheme: setStorefrontTheme } = useStorefrontTheme();
@@ -128,6 +152,22 @@ export default function AdminSettings() {
             break;
           case 'announcement':
             setAnnouncement(value as unknown as AnnouncementSettings);
+            break;
+          case 'smtp_config':
+            const smtp = value as any;
+            setSmtpConfig({
+              host: smtp.host || '',
+              port: smtp.port || 587,
+              encryption: smtp.encryption || 'STARTTLS',
+              username: smtp.username || '',
+              password: smtp.password || '',
+              from_name: smtp.from_name || '',
+              from_email: smtp.from_email || '',
+            });
+            setSmtpConnected(!!(smtp.host && smtp.username && smtp.password));
+            break;
+          case 'email_automation':
+            setEmailAutomation({ ...emailAutomation, ...(value as any) });
             break;
         }
       });
@@ -239,6 +279,65 @@ export default function AdminSettings() {
     }
   }, [toast]);
 
+  const handleSmtpPreset = (preset: string) => {
+    if (preset === 'gmail') {
+      setSmtpConfig({ ...smtpConfig, host: 'smtp.gmail.com', port: 587, encryption: 'STARTTLS' });
+    } else if (preset === 'outlook') {
+      setSmtpConfig({ ...smtpConfig, host: 'smtp.office365.com', port: 587, encryption: 'STARTTLS' });
+    } else if (preset === 'yahoo') {
+      setSmtpConfig({ ...smtpConfig, host: 'smtp.mail.yahoo.com', port: 465, encryption: 'SSL/TLS' });
+    }
+  };
+
+  const handleSmtpSave = async () => {
+    if (!smtpConfig.host || !smtpConfig.username || !smtpConfig.password) {
+      toast({ title: 'Error', description: 'Please fill in all required SMTP fields', variant: 'destructive' });
+      return;
+    }
+    await handleSave('smtp_config', smtpConfig as unknown as Record<string, unknown>);
+    setSmtpConnected(true);
+  };
+
+  const handleSmtpTest = async () => {
+    setIsTestingSmtp(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      // Save SMTP config first
+      await handleSave('smtp_config', smtpConfig as unknown as Record<string, unknown>);
+
+      const response = await fetch(
+        `https://riqjidlyjyhfpgnjtbqi.supabase.co/functions/v1/send-smtp-email`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            to: smtpConfig.username,
+            subject: 'SMTP Test Email \u2705',
+            html: '<h1>SMTP Configuration Successful!</h1><p>Your email settings are working correctly.</p>',
+          }),
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Test failed');
+      toast({ title: 'Test Sent!', description: `Test email sent to ${smtpConfig.username}` });
+      setSmtpConnected(true);
+    } catch (error: any) {
+      toast({ title: 'Test Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsTestingSmtp(false);
+    }
+  };
+
+  const handleSmtpDisconnect = async () => {
+    setSmtpConfig({ host: '', port: 587, encryption: 'STARTTLS', username: '', password: '', from_name: '', from_email: '' });
+    await handleSave('smtp_config', { host: '', port: 587, encryption: 'STARTTLS', username: '', password: '', from_name: '', from_email: '' });
+    setSmtpConnected(false);
+    toast({ title: 'Disconnected', description: 'SMTP configuration removed' });
+  };
+
   if (isLoading) {
     return (
       <AdminLayout title="Settings" description="Configure your store settings">
@@ -252,7 +351,7 @@ export default function AdminSettings() {
   return (
     <AdminLayout title="Settings" description="Configure your store settings">
       <Tabs defaultValue="store" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-grid">
           <TabsTrigger value="store" className="gap-2">
             <Store className="h-4 w-4" />
             <span className="hidden sm:inline">Store</span>
@@ -272,6 +371,10 @@ export default function AdminSettings() {
           <TabsTrigger value="payment" className="gap-2">
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">Payment</span>
+          </TabsTrigger>
+          <TabsTrigger value="email" className="gap-2">
+            <Mail className="h-4 w-4" />
+            <span className="hidden sm:inline">Email</span>
           </TabsTrigger>
           <TabsTrigger value="social" className="gap-2">
             <LinkIcon className="h-4 w-4" />
@@ -530,7 +633,6 @@ export default function AdminSettings() {
               </div>
 
 
-
               <Button 
                 onClick={() => handleSave('theme', theme as unknown as Record<string, unknown>)} 
                 disabled={isSaving === 'theme'}
@@ -540,6 +642,279 @@ export default function AdminSettings() {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Email / SMTP */}
+        <TabsContent value="email">
+          <div className="space-y-6">
+            {/* SMTP Connection Status */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Mail className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">Email SMTP Configuration</CardTitle>
+                      <CardDescription>Connect your email service to send automated emails</CardDescription>
+                    </div>
+                  </div>
+                  {smtpConnected ? (
+                    <Badge variant="default" className="gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Connected
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="gap-1.5">
+                      <XCircle className="h-3.5 w-3.5" />
+                      Not Connected
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-6">
+                {/* Quick Presets */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Quick Setup</Label>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button variant="outline" size="sm" onClick={() => handleSmtpPreset('gmail')} className="gap-2">
+                      <Mail className="h-4 w-4" /> Gmail
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleSmtpPreset('outlook')} className="gap-2">
+                      <Mail className="h-4 w-4" /> Outlook
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleSmtpPreset('yahoo')} className="gap-2">
+                      <Mail className="h-4 w-4" /> Yahoo
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setSmtpConfig({ ...smtpConfig, host: '', port: 587, encryption: 'STARTTLS' })} className="gap-2">
+                      <Mail className="h-4 w-4" /> Custom Domain
+                    </Button>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* SMTP Fields */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="smtp_host">SMTP Host *</Label>
+                    <Input
+                      id="smtp_host"
+                      value={smtpConfig.host}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, host: e.target.value })}
+                      placeholder="smtp.gmail.com"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="smtp_port">SMTP Port *</Label>
+                    <Input
+                      id="smtp_port"
+                      type="number"
+                      value={smtpConfig.port}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, port: parseInt(e.target.value) || 587 })}
+                      placeholder="587"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Encryption</Label>
+                  <Select
+                    value={smtpConfig.encryption}
+                    onValueChange={(v) => setSmtpConfig({ ...smtpConfig, encryption: v as any })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="STARTTLS">STARTTLS (Port 587)</SelectItem>
+                      <SelectItem value="SSL/TLS">SSL/TLS (Port 465)</SelectItem>
+                      <SelectItem value="None">None (Port 25)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="smtp_username">Username / Email *</Label>
+                    <Input
+                      id="smtp_username"
+                      value={smtpConfig.username}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, username: e.target.value })}
+                      placeholder="your_email@gmail.com"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="smtp_password">Password / App Password *</Label>
+                    <div className="relative">
+                      <Input
+                        id="smtp_password"
+                        type={showSmtpPassword ? 'text' : 'password'}
+                        value={smtpConfig.password}
+                        onChange={(e) => setSmtpConfig({ ...smtpConfig, password: e.target.value })}
+                        placeholder="App Password (NOT your Gmail password)"
+                        autoComplete="new-password"
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSmtpPassword(!showSmtpPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showSmtpPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      For Gmail: Use an App Password from <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-primary underline">Google App Passwords</a>
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="from_name">From Name</Label>
+                    <Input
+                      id="from_name"
+                      value={smtpConfig.from_name}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, from_name: e.target.value })}
+                      placeholder="My Store"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="from_email">From Email (optional)</Label>
+                    <Input
+                      id="from_email"
+                      type="email"
+                      value={smtpConfig.from_email}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, from_email: e.target.value })}
+                      placeholder="noreply@yourdomain.com"
+                    />
+                    <p className="text-xs text-muted-foreground">Defaults to username if empty</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button onClick={handleSmtpSave} disabled={isSaving === 'smtp_config'} className="gap-2">
+                    {isSaving === 'smtp_config' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save SMTP
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleSmtpTest}
+                    disabled={isTestingSmtp || !smtpConfig.host || !smtpConfig.username || !smtpConfig.password}
+                    className="gap-2"
+                  >
+                    {isTestingSmtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    Send Test Email
+                  </Button>
+                  {smtpConnected && (
+                    <Button variant="destructive" size="sm" onClick={handleSmtpDisconnect} className="gap-2 ml-auto">
+                      <Unplug className="h-4 w-4" />
+                      Disconnect
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Email Automation Triggers */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Bell className="h-5 w-5" />
+                  Automated Email Triggers
+                </CardTitle>
+                <CardDescription>
+                  Enable/disable automated emails for different events. SMTP must be connected for emails to send.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {[
+                  { key: 'welcome', label: 'Welcome Email', desc: 'Sent when a new user signs up', icon: '\u{1F389}' },
+                  { key: 'browse_abandonment', label: 'Browse Abandonment', desc: 'Sent when a user views a product 3+ times without adding to cart', icon: '\u{1F440}' },
+                  { key: 'cart_abandonment', label: 'Cart Abandonment', desc: 'Sent when cart is idle for 1-12 hours', icon: '\u{1F6D2}' },
+                  { key: 'order_confirmation', label: 'Order Confirmation', desc: 'Sent when a new order is created', icon: '\u2705' },
+                  { key: 'payment_confirmation', label: 'Payment Confirmation', desc: 'Sent when payment is received', icon: '\u{1F4B3}' },
+                  { key: 'order_shipped', label: 'Order Shipped', desc: 'Sent when order status changes to shipped', icon: '\u{1F69A}' },
+                  { key: 'out_for_delivery', label: 'Out for Delivery', desc: 'Sent when order is out for delivery', icon: '\u{1F4E6}' },
+                  { key: 'order_delivered', label: 'Order Delivered', desc: 'Sent when delivery is completed', icon: '\u{1F389}' },
+                  { key: 'review_request', label: 'Review / Feedback Request', desc: 'Sent 3-5 days after delivery', icon: '\u2B50' },
+                ].map((trigger) => (
+                  <div key={trigger.key} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{trigger.icon}</span>
+                      <div>
+                        <Label className="text-base font-medium">{trigger.label}</Label>
+                        <p className="text-sm text-muted-foreground">{trigger.desc}</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={(emailAutomation as any)[trigger.key]}
+                      onCheckedChange={(checked) => {
+                        const updated = { ...emailAutomation, [trigger.key]: checked };
+                        setEmailAutomation(updated);
+                      }}
+                    />
+                  </div>
+                ))}
+
+                <Button
+                  onClick={() => handleSave('email_automation', emailAutomation as unknown as Record<string, unknown>)}
+                  disabled={isSaving === 'email_automation'}
+                  className="gap-2 mt-4"
+                >
+                  {isSaving === 'email_automation' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save Email Settings
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Gmail Setup Guide */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Gmail Setup Guide</CardTitle>
+                <CardDescription>How to configure Gmail SMTP</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ol className="space-y-4 text-sm">
+                  <li className="flex gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">1</span>
+                    <div>
+                      <p className="font-medium">Enable 2-Step Verification</p>
+                      <p className="text-muted-foreground">Go to <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer" className="text-primary underline inline-flex items-center gap-1">Google Security <ExternalLink className="h-3 w-3" /></a> and turn on 2-Step Verification</p>
+                    </div>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">2</span>
+                    <div>
+                      <p className="font-medium">Create an App Password</p>
+                      <p className="text-muted-foreground">Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-primary underline inline-flex items-center gap-1">App Passwords <ExternalLink className="h-3 w-3" /></a> and create one for "Mail"</p>
+                    </div>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">3</span>
+                    <div>
+                      <p className="font-medium">Use these SMTP settings</p>
+                      <p className="text-muted-foreground">Host: <code className="bg-muted px-1 rounded">smtp.gmail.com</code> | Port: <code className="bg-muted px-1 rounded">587</code> | Encryption: <code className="bg-muted px-1 rounded">STARTTLS</code></p>
+                    </div>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">4</span>
+                    <div>
+                      <p className="font-medium">Enter your Gmail and App Password above</p>
+                      <p className="text-muted-foreground">Use the 16-character App Password (NOT your Gmail password)</p>
+                    </div>
+                  </li>
+                </ol>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Checkout */}

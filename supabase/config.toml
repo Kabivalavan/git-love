@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.razorpay-settings]
 verify_jwt = false
+
+[functions.send-smtp-email]
+verify_jwt = false
+
+[functions.email-triggers]
+verify_jwt = false
