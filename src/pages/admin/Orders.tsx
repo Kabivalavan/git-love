@@ -145,6 +145,24 @@ export default function AdminOrders() {
     return `Hi ${addr?.full_name || 'there'} 👋\nYour order #${selectedOrder.order_number} has been delivered successfully ✅\n\nWe hope you love your purchase 💖\n\n– ${storeName}`;
   };
 
+  // Fire email trigger (non-blocking)
+  const fireEmailTrigger = async (trigger: string, data: Record<string, any>) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      await fetch(
+        `https://riqjidlyjyhfpgnjtbqi.supabase.co/functions/v1/email-triggers`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({ trigger, data }),
+        }
+      );
+    } catch (e) {
+      console.error('Email trigger failed:', e);
+    }
+  };
+
   const handleStatusUpdate = async (newStatus: OrderStatus) => {
     if (!selectedOrder) return;
     setIsUpdating(true);
@@ -152,6 +170,11 @@ export default function AdminOrders() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
+      const addr = getAddress();
+      const customerEmail = addr ? (await supabase.from('profiles').select('email').eq('user_id', selectedOrder.user_id).single())?.data?.email : null;
+      const customerName = addr?.full_name || 'there';
+      const items = orderItems.map(i => `${i.product_name} x${i.quantity}`).join(', ');
+
       // Auto-create delivery record when status becomes 'packed' (if not already exists)
       if (newStatus === 'packed' && !delivery) {
         const { data: newDel } = await supabase.from('deliveries').insert({
@@ -166,21 +189,60 @@ export default function AdminOrders() {
           setDeliveryEdit(newDel as unknown as Delivery);
         }
       }
+
       // Auto-update delivery status when order is shipped or delivered
       if (newStatus === 'shipped' && delivery) {
         await supabase.from('deliveries').update({ status: 'in_transit' }).eq('id', delivery.id);
         setDelivery({ ...delivery, status: 'in_transit' });
         setDeliveryEdit(prev => ({ ...prev, status: 'in_transit' }));
-        // Finalize stock: deduct real stock, release hold (only on shipped)
         await supabase.rpc('finalize_order_stock', { p_order_id: selectedOrder.id });
+
+        // Fire order_shipped email
+        if (customerEmail) {
+          fireEmailTrigger('order_shipped', {
+            email: customerEmail,
+            customer_name: customerName,
+            order_number: selectedOrder.order_number,
+            courier_name: delivery.partner_name || 'Our Delivery Partner',
+            tracking_number: delivery.tracking_number || 'N/A',
+            estimated_delivery: delivery.estimated_date ? new Date(delivery.estimated_date).toLocaleDateString('en-IN') : '2-5 days',
+            tracking_url: delivery.tracking_url || '',
+            shop_url: window.location.origin,
+          });
+        }
       }
+
       if (newStatus === 'delivered' && delivery) {
         await supabase.from('deliveries').update({ status: 'delivered', delivered_at: new Date().toISOString() }).eq('id', delivery.id);
         setDelivery({ ...delivery, status: 'delivered', delivered_at: new Date().toISOString() });
         setDeliveryEdit(prev => ({ ...prev, status: 'delivered' }));
-        // If shipped was skipped, finalize stock now (idempotent)
         await supabase.rpc('finalize_order_stock', { p_order_id: selectedOrder.id });
+
+        // Fire order_delivered email
+        if (customerEmail) {
+          fireEmailTrigger('order_delivered', {
+            email: customerEmail,
+            customer_name: customerName,
+            order_number: selectedOrder.order_number,
+            review_url: `${window.location.origin}/my-orders`,
+            next_order_coupon: 'COMEBACK10',
+          });
+        }
       }
+
+      // Fire order_confirmed email
+      if (newStatus === 'confirmed' && customerEmail) {
+        fireEmailTrigger('order_created', {
+          email: customerEmail,
+          customer_name: customerName,
+          order_number: selectedOrder.order_number,
+          order_items: items,
+          order_total: String(Number(selectedOrder.total).toFixed(0)),
+          delivery_address: addr ? `${addr.address_line1}, ${addr.city} - ${addr.pincode}` : '',
+          tracking_url: `${window.location.origin}/order-tracking/${selectedOrder.order_number}`,
+        });
+      }
+
       // Release hold on cancel/return without stock deduction
       if (newStatus === 'cancelled' || newStatus === 'returned') {
         await supabase.rpc('release_stock_hold', { p_user_id: selectedOrder.user_id, p_order_id: selectedOrder.id });
