@@ -13,7 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Save, Store, Palette, Truck, Link as LinkIcon, Bell, CreditCard, Megaphone, Loader2, CheckCircle2, XCircle, ExternalLink, Shield, Unplug, Mail, Send, Eye, EyeOff } from 'lucide-react';
+import { Save, Store, Palette, Truck, Link as LinkIcon, Bell, CreditCard, Megaphone, Loader2, CheckCircle2, XCircle, ExternalLink, Shield, Unplug, Mail, Send, Eye, EyeOff, FileEdit, Image as ImageIcon, RotateCcw, Code } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import type { StoreInfo, ThemeSettings, CheckoutSettings, SocialLinks } from '@/types/database';
 import { useStorefrontTheme, THEME_OPTIONS, type StorefrontTheme } from '@/hooks/useTheme';
 import { cn } from '@/lib/utils';
@@ -111,6 +112,10 @@ export default function AdminSettings() {
     order_delivered: true,
     review_request: true,
   });
+  const [emailTemplates, setEmailTemplates] = useState<Record<string, { subject: string; html: string; image_url?: string }>>({});
+  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
+  const [templateDraft, setTemplateDraft] = useState<{ subject: string; html: string; image_url?: string }>({ subject: '', html: '' });
+  const [templatePreviewOpen, setTemplatePreviewOpen] = useState(false);
   const { toast } = useToast();
 
   const { theme: storefrontTheme, setTheme: setStorefrontTheme } = useStorefrontTheme();
@@ -168,6 +173,9 @@ export default function AdminSettings() {
             break;
           case 'email_automation':
             setEmailAutomation({ ...emailAutomation, ...(value as any) });
+            break;
+          case 'email_templates':
+            setEmailTemplates(value as any);
             break;
         }
       });
@@ -872,6 +880,208 @@ export default function AdminSettings() {
                   {isSaving === 'email_automation' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Save Email Settings
                 </Button>
+              </CardContent>
+            </Card>
+
+            {/* Email Template Editor */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileEdit className="h-5 w-5" />
+                  Email Template Editor
+                </CardTitle>
+                <CardDescription>
+                  Customize the HTML content of each automated email template. Click a template to edit its subject, body, and header image.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {[
+                  { key: 'welcome', label: 'Welcome Email', icon: '\u{1F389}' },
+                  { key: 'browse_abandonment', label: 'Browse Abandonment', icon: '\u{1F440}' },
+                  { key: 'cart_abandonment', label: 'Cart Abandonment', icon: '\u{1F6D2}' },
+                  { key: 'order_confirmation', label: 'Order Confirmation', icon: '\u2705' },
+                  { key: 'payment_confirmation', label: 'Payment Confirmation', icon: '\u{1F4B3}' },
+                  { key: 'order_shipped', label: 'Order Shipped', icon: '\u{1F69A}' },
+                  { key: 'out_for_delivery', label: 'Out for Delivery', icon: '\u{1F4E6}' },
+                  { key: 'order_delivered', label: 'Order Delivered', icon: '\u{1F389}' },
+                  { key: 'review_request', label: 'Review Request', icon: '\u2B50' },
+                ].map((tpl) => {
+                  const isCustomized = !!emailTemplates[tpl.key];
+                  return (
+                    <div key={tpl.key} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">{tpl.icon}</span>
+                        <div>
+                          <p className="font-medium text-sm">{tpl.label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {isCustomized ? 'Custom template' : 'Using default template'}
+                          </p>
+                        </div>
+                        {isCustomized && (
+                          <Badge variant="outline" className="text-xs">Customized</Badge>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5"
+                              onClick={() => {
+                                setTemplatePreviewOpen(true);
+                                setEditingTemplate(tpl.key);
+                                const existing = emailTemplates[tpl.key];
+                                setTemplateDraft(existing || { subject: '', html: '', image_url: '' });
+                              }}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Preview
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
+                            <DialogHeader>
+                              <DialogTitle>{tpl.icon} {tpl.label} — Preview</DialogTitle>
+                            </DialogHeader>
+                            <div className="border rounded-lg p-4 bg-background">
+                              <p className="text-sm font-medium mb-2">Subject: <span className="text-muted-foreground">{emailTemplates[tpl.key]?.subject || 'Default template subject'}</span></p>
+                              {emailTemplates[tpl.key]?.image_url && (
+                                <img src={emailTemplates[tpl.key].image_url} alt="Header" className="w-full max-h-48 object-cover rounded-lg mb-4" />
+                              )}
+                              <div
+                                className="prose prose-sm max-w-none"
+                                dangerouslySetInnerHTML={{ __html: emailTemplates[tpl.key]?.html || '<p class="text-muted-foreground italic">Using default template. Click Edit to customize.</p>' }}
+                              />
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => {
+                            setEditingTemplate(tpl.key);
+                            const existing = emailTemplates[tpl.key];
+                            setTemplateDraft(existing || { subject: '', html: '', image_url: '' });
+                          }}
+                        >
+                          <FileEdit className="h-3.5 w-3.5" />
+                          Edit
+                        </Button>
+                        {isCustomized && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 text-muted-foreground"
+                            onClick={async () => {
+                              const updated = { ...emailTemplates };
+                              delete updated[tpl.key];
+                              setEmailTemplates(updated);
+                              await handleSave('email_templates', updated as unknown as Record<string, unknown>);
+                              toast({ title: 'Reset', description: `${tpl.label} template reset to default` });
+                            }}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Template Editor Panel */}
+                {editingTemplate && (
+                  <div className="mt-6 border-2 border-primary/20 rounded-lg p-6 space-y-4 bg-accent/30">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold flex items-center gap-2">
+                        <Code className="h-4 w-4" />
+                        Editing: {editingTemplate.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                      </h3>
+                      <Button variant="ghost" size="sm" onClick={() => setEditingTemplate(null)}>
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Email Subject</Label>
+                      <Input
+                        value={templateDraft.subject}
+                        onChange={(e) => setTemplateDraft({ ...templateDraft, subject: e.target.value })}
+                        placeholder="Use {{variable}} for dynamic content e.g. Welcome to {{store_name}}"
+                      />
+                      <p className="text-xs text-muted-foreground">Variables: {'{{store_name}}, {{customer_name}}, {{order_number}}, {{order_total}}, {{coupon_code}}, {{discount}}'}</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Header Image URL (optional)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={templateDraft.image_url || ''}
+                          onChange={(e) => setTemplateDraft({ ...templateDraft, image_url: e.target.value })}
+                          placeholder="https://example.com/banner.jpg"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Add a banner/header image to your email. Use {'{{header_image}}'} in HTML to place it.</p>
+                      {templateDraft.image_url && (
+                        <img src={templateDraft.image_url} alt="Preview" className="w-full max-h-32 object-cover rounded-lg border" />
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>HTML Body</Label>
+                      <Textarea
+                        value={templateDraft.html}
+                        onChange={(e) => setTemplateDraft({ ...templateDraft, html: e.target.value })}
+                        placeholder="<div>Your email HTML here... Use {{variable}} for dynamic content</div>"
+                        rows={12}
+                        className="font-mono text-xs"
+                      />
+                    </div>
+
+                    {/* Live Preview */}
+                    {templateDraft.html && (
+                      <div className="space-y-2">
+                        <Label>Live Preview</Label>
+                        <div className="border rounded-lg p-4 bg-background max-h-64 overflow-auto">
+                          {templateDraft.image_url && (
+                            <img src={templateDraft.image_url} alt="Header" className="w-full max-h-32 object-cover rounded-lg mb-3" />
+                          )}
+                          <div dangerouslySetInnerHTML={{ __html: templateDraft.html }} />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={async () => {
+                          const updated = { ...emailTemplates };
+                          const templateData: any = { subject: templateDraft.subject, html: templateDraft.html };
+                          if (templateDraft.image_url) {
+                            templateData.image_url = templateDraft.image_url;
+                            // Inject image into HTML if {{header_image}} placeholder exists
+                            if (templateData.html && !templateData.html.includes(templateDraft.image_url)) {
+                              const imgTag = `<img src="${templateDraft.image_url}" alt="Header" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:16px;" />`;
+                              templateData.html = templateData.html.replace(/\{\{header_image\}\}/g, imgTag);
+                            }
+                          }
+                          updated[editingTemplate] = templateData;
+                          setEmailTemplates(updated);
+                          await handleSave('email_templates', updated as unknown as Record<string, unknown>);
+                          toast({ title: 'Saved', description: 'Email template saved successfully' });
+                          setEditingTemplate(null);
+                        }}
+                        disabled={!templateDraft.subject && !templateDraft.html}
+                        className="gap-2"
+                      >
+                        <Save className="h-4 w-4" />
+                        Save Template
+                      </Button>
+                      <Button variant="outline" onClick={() => setEditingTemplate(null)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
