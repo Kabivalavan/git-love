@@ -22,6 +22,7 @@ interface ProductCardProps {
   productOffer?: ProductOffer | null;
   avgRating?: number;
   reviewCount?: number;
+  lowStockSettings?: { show_low_stock_badge: boolean; low_stock_threshold: number } | null;
 }
 
 function OfferTimer({ endDate }: { endDate: string }) {
@@ -62,8 +63,10 @@ export function ProductCard({
   productOffer,
   avgRating = 0,
   reviewCount = 0,
+  lowStockSettings,
 }: ProductCardProps) {
   const isOutOfStock = product.stock_quantity <= 0;
+  const isLowStock = lowStockSettings?.show_low_stock_badge && product.stock_quantity > 0 && product.stock_quantity <= lowStockSettings.low_stock_threshold;
   const displayPrice = productOffer?.discountedPrice ?? product.price;
   const originalPrice = productOffer ? product.price : product.mrp;
   const hasDiscount = productOffer
@@ -141,6 +144,9 @@ export function ProductCard({
           )}
           {product.is_bestseller && !isOutOfStock && (
             <Badge className="bg-amber-500 text-white text-[10px] px-1.5 py-0.5">Bestseller</Badge>
+          )}
+          {isLowStock && !isOutOfStock && (
+            <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5 animate-pulse">Low Stock</Badge>
           )}
         </div>
 
