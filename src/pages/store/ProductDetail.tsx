@@ -141,7 +141,7 @@ export default function ProductDetailPage() {
 
     const [variantsRes, reviewsRes] = await Promise.all([
       supabase.from('product_variants').select('*').eq('product_id', productData.id).eq('is_active', true),
-      supabase.from('reviews').select('*, profile:profiles(full_name)').eq('product_id', productData.id).order('created_at', { ascending: false }).limit(50),
+      supabase.from('reviews').select('*, profile:profiles(full_name)').eq('product_id', productData.id).eq('is_approved', true).order('created_at', { ascending: false }).limit(50),
     ]);
 
     const variantList = (variantsRes.data || []) as ProductVariant[];
@@ -281,6 +281,7 @@ export default function ProductDetailPage() {
         .from('reviews')
         .select('*, profile:profiles(full_name)')
         .eq('product_id', product.id)
+        .eq('is_approved', true)
         .order('created_at', { ascending: false })
         .limit(50);
       setReviews((data || []) as unknown as Review[]);
@@ -515,7 +516,9 @@ export default function ProductDetailPage() {
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(Math.min(currentStock, quantity + 1))} disabled={quantity >= currentStock}>
                   <Plus className="h-4 w-4" />
                 </Button>
-                <span className="text-sm text-muted-foreground">{currentStock} available</span>
+                {currentStock <= 5 && currentStock > 0 && (
+                  <span className="text-sm text-destructive font-medium">Only {currentStock} left!</span>
+                )}
               </div>
             </div>
 

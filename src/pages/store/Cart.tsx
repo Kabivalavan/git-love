@@ -28,6 +28,10 @@ export default function CartPage() {
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [checkoutSettings, setCheckoutSettings] = useState<{ free_shipping_threshold: number; default_shipping_charge: number }>({
+    free_shipping_threshold: 500,
+    default_shipping_charge: 50,
+  });
   const { toast } = useToast();
   const { user } = useAuth();
   const { getProductOffer, calculateCartDiscount } = useOffers();
@@ -45,12 +49,24 @@ export default function CartPage() {
     if (!user) return;
     setIsLoading(true);
 
-    const { data: cart } = await supabase.from('cart').select('id').eq('user_id', user.id).single();
-    if (cart) {
+    const [cartRes, settingsRes] = await Promise.all([
+      supabase.from('cart').select('id').eq('user_id', user.id).single(),
+      supabase.from('store_settings').select('value').eq('key', 'checkout').single(),
+    ]);
+
+    if (settingsRes.data?.value) {
+      const cs = settingsRes.data.value as any;
+      setCheckoutSettings({
+        free_shipping_threshold: cs.free_shipping_threshold ?? 500,
+        default_shipping_charge: cs.default_shipping_charge ?? 50,
+      });
+    }
+
+    if (cartRes.data) {
       const { data: items } = await supabase
         .from('cart_items')
         .select('*, product:products(*, images:product_images(*)), variant:product_variants(*)')
-        .eq('cart_id', cart.id);
+        .eq('cart_id', cartRes.data.id);
       setCartItems((items || []) as CartItemWithProduct[]);
     }
     setIsLoading(false);
@@ -133,7 +149,9 @@ export default function CartPage() {
 
   const totalDiscount = offerDiscount.totalDiscount + couponDiscount;
 
-  const shippingCharge = subtotal >= 500 ? 0 : 50;
+  const freeThreshold = checkoutSettings.free_shipping_threshold;
+  const defaultShipping = checkoutSettings.default_shipping_charge;
+  const shippingCharge = (freeThreshold > 0 && subtotal >= freeThreshold) ? 0 : defaultShipping;
   const total = subtotal - totalDiscount + shippingCharge;
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -203,43 +221,59 @@ export default function CartPage() {
         <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-3 md:space-y-4">
-            {/* Bundle groups */}
-            {Object.entries(bundleGroups).map(([bundleId, items]) => (
-              <Card key={bundleId} className="border-primary/30 bg-primary/5">
-                <CardContent className="p-3 md:p-4">
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-primary/20">
-                    <span className="text-sm font-semibold text-primary">🎁 {items[0]?.bundle_name || 'Bundle Deal'}</span>
-                    <Badge variant="secondary" className="text-[10px]">{items.length} items</Badge>
-                  </div>
-                  <div className="space-y-3">
-                    {items.map((item) => {
-                      const primaryImage = item.product.images?.find(img => img.is_primary)?.image_url
-                        || item.product.images?.[0]?.image_url
-                        || '/placeholder.svg';
-                      const itemPrice = item.variant?.price || item.product.price;
-                      return (
-                        <div key={item.id} className="flex gap-3 items-center">
-                          <div className="w-12 h-12 bg-muted rounded-lg overflow-hidden flex-shrink-0">
-                            <img src={primaryImage} alt={item.product.name} className="w-full h-full object-cover" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{item.product.name}</p>
-                            {item.variant && <p className="text-xs text-muted-foreground">{item.variant.name}</p>}
-                            <p className="text-xs text-muted-foreground">₹{itemPrice} × {item.quantity}</p>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="font-bold text-sm">₹{(itemPrice * item.quantity).toFixed(0)}</p>
-                            <Button variant="ghost" size="sm" className="text-destructive text-xs h-6 px-1" onClick={() => removeItem(item.id)}>
-                              Remove
-                            </Button>
-                          </div>
+            {/* Bundle groups - unified display */}
+            {Object.entries(bundleGroups).map(([bundleId, items]) => {
+              const bundleTotal = items.reduce((sum, item) => {
+                const p = item.variant?.price || item.product.price;
+                return sum + p * item.quantity;
+              }, 0);
+              const bundleName = items[0]?.bundle_name || 'Bundle Deal';
+              const firstImage = items[0]?.product.images?.find(img => img.is_primary)?.image_url
+                || items[0]?.product.images?.[0]?.image_url
+                || '/placeholder.svg';
+
+              return (
+                <Card key={bundleId} className="border-primary/30 bg-primary/5">
+                  <CardContent className="p-3 md:p-4">
+                    <div className="flex gap-3 md:gap-4">
+                      <div className="w-20 h-20 md:w-24 md:h-24 bg-muted rounded-lg overflow-hidden flex-shrink-0 relative">
+                        <img src={firstImage} alt={bundleName} className="w-full h-full object-cover" />
+                        <div className="absolute top-1 left-1">
+                          <Badge className="bg-primary text-[9px] px-1 py-0">Bundle</Badge>
                         </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-sm md:text-base">{'🎁'} {bundleName}</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">{items.length} items included</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {items.map(i => i.product.name).join(' + ')}
+                        </p>
+                        <div className="mt-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive text-xs h-7"
+                            onClick={async () => {
+                              for (const item of items) {
+                                await supabase.from('cart_items').delete().eq('id', item.id);
+                              }
+                              setCartItems(cartItems.filter(i => i.bundle_id !== bundleId));
+                              toast({ title: 'Removed', description: 'Bundle removed from cart' });
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Remove Bundle
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-bold text-sm md:text-base">₹{bundleTotal.toFixed(0)}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
 
             {/* Individual items */}
             {individualItems.map((item) => {
@@ -379,9 +413,9 @@ export default function CartPage() {
                     <span className="text-muted-foreground">Shipping</span>
                     <span>{shippingCharge === 0 ? 'Free' : `₹${shippingCharge}`}</span>
                   </div>
-                  {shippingCharge > 0 && (
+                  {shippingCharge > 0 && freeThreshold > 0 && subtotal < freeThreshold && (
                     <p className="text-xs text-muted-foreground">
-                      Add ₹{500 - subtotal} more for free shipping
+                      Add ₹{freeThreshold - subtotal} more for free shipping
                     </p>
                   )}
                 </div>

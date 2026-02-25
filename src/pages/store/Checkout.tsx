@@ -556,21 +556,51 @@ export default function CheckoutPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {cartItems.map((item) => {
-                    const effectivePrice = item.variant?.price ?? item.product.price;
+                  {(() => {
+                    // Group bundle items together
+                    const bundleGroups: Record<string, CartItemWithProduct[]> = {};
+                    const individualItems: CartItemWithProduct[] = [];
+                    cartItems.forEach(item => {
+                      if (item.bundle_id) {
+                        if (!bundleGroups[item.bundle_id]) bundleGroups[item.bundle_id] = [];
+                        bundleGroups[item.bundle_id].push(item);
+                      } else {
+                        individualItems.push(item);
+                      }
+                    });
+
                     return (
-                      <div key={item.id} className="flex justify-between text-sm gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="truncate font-medium">{item.product.name}</p>
-                          {item.variant && (
-                            <p className="text-xs text-muted-foreground">{item.variant.name}{item.variant.sku ? ` · ${item.variant.sku}` : ''}</p>
-                          )}
-                          <p className="text-xs text-muted-foreground">₹{effectivePrice} × {item.quantity}</p>
-                        </div>
-                        <span className="font-medium flex-shrink-0">₹{(effectivePrice * item.quantity).toFixed(0)}</span>
-                      </div>
+                      <>
+                        {Object.entries(bundleGroups).map(([bundleId, items]) => {
+                          const bundleTotal = items.reduce((s, i) => s + (i.variant?.price ?? i.product.price) * i.quantity, 0);
+                          return (
+                            <div key={bundleId} className="flex justify-between text-sm gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="truncate font-medium">{'🎁'} {items[0]?.bundle_name || 'Bundle Deal'}</p>
+                                <p className="text-xs text-muted-foreground">{items.length} items</p>
+                              </div>
+                              <span className="font-medium flex-shrink-0">₹{bundleTotal.toFixed(0)}</span>
+                            </div>
+                          );
+                        })}
+                        {individualItems.map((item) => {
+                          const effectivePrice = item.variant?.price ?? item.product.price;
+                          return (
+                            <div key={item.id} className="flex justify-between text-sm gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="truncate font-medium">{item.product.name}</p>
+                                {item.variant && (
+                                  <p className="text-xs text-muted-foreground">{item.variant.name}{item.variant.sku ? ` · ${item.variant.sku}` : ''}</p>
+                                )}
+                                <p className="text-xs text-muted-foreground">₹{effectivePrice} × {item.quantity}</p>
+                              </div>
+                              <span className="font-medium flex-shrink-0">₹{(effectivePrice * item.quantity).toFixed(0)}</span>
+                            </div>
+                          );
+                        })}
+                      </>
                     );
-                  })}
+                  })()}
                 </div>
 
                 <Separator />

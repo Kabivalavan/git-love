@@ -68,7 +68,7 @@ function FullPageShimmer() {
 }
 
 const fetchHomeData = async () => {
-  const [bannersRes, middleBannersRes, popupBannersRes, categoriesRes, featuredRes, bestsellersRes, newRes, bundlesRes] = await Promise.all([
+  const [bannersRes, middleBannersRes, popupBannersRes, categoriesRes, featuredRes, bestsellersRes, newRes, bundlesRes, displaySettingsRes] = await Promise.all([
     supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_top').order('sort_order'),
     supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_middle').order('sort_order'),
     supabase.from('banners').select('*').eq('is_active', true).eq('position', 'popup').order('sort_order').limit(1),
@@ -77,6 +77,7 @@ const fetchHomeData = async () => {
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_bestseller', true).limit(8),
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).order('created_at', { ascending: false }).limit(8),
     supabase.from('bundles').select('*, items:bundle_items(*, product:products(name, price, images:product_images(*)))').eq('is_active', true).order('sort_order').limit(6),
+    supabase.from('store_settings').select('value').eq('key', 'storefront_display').single(),
   ]);
   return {
     banners: (bannersRes.data || []) as Banner[],
@@ -87,6 +88,7 @@ const fetchHomeData = async () => {
     bestsellerProducts: (bestsellersRes.data || []) as Product[],
     newArrivals: (newRes.data || []) as Product[],
     bundles: bundlesRes.data || [],
+    lowStockSettings: displaySettingsRes.data?.value ? (displaySettingsRes.data.value as any) : null,
   };
 };
 
@@ -112,7 +114,7 @@ export default function HomePage() {
   const bestsellerProducts = data?.bestsellerProducts || [];
   const newArrivals = data?.newArrivals || [];
   const bundles = data?.bundles || [];
-
+  const lowStockSettings = data?.lowStockSettings || null;
   useEffect(() => {
     if (banners.length > 1) {
       const interval = setInterval(() => {
@@ -341,7 +343,7 @@ export default function HomePage() {
             >
               {bestsellerProducts.map((product) => (
                 <motion.div key={product.id} variants={scaleIn}>
-                  <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" />
+                  <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" lowStockSettings={lowStockSettings} />
                 </motion.div>
               ))}
             </motion.div>
@@ -438,7 +440,7 @@ export default function HomePage() {
           >
             {featuredProducts.map((product) => (
               <motion.div key={product.id} variants={scaleIn}>
-                <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" />
+                <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" lowStockSettings={lowStockSettings} />
               </motion.div>
             ))}
           </motion.div>
@@ -530,7 +532,7 @@ export default function HomePage() {
             >
               {newArrivals.slice(0, 8).map((product) => (
                 <motion.div key={product.id} variants={scaleIn}>
-                  <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} />
+                  <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} lowStockSettings={lowStockSettings} />
                 </motion.div>
               ))}
             </motion.div>
