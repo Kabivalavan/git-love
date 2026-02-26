@@ -161,6 +161,29 @@ export default function CheckoutPage() {
     setIsLoading(false);
   };
 
+  const getAvailableStockForItem = (item: CartItemWithProduct) => {
+    const variantStock = item.variant?.stock_quantity ?? null;
+    const variantInHold = (item.variant as any)?.in_hold ?? 0;
+    const productStock = item.product.stock_quantity ?? 0;
+    const productInHold = (item.product as any)?.in_hold ?? 0;
+
+    const baseAvailable = item.variant_id && variantStock !== null
+      ? Math.max(0, Number(variantStock) - Number(variantInHold))
+      : Math.max(0, Number(productStock) - Number(productInHold));
+
+    // Include this cart row's own reserved qty to avoid false negatives after hold placement
+    return Math.max(0, baseAvailable + Number(item.quantity || 0));
+  };
+
+  const getQuantityIssues = () =>
+    cartItems
+      .map((item) => ({
+        name: item.bundle_name || item.product.name,
+        requested: Number(item.quantity || 0),
+        available: getAvailableStockForItem(item),
+      }))
+      .filter((entry) => entry.requested > entry.available);
+
   const handleAddAddress = async () => {
     if (!user) return;
     setIsSavingAddress(true);
@@ -195,6 +218,19 @@ export default function CheckoutPage() {
 
   const placeOrder = async () => {
     if (!user || !selectedAddress || cartItems.length === 0) return;
+
+    const quantityIssues = getQuantityIssues();
+    if (quantityIssues.length > 0) {
+      toast({
+        title: 'Quantity exceeds stock',
+        description: quantityIssues
+          .slice(0, 2)
+          .map((issue) => `${issue.name}: only ${issue.available} available`)
+          .join(' | '),
+        variant: 'destructive',
+      });
+      return;
+    }
     
     const address = addresses.find(a => a.id === selectedAddress);
     if (!address) return;
@@ -202,6 +238,28 @@ export default function CheckoutPage() {
     setIsPlacingOrder(true);
 
     try {
+      const holdItems = cartItems.map((item) => ({
+        product_id: item.product_id,
+        variant_id: item.variant_id || null,
+        quantity: item.quantity,
+      }));
+
+      const { data: holdResult, error: holdError } = await supabase.rpc('place_stock_hold', {
+        p_user_id: user.id,
+        p_items: holdItems as any,
+      });
+
+      if (holdError || (holdResult && !(holdResult as any).success)) {
+        toast({
+          title: 'Stock hold failed',
+          description: 'Some products are no longer available in requested quantity.',
+          variant: 'destructive',
+        });
+        navigate('/cart');
+        setIsPlacingOrder(false);
+        return;
+      }
+
       const { data: orderNumberData } = await supabase.rpc('generate_order_number');
       const orderNumber = orderNumberData || `ORD${Date.now()}`;
 
@@ -272,6 +330,13 @@ export default function CheckoutPage() {
 
       await supabase.from('order_items').insert(orderItems);
 
+      // Link current holds to this order so stock finalization/release remains aligned
+      await supabase
+        .from('stock_holds')
+        .update({ order_id: order.id })
+        .eq('user_id', user.id)
+        .is('order_id', null);
+
       await supabase.from('deliveries').insert({
         order_id: order.id,
         status: 'pending',
@@ -325,6 +390,12 @@ export default function CheckoutPage() {
               .from('orders')
               .update({ payment_status: 'failed' })
               .eq('id', order.id);
+
+            // Release linked hold if payment fails
+            await supabase.rpc('release_stock_hold', {
+              p_user_id: user.id,
+              p_order_id: order.id,
+            });
             
             trackEvent('payment_failed', {
               metadata: { order_id: order.id, error: error || 'unknown' },
@@ -414,6 +485,7 @@ export default function CheckoutPage() {
   const defaultShipping = checkoutSettings.default_shipping_charge;
   const shippingCharge = (freeThreshold > 0 && subtotal >= freeThreshold) ? 0 : defaultShipping;
   const total = subtotal - totalDiscount + shippingCharge;
+  const quantityIssues = getQuantityIssues();
 
   return (
     <StorefrontLayout>
@@ -593,6 +665,7 @@ export default function CheckoutPage() {
                                   <p className="text-xs text-muted-foreground">{item.variant.name}{item.variant.sku ? ` · ${item.variant.sku}` : ''}</p>
                                 )}
                                 <p className="text-xs text-muted-foreground">₹{effectivePrice} × {item.quantity}</p>
+                                <p className="text-xs text-muted-foreground">Available: {getAvailableStockForItem(item)}</p>
                               </div>
                               <span className="font-medium flex-shrink-0">₹{(effectivePrice * item.quantity).toFixed(0)}</span>
                             </div>
@@ -641,6 +714,15 @@ export default function CheckoutPage() {
                   </p>
                 )}
 
+                {quantityIssues.length > 0 && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                    <p className="text-sm text-destructive font-medium">Some items exceed available stock</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {quantityIssues.slice(0, 2).map((issue) => `${issue.name}: ${issue.available} left`).join(' | ')}
+                    </p>
+                  </div>
+                )}
+
                 {isBlocked && (
                   <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-center">
                     <p className="text-sm text-destructive font-medium">Your account has been restricted</p>
@@ -652,7 +734,7 @@ export default function CheckoutPage() {
                   className="w-full"
                   size="lg"
                   onClick={placeOrder}
-                  disabled={!selectedAddress || isPlacingOrder || isBlocked || (checkoutSettings.min_order_value > 0 && subtotal < checkoutSettings.min_order_value)}
+                  disabled={!selectedAddress || isPlacingOrder || isBlocked || quantityIssues.length > 0 || (checkoutSettings.min_order_value > 0 && subtotal < checkoutSettings.min_order_value)}
                 >
                   {isPlacingOrder ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Placing Order...</>
