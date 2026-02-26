@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Package, ArrowRight } from 'lucide-react';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
@@ -12,37 +12,23 @@ const SuccessTick = () => (
     className="h-28 w-28 mx-auto"
     xmlns="http://www.w3.org/2000/svg"
   >
-    {/* Outer circle */}
     <motion.circle
-      cx="60"
-      cy="60"
-      r="54"
-      fill="none"
-      stroke="hsl(142, 71%, 45%)"
-      strokeWidth="5"
-      strokeLinecap="round"
+      cx="60" cy="60" r="54"
+      fill="none" stroke="hsl(142, 71%, 45%)" strokeWidth="5" strokeLinecap="round"
       initial={{ pathLength: 0, opacity: 0 }}
       animate={{ pathLength: 1, opacity: 1 }}
       transition={{ duration: 0.6, ease: 'easeInOut' }}
     />
-    {/* Filled circle background */}
     <motion.circle
-      cx="60"
-      cy="60"
-      r="54"
+      cx="60" cy="60" r="54"
       fill="hsl(142, 71%, 45%)"
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 0.12 }}
       transition={{ duration: 0.3, delay: 0.5 }}
     />
-    {/* Checkmark */}
     <motion.path
       d="M38 62 L52 76 L82 46"
-      fill="none"
-      stroke="hsl(142, 71%, 45%)"
-      strokeWidth="6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      fill="none" stroke="hsl(142, 71%, 45%)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"
       initial={{ pathLength: 0 }}
       animate={{ pathLength: 1 }}
       transition={{ duration: 0.4, delay: 0.6, ease: 'easeOut' }}
@@ -50,38 +36,76 @@ const SuccessTick = () => (
   </svg>
 );
 
-// Generate a short success chime using Web Audio API
 function playSuccessSound() {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.18, ctx.currentTime + i * 0.12);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.5);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(ctx.currentTime + i * 0.12);
-      osc.stop(ctx.currentTime + i * 0.12 + 0.5);
-    });
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    // Resume context (required for mobile after user gesture)
+    const resumeAndPlay = () => {
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(() => playSoundNotes(ctx)).catch(() => {});
+      } else {
+        playSoundNotes(ctx);
+      }
+    };
+
+    resumeAndPlay();
   } catch {
-    // Silently fail if audio not supported
+    // Silently fail
   }
+}
+
+function playSoundNotes(ctx: AudioContext) {
+  const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+  notes.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.12);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.5);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + i * 0.12);
+    osc.stop(ctx.currentTime + i * 0.12 + 0.5);
+  });
 }
 
 export default function OrderSuccessPage() {
   const [searchParams] = useSearchParams();
   const orderNumber = searchParams.get('order');
   const soundPlayed = useRef(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
+  // On mobile, AudioContext needs a user gesture. Try auto-play, and also attach
+  // a one-time interaction handler as fallback.
   useEffect(() => {
     if (!soundPlayed.current) {
       soundPlayed.current = true;
-      const timer = setTimeout(playSuccessSound, 600);
-      return () => clearTimeout(timer);
+      // Try to play immediately (works on desktop)
+      const timer = setTimeout(() => {
+        playSuccessSound();
+      }, 600);
+
+      // Fallback: play on first user interaction (mobile)
+      const handleInteraction = () => {
+        if (!hasInteracted) {
+          setHasInteracted(true);
+          playSuccessSound();
+          document.removeEventListener('touchstart', handleInteraction);
+          document.removeEventListener('click', handleInteraction);
+        }
+      };
+      document.addEventListener('touchstart', handleInteraction, { once: true });
+      document.addEventListener('click', handleInteraction, { once: true });
+
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener('touchstart', handleInteraction);
+        document.removeEventListener('click', handleInteraction);
+      };
     }
   }, []);
 

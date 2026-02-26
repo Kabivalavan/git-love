@@ -19,7 +19,6 @@ serve(async (req) => {
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -35,6 +34,8 @@ serve(async (req) => {
 
     const body: TriggerRequest = await req.json();
     const { trigger, data } = body;
+
+    console.log(`[email-triggers] Received trigger: ${trigger}`, JSON.stringify(data));
 
     // Get store info for templates
     const { data: storeData } = await supabaseAdmin
@@ -177,18 +178,21 @@ serve(async (req) => {
     }
 
     if (!templateId || !toEmail) {
+      console.log(`[email-triggers] Skipped: templateId=${templateId}, toEmail=${toEmail}`);
       return new Response(
         JSON.stringify({ success: true, message: "Email trigger skipped (disabled or missing data)" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Call the send-smtp-email function
+    console.log(`[email-triggers] Sending email: template=${templateId}, to=${toEmail}`);
+
+    // Call the send-smtp-email function using SERVICE ROLE KEY for internal auth
     const sendResponse = await fetch(`${SUPABASE_URL}/functions/v1/send-smtp-email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       },
       body: JSON.stringify({
         to: toEmail,
@@ -200,19 +204,20 @@ serve(async (req) => {
     const sendResult = await sendResponse.json();
 
     if (!sendResponse.ok) {
-      console.error("Email send failed:", sendResult);
+      console.error("[email-triggers] Email send failed:", JSON.stringify(sendResult));
       return new Response(
         JSON.stringify({ success: false, error: sendResult.error }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    console.log(`[email-triggers] Email sent successfully for trigger: ${trigger}`);
     return new Response(
       JSON.stringify({ success: true, message: `Email sent for trigger: ${trigger}` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
-    console.error("Trigger Error:", error);
+    console.error("[email-triggers] Trigger Error:", error.message, error.stack);
     return new Response(
       JSON.stringify({ error: error.message || "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
