@@ -7,12 +7,16 @@ interface ThemeContextType {
   theme: StorefrontTheme;
   setTheme: (theme: StorefrontTheme) => void;
   isLoading: boolean;
+  applyThemeToAdmin: boolean;
+  setApplyThemeToAdmin: (apply: boolean) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: 'default',
   setTheme: () => {},
   isLoading: true,
+  applyThemeToAdmin: false,
+  setApplyThemeToAdmin: () => {},
 });
 
 export const THEME_OPTIONS: { value: StorefrontTheme; label: string; description: string; colors: string[] }[] = [
@@ -30,18 +34,44 @@ export const THEME_OPTIONS: { value: StorefrontTheme; label: string; description
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<StorefrontTheme>('default');
   const [isLoading, setIsLoading] = useState(true);
+  const [applyThemeToAdmin, setApplyThemeToAdminState] = useState(() => {
+    return localStorage.getItem('admin_apply_theme') === 'true';
+  });
 
   useEffect(() => {
     fetchTheme();
   }, []);
 
   useEffect(() => {
+    const isAdminRoute = window.location.pathname.startsWith('/admin');
+    
     if (theme !== 'default') {
-      document.documentElement.setAttribute('data-storefront-theme', theme);
+      // Only apply theme to admin if toggled on
+      if (isAdminRoute && !applyThemeToAdmin) {
+        document.documentElement.removeAttribute('data-storefront-theme');
+      } else {
+        document.documentElement.setAttribute('data-storefront-theme', theme);
+      }
     } else {
       document.documentElement.removeAttribute('data-storefront-theme');
     }
-  }, [theme]);
+  }, [theme, applyThemeToAdmin]);
+
+  // Listen for route changes to toggle theme attribute
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const isAdminRoute = window.location.pathname.startsWith('/admin');
+      if (theme !== 'default') {
+        if (isAdminRoute && !applyThemeToAdmin) {
+          document.documentElement.removeAttribute('data-storefront-theme');
+        } else {
+          document.documentElement.setAttribute('data-storefront-theme', theme);
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [theme, applyThemeToAdmin]);
 
   const fetchTheme = async () => {
     const { data } = await supabase
@@ -77,8 +107,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setApplyThemeToAdmin = (apply: boolean) => {
+    setApplyThemeToAdminState(apply);
+    localStorage.setItem('admin_apply_theme', apply ? 'true' : 'false');
+    // Immediately update the attribute
+    const isAdminRoute = window.location.pathname.startsWith('/admin');
+    if (isAdminRoute && theme !== 'default') {
+      if (apply) {
+        document.documentElement.setAttribute('data-storefront-theme', theme);
+      } else {
+        document.documentElement.removeAttribute('data-storefront-theme');
+      }
+    }
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, isLoading }}>
+    <ThemeContext.Provider value={{ theme, setTheme, isLoading, applyThemeToAdmin, setApplyThemeToAdmin }}>
       {children}
     </ThemeContext.Provider>
   );

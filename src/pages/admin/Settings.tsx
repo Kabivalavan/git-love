@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -118,8 +119,9 @@ export default function AdminSettings() {
     low_stock_threshold: 5,
   });
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const { theme: storefrontTheme, setTheme: setStorefrontTheme } = useStorefrontTheme();
+  const { theme: storefrontTheme, setTheme: setStorefrontTheme, applyThemeToAdmin, setApplyThemeToAdmin } = useStorefrontTheme();
 
   useEffect(() => {
     fetchSettings();
@@ -215,6 +217,10 @@ export default function AdminSettings() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Saved', description: 'Settings saved successfully' });
+      // Invalidate storefront queries so public pages reflect changes immediately
+      queryClient.invalidateQueries({ queryKey: ['home-page-data'] });
+      queryClient.invalidateQueries({ queryKey: ['store-products'] });
+      queryClient.invalidateQueries({ queryKey: ['checkout-settings'] });
     }
     setIsSaving(null);
   };
@@ -644,6 +650,18 @@ export default function AdminSettings() {
                 ))}
               </div>
 
+              <Separator />
+
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <Label className="text-base font-medium">Apply Theme to Admin Panel</Label>
+                  <p className="text-sm text-muted-foreground">When off, the admin panel uses the default Zoho Classic theme regardless of storefront theme</p>
+                </div>
+                <Switch
+                  checked={applyThemeToAdmin}
+                  onCheckedChange={setApplyThemeToAdmin}
+                />
+              </div>
 
               <Button 
                 onClick={() => handleSave('theme', theme as unknown as Record<string, unknown>)} 

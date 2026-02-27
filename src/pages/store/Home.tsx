@@ -102,8 +102,9 @@ export default function HomePage() {
   const { data, isLoading } = useQuery({
     queryKey: ['home-page-data'],
     queryFn: fetchHomeData,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 30 * 1000,
+    gcTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   const banners = data?.banners || [];
