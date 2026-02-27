@@ -90,6 +90,7 @@ export default function ProductDetailPage() {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', comment: '' });
   const [storeCoupons, setStoreCoupons] = useState<any[]>([]);
+  const [visibleReviewCount, setVisibleReviewCount] = useState(5);
   const [couponsExpanded, setCouponsExpanded] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -113,6 +114,7 @@ export default function ProductDetailPage() {
 
   const fetchProduct = async () => {
     setIsLoading(true);
+    setVisibleReviewCount(5);
     const { data, error } = await supabase
       .from('products')
       .select('*, category:categories(*), images:product_images(*)')
@@ -661,8 +663,8 @@ export default function ProductDetailPage() {
                 </CardContent>
               </Card>
 
-              <div className="md:col-span-2 space-y-4 max-h-96 overflow-y-auto">
-                {reviews.map((review) => (
+              <div className="md:col-span-2 space-y-4">
+                {reviews.slice(0, visibleReviewCount).map((review) => (
                   <Card key={review.id}>
                     <CardContent className="py-4">
                       <div className="flex items-center gap-2 mb-2">
@@ -679,6 +681,15 @@ export default function ProductDetailPage() {
                     </CardContent>
                   </Card>
                 ))}
+                {reviews.length > visibleReviewCount && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setVisibleReviewCount(prev => prev + 10)}
+                  >
+                    Show More Reviews ({reviews.length - visibleReviewCount} remaining)
+                  </Button>
+                )}
               </div>
             </div>
           )}
