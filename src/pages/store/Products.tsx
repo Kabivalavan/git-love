@@ -120,7 +120,33 @@ export default function ProductsPage() {
       query = query.range(from, to);
       const { data, error, count } = await query;
       if (error) throw error;
-      return { products: (data || []) as Product[], count: count || 0 };
+
+      const products = (data || []) as Product[];
+      // Fetch review stats
+      let reviewStats: Record<string, { avgRating: number; reviewCount: number }> = {};
+      if (products.length > 0) {
+        const pids = products.map(p => p.id);
+        const { data: reviewData } = await supabase
+          .from('reviews')
+          .select('product_id, rating')
+          .eq('is_approved', true)
+          .in('product_id', pids);
+        if (reviewData) {
+          const grouped: Record<string, number[]> = {};
+          reviewData.forEach(r => {
+            if (!grouped[r.product_id]) grouped[r.product_id] = [];
+            grouped[r.product_id].push(r.rating);
+          });
+          Object.entries(grouped).forEach(([pid, ratings]) => {
+            reviewStats[pid] = {
+              avgRating: ratings.reduce((a, b) => a + b, 0) / ratings.length,
+              reviewCount: ratings.length,
+            };
+          });
+        }
+      }
+
+      return { products, count: count || 0, reviewStats };
     },
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -130,6 +156,7 @@ export default function ProductsPage() {
   const products = productsData?.products || [];
   const totalCount = productsData?.count || 0;
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+  const reviewStats = productsData?.reviewStats || {};
 
   const handleAddToCart = async (product: Product) => {
     if (!user) {
@@ -329,13 +356,13 @@ export default function ProductsPage() {
             ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
                 {products.map((product) => (
-                  <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} productOffer={getProductOffer(product)} />
+                  <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} productOffer={getProductOffer(product)} avgRating={reviewStats[product.id]?.avgRating || 0} reviewCount={reviewStats[product.id]?.reviewCount || 0} />
                 ))}
               </div>
             ) : (
               <div className="space-y-4">
                 {products.map((product) => (
-                  <ProductCard key={product.id} product={product} variant="horizontal" onAddToCart={handleAddToCart} productOffer={getProductOffer(product)} />
+                  <ProductCard key={product.id} product={product} variant="horizontal" onAddToCart={handleAddToCart} productOffer={getProductOffer(product)} avgRating={reviewStats[product.id]?.avgRating || 0} reviewCount={reviewStats[product.id]?.reviewCount || 0} />
                 ))}
               </div>
             )}

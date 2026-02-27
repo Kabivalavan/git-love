@@ -79,6 +79,38 @@ const fetchHomeData = async () => {
     supabase.from('bundles').select('*, items:bundle_items(*, product:products(name, price, images:product_images(*)))').eq('is_active', true).order('sort_order').limit(6),
     supabase.from('store_settings').select('value').eq('key', 'storefront_display').single(),
   ]);
+
+  // Collect all product IDs to fetch review stats
+  const allProducts = [
+    ...((featuredRes.data || []) as Product[]),
+    ...((bestsellersRes.data || []) as Product[]),
+    ...((newRes.data || []) as Product[]),
+  ];
+  const uniqueProductIds = [...new Set(allProducts.map(p => p.id))];
+
+  // Fetch review stats for all products in one query
+  let reviewStats: Record<string, { avgRating: number; reviewCount: number }> = {};
+  if (uniqueProductIds.length > 0) {
+    const { data: reviewData } = await supabase
+      .from('reviews')
+      .select('product_id, rating')
+      .eq('is_approved', true)
+      .in('product_id', uniqueProductIds);
+    if (reviewData) {
+      const grouped: Record<string, number[]> = {};
+      reviewData.forEach(r => {
+        if (!grouped[r.product_id]) grouped[r.product_id] = [];
+        grouped[r.product_id].push(r.rating);
+      });
+      Object.entries(grouped).forEach(([pid, ratings]) => {
+        reviewStats[pid] = {
+          avgRating: ratings.reduce((a, b) => a + b, 0) / ratings.length,
+          reviewCount: ratings.length,
+        };
+      });
+    }
+  }
+
   return {
     banners: (bannersRes.data || []) as Banner[],
     middleBanners: (middleBannersRes.data || []) as Banner[],
@@ -89,6 +121,7 @@ const fetchHomeData = async () => {
     newArrivals: (newRes.data || []) as Product[],
     bundles: bundlesRes.data || [],
     lowStockSettings: displaySettingsRes.data?.value ? (displaySettingsRes.data.value as any) : null,
+    reviewStats,
   };
 };
 
@@ -116,6 +149,7 @@ export default function HomePage() {
   const newArrivals = data?.newArrivals || [];
   const bundles = data?.bundles || [];
   const lowStockSettings = data?.lowStockSettings || null;
+  const reviewStats = data?.reviewStats || {};
   useEffect(() => {
     if (banners.length > 1) {
       const interval = setInterval(() => {
@@ -344,7 +378,7 @@ export default function HomePage() {
             >
               {bestsellerProducts.map((product) => (
                 <motion.div key={product.id} variants={scaleIn}>
-                  <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" lowStockSettings={lowStockSettings} />
+                  <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" lowStockSettings={lowStockSettings} avgRating={reviewStats[product.id]?.avgRating || 0} reviewCount={reviewStats[product.id]?.reviewCount || 0} />
                 </motion.div>
               ))}
             </motion.div>
@@ -441,7 +475,7 @@ export default function HomePage() {
           >
             {featuredProducts.map((product) => (
               <motion.div key={product.id} variants={scaleIn}>
-                <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" lowStockSettings={lowStockSettings} />
+                <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" lowStockSettings={lowStockSettings} avgRating={reviewStats[product.id]?.avgRating || 0} reviewCount={reviewStats[product.id]?.reviewCount || 0} />
               </motion.div>
             ))}
           </motion.div>
@@ -533,7 +567,7 @@ export default function HomePage() {
             >
               {newArrivals.slice(0, 8).map((product) => (
                 <motion.div key={product.id} variants={scaleIn}>
-                  <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} lowStockSettings={lowStockSettings} />
+                  <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} lowStockSettings={lowStockSettings} avgRating={reviewStats[product.id]?.avgRating || 0} reviewCount={reviewStats[product.id]?.reviewCount || 0} />
                 </motion.div>
               ))}
             </motion.div>
