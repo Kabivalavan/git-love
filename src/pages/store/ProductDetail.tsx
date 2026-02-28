@@ -1,4 +1,4 @@
-import { useEffect, useState, memo } from 'react';
+import { useEffect, useState, useRef, memo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -130,7 +130,6 @@ export default function ProductDetailPage() {
     const productData = data as unknown as Product;
     setProduct(productData);
 
-    // Track product view
     trackEvent('product_view', {
       product_id: productData.id,
       category_id: productData.category_id || undefined,
@@ -148,7 +147,6 @@ export default function ProductDetailPage() {
 
     const variantList = (variantsRes.data || []) as ProductVariant[];
     setVariants(variantList);
-    // Auto-select first variant by default
     if (variantList.length > 0) setSelectedVariant(variantList[0]);
     const reviewsList = (reviewsRes.data || []) as unknown as Review[];
     setReviews(reviewsList);
@@ -212,7 +210,6 @@ export default function ProductDetailPage() {
           });
         }
 
-        // Track add to cart
         trackEvent('add_to_cart', {
           product_id: product.id,
           metadata: {
@@ -316,7 +313,6 @@ export default function ProductDetailPage() {
   const currentPrice = selectedVariant?.price || product.price;
   const currentStock = selectedVariant?.stock_quantity ?? product.stock_quantity;
 
-  // Get offer for this product
   const productOffer = getProductOffer(product);
   const offerPrice = productOffer?.discountedPrice;
   const displayPrice = offerPrice ?? currentPrice;
@@ -384,9 +380,10 @@ export default function ProductDetailPage() {
           <span className="text-foreground truncate">{product.name}</span>
         </nav>
 
+        {/* Product Hero: 2-column grid. On desktop, left is sticky, right scrolls */}
         <div className="grid md:grid-cols-2 gap-4 md:gap-8 mb-8 md:mb-12">
           {/* Images - sticky on desktop */}
-          <div className="space-y-3 min-w-0 md:self-start md:sticky md:top-20">
+          <div className="space-y-3 min-w-0 md:self-start md:sticky md:top-20" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
             <div className="relative aspect-square bg-muted rounded-lg overflow-hidden w-full">
               <img src={currentImage} alt={product.name} className="w-full h-full object-contain" />
               {images.length > 1 && (
@@ -635,7 +632,7 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Reviews Section */}
+        {/* Reviews Section - FULL WIDTH, outside the 2-col grid */}
         <div className="mb-8 md:mb-12">
           <h2 className="text-lg md:text-xl font-bold mb-4">Customer Reviews</h2>
 
@@ -675,6 +672,9 @@ export default function ProductDetailPage() {
                         </div>
                         <span className="text-sm font-medium">{(review as any).profile?.full_name || 'Customer'}</span>
                         {review.is_verified && <Badge variant="secondary" className="text-[10px]">Verified</Badge>}
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          {new Date(review.created_at).toLocaleDateString()}
+                        </span>
                       </div>
                       {review.title && <p className="font-medium text-sm">{review.title}</p>}
                       {review.comment && <p className="text-sm text-muted-foreground mt-1">{review.comment}</p>}
@@ -694,7 +694,7 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Write Review */}
+          {/* Write Review - AFTER reviews list */}
           {user && (
             <Card>
               <CardContent className="py-4">

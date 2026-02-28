@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, forwardRef } from 'react';
 import {
   Table,
   TableBody,
@@ -10,7 +10,7 @@ import {
 import { cn } from '@/lib/utils';
 import { ShimmerTable } from '@/components/ui/shimmer';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 
 export interface Column<T> {
   key: keyof T | string;
@@ -29,6 +29,10 @@ interface DataTableProps<T> {
   searchPlaceholder?: string;
   searchKeys?: (keyof T)[];
   getRowId?: (item: T) => string;
+  /** Infinite scroll support */
+  isLoadingMore?: boolean;
+  hasMore?: boolean;
+  sentinelRef?: React.Ref<HTMLDivElement>;
 }
 
 export function DataTable<T>({
@@ -41,6 +45,9 @@ export function DataTable<T>({
   searchPlaceholder = 'Search...',
   searchKeys = [],
   getRowId,
+  isLoadingMore = false,
+  hasMore = false,
+  sentinelRef,
 }: DataTableProps<T>) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -124,6 +131,18 @@ export function DataTable<T>({
           </TableBody>
         </Table>
       </div>
+
+      {/* Infinite scroll sentinel + loader */}
+      {sentinelRef && (
+        <div ref={sentinelRef} className="flex justify-center py-4">
+          {isLoadingMore && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Loading more...</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
