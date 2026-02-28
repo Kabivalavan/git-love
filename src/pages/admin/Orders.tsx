@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import {
 import type { Order, OrderItem, OrderStatus, ShippingAddress, Delivery, DeliveryStatus, Payment, StoreInfo } from '@/types/database';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import jsPDF from 'jspdf';
+import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
 
 const ORDER_STATUSES: OrderStatus[] = ['new', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled', 'returned'];
 const DELIVERY_STATUSES: DeliveryStatus[] = ['pending', 'assigned', 'picked', 'in_transit', 'delivered', 'failed'];
@@ -49,12 +50,10 @@ const deliveryStatusColors: Record<string, string> = {
 };
 
 export default function AdminOrders() {
-  const [orders, setOrders] = useState<Order[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [delivery, setDelivery] = useState<Delivery | null>(null);
   const [deliveryEdit, setDeliveryEdit] = useState<Partial<Delivery>>({});
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUpdatingDelivery, setIsUpdatingDelivery] = useState(false);
@@ -63,19 +62,26 @@ export default function AdminOrders() {
   const [customerPhone, setCustomerPhone] = useState('');
   const { toast } = useToast();
 
+  const fetchOrdersFn = useCallback(async (from: number, to: number) => {
+    const { data, error, count } = await supabase
+      .from('orders')
+      .select('*, order_items(*)', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    return { data: (data || []) as unknown as Order[], count: count || 0 };
+  }, []);
+
+  const { items: orders, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial: fetchOrders } = usePaginatedFetch<Order>({
+    pageSize: 30,
+    fetchFn: fetchOrdersFn,
+  });
+
   useEffect(() => { fetchOrders(); fetchStoreInfo(); }, []);
 
   const fetchStoreInfo = async () => {
     const { data } = await supabase.from('store_settings').select('value').eq('key', 'store_info').single();
     if (data) setStoreInfo(data.value as unknown as StoreInfo);
-  };
-
-  const fetchOrders = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase.from('orders').select('*, order_items(*)').order('created_at', { ascending: false });
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else setOrders((data || []) as unknown as Order[]);
-    setIsLoading(false);
   };
 
   const fetchOrderDetails = async (orderId: string) => {
@@ -953,6 +959,15 @@ export default function AdminOrders() {
           })}
         </div>
       )}
+      {/* Infinite scroll sentinel */}
+      <div ref={sentinelRef} className="flex justify-center py-4">
+        {isLoadingMore && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Loading more orders...</span>
+          </div>
+        )}
+      </div>
     </AdminLayout>
   );
 }

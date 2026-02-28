@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
+import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,8 +47,6 @@ const PAYMENT_METHODS = [
 ];
 
 export default function AdminPayments() {
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -55,24 +54,22 @@ export default function AdminPayments() {
   const [refundReason, setRefundReason] = useState('');
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchPayments();
+  const fetchPaymentsFn = useCallback(async (from: number, to: number) => {
+    const { data, error, count } = await supabase
+      .from('payments')
+      .select('*, order:orders(order_number)', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    return { data: (data || []) as unknown as Payment[], count: count || 0 };
   }, []);
 
-  const fetchPayments = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('payments')
-      .select('*, order:orders(order_number)')
-      .order('created_at', { ascending: false });
+  const { items: payments, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial: fetchPayments } = usePaginatedFetch<Payment>({
+    pageSize: 30,
+    fetchFn: fetchPaymentsFn,
+  });
 
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      setPayments((data || []) as unknown as Payment[]);
-    }
-    setIsLoading(false);
-  };
+  useEffect(() => { fetchPayments(); }, []);
 
   const handleRowClick = (payment: Payment) => {
     setSelectedPayment(payment);
@@ -178,6 +175,9 @@ export default function AdminPayments() {
         searchKeys={['transaction_id']}
         getRowId={(p) => p.id}
         emptyMessage="No payments found."
+        isLoadingMore={isLoadingMore}
+        hasMore={hasMore}
+        sentinelRef={sentinelRef}
       />
 
       <DetailPanel
