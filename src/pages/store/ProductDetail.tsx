@@ -428,29 +428,29 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            {/* Rating */}
-            {reviews.length > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} className={`h-4 w-4 md:h-5 md:w-5 ${star <= Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-muted'}`} />
-                  ))}
-                </div>
-                <span className="font-medium text-sm">{avgRating.toFixed(1)}</span>
-                <span className="text-muted-foreground text-sm">({reviews.length} reviews)</span>
+            {/* Price + Rating inline */}
+            <div className="space-y-2">
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <span className="text-2xl md:text-3xl font-bold text-foreground">₹{Number(displayPrice).toFixed(0)}</span>
+                {showOfferDiscount && (
+                  <>
+                    <span className="text-lg md:text-xl text-muted-foreground line-through">₹{Number(currentPrice).toFixed(0)}</span>
+                    <Badge variant="destructive" className="animate-pulse">{productOffer.discountLabel}</Badge>
+                  </>
+                )}
+                <span className="text-xs text-muted-foreground">(Tax Inclusive)</span>
               </div>
-            )}
-
-            {/* Price */}
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <span className="text-2xl md:text-3xl font-bold text-foreground">₹{Number(displayPrice).toFixed(0)}</span>
-              {showOfferDiscount && (
-                <>
-                  <span className="text-lg md:text-xl text-muted-foreground line-through">₹{Number(currentPrice).toFixed(0)}</span>
-                  <Badge variant="destructive" className="animate-pulse">{productOffer.discountLabel}</Badge>
-                </>
+              {reviews.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star key={star} className={`h-4 w-4 md:h-5 md:w-5 ${star <= Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-muted'}`} />
+                    ))}
+                  </div>
+                  <span className="font-medium text-sm">{avgRating.toFixed(1)}</span>
+                  <span className="text-muted-foreground text-sm">({reviews.length} reviews)</span>
+                </div>
               )}
-              <span className="text-xs text-muted-foreground">(Tax Inclusive)</span>
             </div>
 
             {/* Offer Timer */}
