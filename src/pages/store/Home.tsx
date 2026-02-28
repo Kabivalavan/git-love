@@ -136,8 +136,11 @@ export default function HomePage() {
     queryKey: ['home-page-data'],
     queryFn: fetchHomeData,
     staleTime: 30 * 1000,
-    gcTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
   });
 
   const banners = data?.banners || [];
