@@ -42,11 +42,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     fetchTheme();
   }, []);
 
-  useEffect(() => {
+  // Apply theme whenever theme/admin pref changes, and watch for route changes
+  const applyThemeAttribute = () => {
     const isAdminRoute = window.location.pathname.startsWith('/admin');
-    
     if (theme !== 'default') {
-      // Only apply theme to admin if toggled on
       if (isAdminRoute && !applyThemeToAdmin) {
         document.documentElement.removeAttribute('data-storefront-theme');
       } else {
@@ -55,33 +54,46 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } else {
       document.documentElement.removeAttribute('data-storefront-theme');
     }
+  };
+
+  useEffect(() => {
+    applyThemeAttribute();
   }, [theme, applyThemeToAdmin]);
 
-  // Listen for route changes to toggle theme attribute
+  // Listen for URL changes (popstate + MutationObserver for SPA nav)
   useEffect(() => {
-    const observer = new MutationObserver(() => {
-      const isAdminRoute = window.location.pathname.startsWith('/admin');
-      if (theme !== 'default') {
-        if (isAdminRoute && !applyThemeToAdmin) {
-          document.documentElement.removeAttribute('data-storefront-theme');
-        } else {
-          document.documentElement.setAttribute('data-storefront-theme', theme);
-        }
-      }
-    });
+    const handler = () => applyThemeAttribute();
+    window.addEventListener('popstate', handler);
+    const observer = new MutationObserver(handler);
     observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => {
+      window.removeEventListener('popstate', handler);
+      observer.disconnect();
+    };
   }, [theme, applyThemeToAdmin]);
 
   const fetchTheme = async () => {
-    const { data } = await supabase
-      .from('store_settings')
-      .select('value')
-      .eq('key', 'storefront_theme')
-      .single();
-    if (data?.value) {
-      const val = data.value as { theme: StorefrontTheme };
-      setThemeState(val.theme || 'default');
+    try {
+      const { data } = await supabase
+        .from('store_settings')
+        .select('value')
+        .eq('key', 'storefront_theme')
+        .single();
+      if (data?.value) {
+        const val = data.value as { theme: StorefrontTheme };
+        const t = val.theme || 'default';
+        setThemeState(t);
+        // Apply immediately before React re-renders
+        if (t !== 'default') {
+          const isAdminRoute = window.location.pathname.startsWith('/admin');
+          const adminPref = localStorage.getItem('admin_apply_theme') === 'true';
+          if (!isAdminRoute || adminPref) {
+            document.documentElement.setAttribute('data-storefront-theme', t);
+          }
+        }
+      }
+    } catch {
+      // ignore fetch errors, use default
     }
     setIsLoading(false);
   };
@@ -120,6 +132,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       }
     }
   };
+
+  // Block rendering until theme is loaded to prevent flash of wrong colors
+  if (isLoading) {
+    return null;
+  }
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, isLoading, applyThemeToAdmin, setApplyThemeToAdmin }}>
