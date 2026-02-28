@@ -45,8 +45,10 @@ export function Header() {
   const { data } = useQuery({
     queryKey: ['header-data'],
     queryFn: fetchHeaderData,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const { data: cartCount = 0 } = useQuery({
