@@ -68,16 +68,21 @@ function FullPageShimmer() {
 }
 
 const fetchHomeData = async () => {
-  const [bannersRes, middleBannersRes, popupBannersRes, categoriesRes, featuredRes, bestsellersRes, newRes, bundlesRes, displaySettingsRes] = await Promise.all([
+  // Batch 1: lightweight queries
+  const [bannersRes, middleBannersRes, popupBannersRes, categoriesRes, displaySettingsRes] = await Promise.all([
     supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_top').order('sort_order'),
     supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_middle').order('sort_order'),
     supabase.from('banners').select('*').eq('is_active', true).eq('position', 'popup').order('sort_order').limit(1),
     supabase.from('categories').select('*').eq('is_active', true).is('parent_id', null).order('sort_order').limit(8),
+    supabase.from('store_settings').select('value').eq('key', 'storefront_display').single(),
+  ]);
+
+  // Batch 2: heavier product queries
+  const [featuredRes, bestsellersRes, newRes, bundlesRes] = await Promise.all([
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_featured', true).limit(8),
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_bestseller', true).limit(8),
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).order('created_at', { ascending: false }).limit(8),
     supabase.from('bundles').select('*, items:bundle_items(*, product:products(name, price, images:product_images(*)))').eq('is_active', true).order('sort_order').limit(6),
-    supabase.from('store_settings').select('value').eq('key', 'storefront_display').single(),
   ]);
 
   // Collect all product IDs to fetch review stats
@@ -88,7 +93,7 @@ const fetchHomeData = async () => {
   ];
   const uniqueProductIds = [...new Set(allProducts.map(p => p.id))];
 
-  // Fetch review stats for all products in one query
+  // Batch 3: review stats
   let reviewStats: Record<string, { avgRating: number; reviewCount: number }> = {};
   if (uniqueProductIds.length > 0) {
     const { data: reviewData } = await supabase
