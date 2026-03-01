@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Grid, List, SlidersHorizontal, X } from 'lucide-react';
+import { Grid, List, SlidersHorizontal, X, Loader2 } from 'lucide-react';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,6 @@ import { Slider } from '@/components/ui/slider';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from '@/components/ui/pagination';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,7 +20,7 @@ import { SEOHead } from '@/components/seo/SEOHead';
 import { useQuery } from '@tanstack/react-query';
 import type { Product, Category } from '@/types/database';
 
-const ITEMS_PER_PAGE = 12;
+const ITEMS_PER_PAGE = 20;
 
 export default function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -30,7 +29,6 @@ export default function ProductsPage() {
   const [priceRange, setPriceRange] = useState([0, 10000]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [showInStock, setShowInStock] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
   const [subCategories, setSubCategories] = useState<Category[]>([]);
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
   const { toast } = useToast();
@@ -53,10 +51,28 @@ export default function ProductsPage() {
     gcTime: 15 * 60 * 1000,
   });
 
-  // Reset page when filters change
+  // State for infinite scroll
+  const [products, setProducts] = useState<Product[]>([]);
+  const [reviewStats, setReviewStats] = useState<Record<string, { avgRating: number; reviewCount: number }>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const pageRef = useRef(0);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Filter key to detect changes
+  const filterKey = JSON.stringify([searchQuery, categorySlug, isFeatured, isBestseller, sortBy, priceRange, selectedCategories, showInStock, selectedSubCategory]);
+
+  // Reset when filters change
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchParams, sortBy, priceRange, selectedCategories, showInStock, selectedSubCategory]);
+    setProducts([]);
+    setReviewStats({});
+    pageRef.current = 0;
+    setHasMore(true);
+    setIsLoading(true);
+    loadProducts(0, true);
+  }, [filterKey]);
 
   useEffect(() => {
     setSelectedSubCategory(null);
@@ -78,85 +94,94 @@ export default function ProductsPage() {
     }
   }, [categorySlug, categories]);
 
-  // Products query with caching — no shimmer on back-navigation
-  const { data: productsData, isLoading } = useQuery({
-    queryKey: [
-      'products-list', searchQuery, categorySlug, isFeatured, isBestseller,
-      sortBy, JSON.stringify(priceRange), JSON.stringify(selectedCategories),
-      showInStock, currentPage, selectedSubCategory,
-    ],
-    queryFn: async () => {
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-      let query = supabase
-        .from('products')
-        .select('*, category:categories(*), images:product_images(*)', { count: 'exact' })
-        .eq('is_active', true)
-        .gte('price', priceRange[0])
-        .lte('price', priceRange[1]);
+  const loadProducts = useCallback(async (page: number, isInitial: boolean) => {
+    const from = page * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+    let query = supabase
+      .from('products')
+      .select('*, category:categories(*), images:product_images(*)', { count: 'exact' })
+      .eq('is_active', true)
+      .gte('price', priceRange[0])
+      .lte('price', priceRange[1]);
 
-      if (searchQuery) query = query.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+    if (searchQuery) query = query.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
 
-      if (selectedSubCategory) {
-        query = query.eq('category_id', selectedSubCategory);
-      } else if (categorySlug) {
-        const category = categories.find(c => c.slug === categorySlug);
-        if (category) {
-          const childIds = categories.filter(c => c.parent_id === category.id).map(c => c.id);
-          query = query.in('category_id', [category.id, ...childIds]);
+    if (selectedSubCategory) {
+      query = query.eq('category_id', selectedSubCategory);
+    } else if (categorySlug) {
+      const category = categories.find(c => c.slug === categorySlug);
+      if (category) {
+        const childIds = categories.filter(c => c.parent_id === category.id).map(c => c.id);
+        query = query.in('category_id', [category.id, ...childIds]);
+      }
+    }
+    if (selectedCategories.length > 0) query = query.in('category_id', selectedCategories);
+    if (isFeatured) query = query.eq('is_featured', true);
+    if (isBestseller) query = query.eq('is_bestseller', true);
+    if (showInStock) query = query.gt('stock_quantity', 0);
+
+    switch (sortBy) {
+      case 'price_low': query = query.order('price', { ascending: true }); break;
+      case 'price_high': query = query.order('price', { ascending: false }); break;
+      case 'name': query = query.order('name'); break;
+      default: query = query.order('created_at', { ascending: false });
+    }
+    query = query.range(from, to);
+    const { data, error, count } = await query;
+    if (error) { setIsLoading(false); setIsLoadingMore(false); return; }
+
+    const newProducts = (data || []) as Product[];
+    const total = count || 0;
+
+    // Fetch review stats for new products
+    if (newProducts.length > 0) {
+      const pids = newProducts.map(p => p.id);
+      const { data: reviewData } = await supabase
+        .from('reviews')
+        .select('product_id, rating')
+        .eq('is_approved', true)
+        .in('product_id', pids);
+      if (reviewData) {
+        const grouped: Record<string, number[]> = {};
+        reviewData.forEach(r => {
+          if (!grouped[r.product_id]) grouped[r.product_id] = [];
+          grouped[r.product_id].push(r.rating);
+        });
+        const newStats: Record<string, { avgRating: number; reviewCount: number }> = {};
+        Object.entries(grouped).forEach(([pid, ratings]) => {
+          newStats[pid] = {
+            avgRating: ratings.reduce((a, b) => a + b, 0) / ratings.length,
+            reviewCount: ratings.length,
+          };
+        });
+        setReviewStats(prev => isInitial ? newStats : { ...prev, ...newStats });
+      }
+    }
+
+    setTotalCount(total);
+    setProducts(prev => isInitial ? newProducts : [...prev, ...newProducts]);
+    setHasMore(from + newProducts.length < total);
+    pageRef.current = page + 1;
+    setIsLoading(false);
+    setIsLoadingMore(false);
+  }, [searchQuery, categorySlug, isFeatured, isBestseller, sortBy, priceRange, selectedCategories, showInStock, selectedSubCategory, categories]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading && !isLoadingMore) {
+          setIsLoadingMore(true);
+          loadProducts(pageRef.current, false);
         }
-      }
-      if (selectedCategories.length > 0) query = query.in('category_id', selectedCategories);
-      if (isFeatured) query = query.eq('is_featured', true);
-      if (isBestseller) query = query.eq('is_bestseller', true);
-      if (showInStock) query = query.gt('stock_quantity', 0);
-
-      switch (sortBy) {
-        case 'price_low': query = query.order('price', { ascending: true }); break;
-        case 'price_high': query = query.order('price', { ascending: false }); break;
-        case 'name': query = query.order('name'); break;
-        default: query = query.order('created_at', { ascending: false });
-      }
-      query = query.range(from, to);
-      const { data, error, count } = await query;
-      if (error) throw error;
-
-      const products = (data || []) as Product[];
-      // Fetch review stats
-      let reviewStats: Record<string, { avgRating: number; reviewCount: number }> = {};
-      if (products.length > 0) {
-        const pids = products.map(p => p.id);
-        const { data: reviewData } = await supabase
-          .from('reviews')
-          .select('product_id, rating')
-          .eq('is_approved', true)
-          .in('product_id', pids);
-        if (reviewData) {
-          const grouped: Record<string, number[]> = {};
-          reviewData.forEach(r => {
-            if (!grouped[r.product_id]) grouped[r.product_id] = [];
-            grouped[r.product_id].push(r.rating);
-          });
-          Object.entries(grouped).forEach(([pid, ratings]) => {
-            reviewStats[pid] = {
-              avgRating: ratings.reduce((a, b) => a + b, 0) / ratings.length,
-              reviewCount: ratings.length,
-            };
-          });
-        }
-      }
-
-      return { products, count: count || 0, reviewStats };
-    },
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    placeholderData: (prev) => prev,
-  });
-
-  const products = productsData?.products || [];
-  const totalCount = productsData?.count || 0;
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
-  const reviewStats = productsData?.reviewStats || {};
+      },
+      { rootMargin: '300px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, isLoadingMore, loadProducts]);
 
   const handleAddToCart = async (product: Product) => {
     if (!user) {
@@ -367,40 +392,15 @@ export default function ProductsPage() {
               </div>
             )}
 
-            {totalPages > 1 && (
-              <Pagination className="mt-8">
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                    />
-                  </PaginationItem>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
-                    .reduce((acc, page, idx, arr) => {
-                      if (idx > 0 && page - arr[idx - 1] > 1) acc.push(-idx);
-                      acc.push(page);
-                      return acc;
-                    }, [] as number[])
-                    .map(page =>
-                      page < 0 ? (
-                        <PaginationItem key={`ellipsis-${page}`}><PaginationEllipsis /></PaginationItem>
-                      ) : (
-                        <PaginationItem key={page}>
-                          <PaginationLink isActive={page === currentPage} onClick={() => setCurrentPage(page)} className="cursor-pointer">{page}</PaginationLink>
-                        </PaginationItem>
-                      )
-                    )}
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            )}
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className="flex justify-center py-6">
+              {isLoadingMore && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">Loading more products...</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

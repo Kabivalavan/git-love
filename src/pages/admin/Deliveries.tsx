@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ExternalLink, Info, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
 
 interface Delivery {
   id: string;
@@ -37,32 +38,43 @@ const DELIVERY_STATUSES = [
 ];
 
 export default function AdminDeliveries() {
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [codFilter, setCodFilter] = useState<string>('all');
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchDeliveries();
-  }, []);
-
-  const fetchDeliveries = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
+  const fetchFn = useCallback(async (from: number, to: number) => {
+    let query = supabase
       .from('deliveries')
-      .select('*, order:orders(order_number)')
+      .select('*, order:orders(order_number)', { count: 'exact' })
       .order('created_at', { ascending: false });
 
+    if (statusFilter !== 'all') query = query.eq('status', statusFilter as any);
+    if (codFilter === 'cod') query = query.eq('is_cod', true);
+    if (codFilter === 'prepaid') query = query.eq('is_cod', false);
+    if (codFilter === 'cod_pending') query = query.eq('is_cod', true).eq('cod_collected', false);
+
+    query = query.range(from, to);
+    const { data, error, count } = await query;
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      setDeliveries((data || []) as unknown as Delivery[]);
+      throw error;
     }
-    setIsLoading(false);
-  };
+    return { data: (data || []) as unknown as Delivery[], count: count || 0 };
+  }, [statusFilter, codFilter, toast]);
+
+  const {
+    items: deliveries,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    fetchInitial,
+  } = usePaginatedFetch<Delivery>({ fetchFn, pageSize: 30 });
+
+  useEffect(() => { fetchInitial(); }, [fetchInitial]);
 
   const handleRowClick = (delivery: Delivery) => {
     setSelectedDelivery(delivery);
@@ -73,14 +85,6 @@ export default function AdminDeliveries() {
     const found = DELIVERY_STATUSES.find(s => s.value === status);
     return (found?.color || 'secondary') as 'default' | 'secondary' | 'destructive';
   };
-
-  const filteredDeliveries = deliveries.filter(d => {
-    if (statusFilter !== 'all' && d.status !== statusFilter) return false;
-    if (codFilter === 'cod' && !d.is_cod) return false;
-    if (codFilter === 'prepaid' && d.is_cod) return false;
-    if (codFilter === 'cod_pending' && (!d.is_cod || d.cod_collected)) return false;
-    return true;
-  });
 
   const columns: Column<Delivery>[] = [
     {
@@ -158,12 +162,12 @@ export default function AdminDeliveries() {
             Clear filters
           </Button>
         )}
-        <span className="text-xs text-muted-foreground ml-auto">{filteredDeliveries.length} of {deliveries.length} deliveries</span>
+        <span className="text-xs text-muted-foreground ml-auto">{deliveries.length} of {totalCount} deliveries</span>
       </div>
 
       <DataTable<Delivery>
         columns={columns}
-        data={filteredDeliveries}
+        data={deliveries}
         isLoading={isLoading}
         onRowClick={handleRowClick}
         searchable
@@ -171,6 +175,9 @@ export default function AdminDeliveries() {
         searchKeys={['tracking_number', 'partner_name']}
         getRowId={(d) => d.id}
         emptyMessage="No deliveries found."
+        isLoadingMore={isLoadingMore}
+        hasMore={hasMore}
+        sentinelRef={sentinelRef}
       />
 
       <DetailPanel
