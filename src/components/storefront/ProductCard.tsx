@@ -89,12 +89,12 @@ export function ProductCard({
       <Link
         to={`/product/${product.slug}`}
         className={cn(
-          "flex gap-4 p-4 bg-card rounded-lg border border-border hover:shadow-md transition-shadow group",
+          "flex gap-4 p-4 bg-card rounded-lg border border-border md:hover:shadow-md transition-shadow group",
           isOutOfStock && "opacity-60"
         )}
       >
         <div className="w-24 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">
-          <img src={primaryImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          <img src={primaryImage} alt={product.name} className="w-full h-full object-cover md:group-hover:scale-105 transition-transform duration-300" />
           {isOutOfStock && (
             <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
               <Badge variant="secondary" className="text-[10px]">Sold Out</Badge>
@@ -120,13 +120,14 @@ export function ProductCard({
 
   return (
     <div className={cn(
-      "group bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-all duration-300",
+      "group bg-card rounded-lg border border-border overflow-hidden transition-all duration-300",
+      "md:hover:shadow-lg",
       variant === 'compact' && "text-sm",
       isOutOfStock && "opacity-60"
     )}>
       {/* Image */}
       <Link to={`/product/${product.slug}`} className="block relative aspect-square overflow-hidden bg-muted">
-        <img src={primaryImage} alt={product.name} className={cn("w-full h-full object-cover transition-transform duration-500", !isOutOfStock && "group-hover:scale-105")} />
+        <img src={primaryImage} alt={product.name} className={cn("w-full h-full object-cover transition-transform duration-500", !isOutOfStock && "md:group-hover:scale-105")} />
 
         {/* Badges */}
         <div className="absolute top-2 left-2 right-8 flex flex-wrap gap-1">
@@ -162,7 +163,7 @@ export function ProductCard({
           <Button
             variant="secondary"
             size="icon"
-            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7"
+            className="absolute top-2 right-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity h-7 w-7"
             onClick={(e) => { e.preventDefault(); onAddToWishlist(product); }}
           >
             <Heart className="h-3.5 w-3.5" />
