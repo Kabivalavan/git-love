@@ -63,7 +63,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (user) {
       fetchData();
-      // Load coupon from cart
+      // Load and validate coupon from cart
       const savedCoupon = localStorage.getItem('applied_coupon');
       if (savedCoupon) {
         try {
@@ -71,7 +71,27 @@ export default function CheckoutPage() {
           if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
             localStorage.removeItem('applied_coupon');
           } else {
-            setAppliedCoupon(coupon);
+            // Validate coupon still exists and is active in DB
+            supabase
+              .from('coupons')
+              .select('*')
+              .eq('id', coupon.id)
+              .eq('is_active', true)
+              .single()
+              .then(({ data, error }) => {
+                if (error || !data) {
+                  localStorage.removeItem('applied_coupon');
+                  setAppliedCoupon(null);
+                } else {
+                  const validCoupon = data as unknown as Coupon;
+                  if (validCoupon.end_date && new Date(validCoupon.end_date) < new Date()) {
+                    localStorage.removeItem('applied_coupon');
+                    setAppliedCoupon(null);
+                  } else {
+                    setAppliedCoupon(validCoupon);
+                  }
+                }
+              });
           }
         } catch { localStorage.removeItem('applied_coupon'); }
       }

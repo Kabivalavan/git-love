@@ -40,6 +40,19 @@ export default function CartPage() {
   useEffect(() => {
     if (user) {
       fetchCart();
+      // Load saved coupon from localStorage
+      const savedCoupon = localStorage.getItem('applied_coupon');
+      if (savedCoupon) {
+        try {
+          const coupon = JSON.parse(savedCoupon) as Coupon;
+          if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
+            localStorage.removeItem('applied_coupon');
+          } else {
+            setAppliedCoupon(coupon);
+            setCouponCode(coupon.code);
+          }
+        } catch { localStorage.removeItem('applied_coupon'); }
+      }
     } else {
       setIsLoading(false);
     }
