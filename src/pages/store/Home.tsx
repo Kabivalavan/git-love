@@ -68,19 +68,27 @@ function FullPageShimmer() {
 }
 
 const fetchHomeData = async () => {
-  // Batch 1: lightweight queries
-  const [bannersRes, middleBannersRes, popupBannersRes, categoriesRes, displaySettingsRes] = await Promise.all([
+  // Batch 1: banners + settings (3 requests - within browser limit alongside header's 2)
+  const [bannersRes, middleBannersRes, displaySettingsRes] = await Promise.all([
     supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_top').order('sort_order'),
     supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_middle').order('sort_order'),
-    supabase.from('banners').select('*').eq('is_active', true).eq('position', 'popup').order('sort_order').limit(1),
-    supabase.from('categories').select('*').eq('is_active', true).is('parent_id', null).order('sort_order').limit(8),
     supabase.from('store_settings').select('value').eq('key', 'storefront_display').single(),
   ]);
 
-  // Batch 2: heavier product queries
-  const [featuredRes, bestsellersRes, newRes, bundlesRes] = await Promise.all([
+  // Batch 2: popup banner + categories (2 requests)
+  const [popupBannersRes, categoriesRes] = await Promise.all([
+    supabase.from('banners').select('*').eq('is_active', true).eq('position', 'popup').order('sort_order').limit(1),
+    supabase.from('categories').select('*').eq('is_active', true).is('parent_id', null).order('sort_order').limit(8),
+  ]);
+
+  // Batch 3: product queries (2 requests)
+  const [featuredRes, bestsellersRes] = await Promise.all([
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_featured', true).limit(8),
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_bestseller', true).limit(8),
+  ]);
+
+  // Batch 4: more product queries (2 requests)
+  const [newRes, bundlesRes] = await Promise.all([
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).order('created_at', { ascending: false }).limit(8),
     supabase.from('bundles').select('*, items:bundle_items(*, product:products(name, price, images:product_images(*)))').eq('is_active', true).order('sort_order').limit(6),
   ]);

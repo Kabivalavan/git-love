@@ -17,15 +17,21 @@ interface AnnouncementSettings {
 }
 
 const fetchHeaderData = async () => {
-  const [categoriesRes, storeRes, announcementRes] = await Promise.all([
+  // Combine store_settings into a single query to reduce concurrent connections
+  const [categoriesRes, settingsRes] = await Promise.all([
     supabase.from('categories').select('*').eq('is_active', true).is('parent_id', null).order('sort_order'),
-    supabase.from('store_settings').select('value').eq('key', 'store_info').single(),
-    supabase.from('store_settings').select('value').eq('key', 'announcement').single(),
+    supabase.from('store_settings').select('key, value').in('key', ['store_info', 'announcement']),
   ]);
+  let storeInfo: StoreInfo | null = null;
+  let announcement: AnnouncementSettings | null = null;
+  settingsRes.data?.forEach((item) => {
+    if (item.key === 'store_info') storeInfo = item.value as unknown as StoreInfo;
+    if (item.key === 'announcement') announcement = item.value as unknown as AnnouncementSettings;
+  });
   return {
     categories: (categoriesRes.data || []) as Category[],
-    storeInfo: storeRes.data?.value as unknown as StoreInfo | null,
-    announcement: announcementRes.data?.value as unknown as AnnouncementSettings | null,
+    storeInfo,
+    announcement,
   };
 };
 
