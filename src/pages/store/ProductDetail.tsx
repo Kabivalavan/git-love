@@ -1,6 +1,6 @@
-import { useEffect, useState, useRef, memo } from 'react';
+import { useEffect, useState, useRef, memo, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy } from 'lucide-react';
+import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ProductCard } from '@/components/storefront/ProductCard';
@@ -92,10 +92,23 @@ export default function ProductDetailPage() {
   const [storeCoupons, setStoreCoupons] = useState<any[]>([]);
   const [visibleReviewCount, setVisibleReviewCount] = useState(5);
   const [couponsExpanded, setCouponsExpanded] = useState(false);
+  const [showStickyBar, setShowStickyBar] = useState(false);
+  const buyNowRef = useRef<HTMLButtonElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const { trackEvent } = useAnalytics();
   const { getProductOffer } = useOffers();
+
+  // Observe when Buy Now button scrolls out of view on mobile
+  useEffect(() => {
+    if (!buyNowRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowStickyBar(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(buyNowRef.current);
+    return () => observer.disconnect();
+  }, [isLoading, product]);
 
   useEffect(() => {
     if (slug) fetchProduct();
@@ -534,7 +547,7 @@ export default function ProductDetailPage() {
                 {isAddingToCart ? <Loader2 className="h-6 w-6 mr-2 animate-spin" /> : <ShoppingCart className="h-6 w-6 mr-2" />}
                 {currentStock === 0 ? 'Out of Stock' : 'Add to Cart'}
               </Button>
-              <Button size="lg" variant="outline" className="flex-1 h-14 text-lg font-semibold border-2" onClick={handleBuyNow} disabled={currentStock === 0}>
+              <Button ref={buyNowRef} size="lg" variant="outline" className="flex-1 h-14 text-lg font-semibold border-2" onClick={handleBuyNow} disabled={currentStock === 0}>
                 Buy Now
               </Button>
             </div>
@@ -740,6 +753,33 @@ export default function ProductDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Mobile Sticky Bottom Bar - appears when Buy Now scrolls out of view */}
+      <AnimatePresence>
+        {showStickyBar && product && currentStock > 0 && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="fixed bottom-14 left-0 right-0 z-40 bg-card border-t border-border px-4 py-3 lg:hidden shadow-lg"
+          >
+            <div className="flex items-center gap-3">
+              <Link to="/" className="flex-shrink-0 p-2 rounded-lg border border-border bg-background">
+                <Home className="h-5 w-5 text-foreground" />
+              </Link>
+              <Button
+                className="flex-1 h-12 text-base font-semibold"
+                onClick={handleAddToCart}
+                disabled={isAddingToCart}
+              >
+                {isAddingToCart ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <ShoppingCart className="h-5 w-5 mr-2" />}
+                Add to Cart · ₹{Number(displayPrice).toFixed(0)}
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </StorefrontLayout>
   );
 }
