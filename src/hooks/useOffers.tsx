@@ -14,7 +14,9 @@ export function useOffers() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchOffers();
+    // Defer offers fetch to avoid competing with critical page-load requests
+    const timer = setTimeout(() => fetchOffers(), 300);
+    return () => clearTimeout(timer);
   }, []);
 
   const fetchOffers = async () => {
