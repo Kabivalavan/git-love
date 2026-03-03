@@ -241,7 +241,9 @@ export default function HomePage() {
       {banners.length > 0 && (
         <section className="relative">
           <div className="relative overflow-hidden aspect-[16/9] sm:aspect-[16/9] md:aspect-[16/9] lg:aspect-[1920/900]">
-            {banners.map((banner, index) => (
+            {banners.map((banner, index) => {
+              const isFirst = index === 0;
+              return (
               <div key={banner.id} className={`absolute inset-0 transition-all duration-700 ${index === currentBanner ? 'opacity-100 z-10 scale-100' : 'opacity-0 z-0 scale-105'}`}>
                 <Link to={banner.redirect_url || '/products'}>
                   {/* Mobile image */}
@@ -249,22 +251,34 @@ export default function HomePage() {
                     src={banner.media_url_mobile || banner.media_url}
                     alt={banner.title}
                     className="w-full h-full object-cover block sm:hidden"
+                    loading={isFirst ? 'eager' : 'lazy'}
+                    {...(isFirst ? { fetchPriority: 'high' as any } : {})}
+                    width={800}
+                    height={450}
                   />
                   {/* Tablet image */}
                   <img
                     src={banner.media_url_tablet || banner.media_url}
                     alt={banner.title}
                     className="w-full h-full object-cover hidden sm:block lg:hidden"
+                    loading={isFirst ? 'eager' : 'lazy'}
+                    width={1200}
+                    height={675}
                   />
                   {/* Desktop image */}
                   <img
                     src={banner.media_url}
                     alt={banner.title}
                     className="w-full h-full object-cover hidden lg:block"
+                    loading={isFirst ? 'eager' : 'lazy'}
+                    {...(isFirst ? { fetchPriority: 'high' as any } : {})}
+                    width={1920}
+                    height={900}
                   />
                 </Link>
               </div>
-            ))}
+              );
+            })}
           </div>
           {banners.length > 1 && (
             <>
