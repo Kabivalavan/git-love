@@ -123,26 +123,12 @@ export default function HomePage() {
   const [showPopup, setShowPopup] = useState(false);
   const { toast } = useToast();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { categories, offers, storeInfo, announcement, storefrontDisplay, isLoading: isGlobalLoading, getProductOffer } = useGlobalStore();
-
-  // Fetch banners from global store data (already in the RPC)
-  const { data: globalData } = useQuery({
-    queryKey: ['global-store-data'],
-    queryFn: async () => {
-      const { data } = await supabase.rpc('get_homepage_data');
-      return data as any;
-    },
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    enabled: !isAuthLoading,
-  });
+  const { categories, banners, middleBanners, popupBanner, storefrontDisplay, isLoading: isGlobalLoading, getProductOffer } = useGlobalStore();
 
   const { data, isLoading } = useQuery({
     queryKey: ['home-products-data'],
     queryFn: fetchProductsData,
-    staleTime: 5 * 60 * 1000,   // 5 minutes for product data
+    staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -150,9 +136,6 @@ export default function HomePage() {
     enabled: !isAuthLoading,
   });
 
-  const banners = (globalData?.banners || []) as Banner[];
-  const middleBanners = (globalData?.middle_banners || []) as Banner[];
-  const popupBanner = (globalData?.popup_banner || null) as Banner | null;
   const featuredProducts = data?.featuredProducts || [];
   const bestsellerProducts = data?.bestsellerProducts || [];
   const newArrivals = data?.newArrivals || [];
