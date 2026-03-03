@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useOffers } from '@/hooks/useOffers';
+import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { SEOHead } from '@/components/seo/SEOHead';
 import type { Product, Banner, Category } from '@/types/database';
 
@@ -67,29 +67,13 @@ function FullPageShimmer() {
   );
 }
 
-const fetchHomeData = async () => {
-  // Batch 1: critical above-fold data only (2 requests - safe with header's 2 + auth done)
-  const [bannersRes, displaySettingsRes] = await Promise.all([
-    supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_top').order('sort_order'),
-    supabase.from('store_settings').select('value').eq('key', 'storefront_display').single(),
-  ]);
-
-  // Batch 2: secondary banners + categories (2 requests)
-  const [middleBannersRes, categoriesRes] = await Promise.all([
-    supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_middle').order('sort_order'),
-    supabase.from('categories').select('*').eq('is_active', true).is('parent_id', null).order('sort_order').limit(8),
-  ]);
-
-  // Batch 3: popup + featured (2 requests)
-  const [popupBannersRes, featuredRes] = await Promise.all([
-    supabase.from('banners').select('*').eq('is_active', true).eq('position', 'popup').order('sort_order').limit(1),
+const fetchProductsData = async () => {
+  // Only fetch products and reviews - banners/categories/offers/settings come from global store
+  const [featuredRes, bestsellersRes] = await Promise.all([
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_featured', true).limit(8),
+    supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_bestseller', true).limit(8),
   ]);
 
-  // Batch 4: bestsellers (1 request)
-  const bestsellersRes = await supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_bestseller', true).limit(8);
-
-  // Batch 5: new arrivals + bundles (2 requests)
   const [newRes, bundlesRes] = await Promise.all([
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).order('created_at', { ascending: false }).limit(8),
     supabase.from('bundles').select('*, items:bundle_items(*, product:products(name, price, images:product_images(*)))').eq('is_active', true).order('sort_order').limit(6),
@@ -103,7 +87,6 @@ const fetchHomeData = async () => {
   ];
   const uniqueProductIds = [...new Set(allProducts.map(p => p.id))];
 
-  // Batch 3: review stats
   let reviewStats: Record<string, { avgRating: number; reviewCount: number }> = {};
   if (uniqueProductIds.length > 0) {
     const { data: reviewData } = await supabase
@@ -127,15 +110,10 @@ const fetchHomeData = async () => {
   }
 
   return {
-    banners: (bannersRes.data || []) as Banner[],
-    middleBanners: (middleBannersRes.data || []) as Banner[],
-    popupBanner: ((popupBannersRes.data || [])[0] || null) as Banner | null,
-    categories: (categoriesRes.data || []) as Category[],
     featuredProducts: (featuredRes.data || []) as Product[],
     bestsellerProducts: (bestsellersRes.data || []) as Product[],
     newArrivals: (newRes.data || []) as Product[],
     bundles: bundlesRes.data || [],
-    lowStockSettings: displaySettingsRes.data?.value ? (displaySettingsRes.data.value as any) : null,
     reviewStats,
   };
 };
