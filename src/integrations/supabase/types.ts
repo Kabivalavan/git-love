@@ -1335,6 +1335,7 @@ export type Database = {
       cleanup_expired_holds: { Args: never; Returns: undefined }
       finalize_order_stock: { Args: { p_order_id: string }; Returns: undefined }
       generate_order_number: { Args: never; Returns: string }
+      get_homepage_data: { Args: never; Returns: Json }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]

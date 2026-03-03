@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useRazorpay } from '@/hooks/useRazorpay';
 import { useAnalytics } from '@/hooks/useAnalytics';
-import { useOffers } from '@/hooks/useOffers';
+import { useGlobalStore } from '@/hooks/useGlobalStore';
 import type { Address, CartItem, Product, PaymentMethod, CheckoutSettings, Coupon } from '@/types/database';
 
 interface CartItemWithProduct extends CartItem {
@@ -55,7 +55,7 @@ export default function CheckoutPage() {
   const { user, profile } = useAuth();
   const { initiatePayment, isLoading: isPaymentLoading } = useRazorpay();
   const { trackEvent } = useAnalytics();
-  const { calculateCartDiscount } = useOffers();
+  const { calculateCartDiscount } = useGlobalStore();
   const navigate = useNavigate();
 
   const isBlocked = profile?.is_blocked === true;

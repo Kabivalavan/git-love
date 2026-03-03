@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useOffers } from '@/hooks/useOffers';
+import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { SEOHead } from '@/components/seo/SEOHead';
 import type { Product, Banner, Category } from '@/types/database';
 
@@ -67,29 +67,13 @@ function FullPageShimmer() {
   );
 }
 
-const fetchHomeData = async () => {
-  // Batch 1: critical above-fold data only (2 requests - safe with header's 2 + auth done)
-  const [bannersRes, displaySettingsRes] = await Promise.all([
-    supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_top').order('sort_order'),
-    supabase.from('store_settings').select('value').eq('key', 'storefront_display').single(),
-  ]);
-
-  // Batch 2: secondary banners + categories (2 requests)
-  const [middleBannersRes, categoriesRes] = await Promise.all([
-    supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_middle').order('sort_order'),
-    supabase.from('categories').select('*').eq('is_active', true).is('parent_id', null).order('sort_order').limit(8),
-  ]);
-
-  // Batch 3: popup + featured (2 requests)
-  const [popupBannersRes, featuredRes] = await Promise.all([
-    supabase.from('banners').select('*').eq('is_active', true).eq('position', 'popup').order('sort_order').limit(1),
+const fetchProductsData = async () => {
+  // Only fetch products and reviews - banners/categories/offers/settings come from global store
+  const [featuredRes, bestsellersRes] = await Promise.all([
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_featured', true).limit(8),
+    supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_bestseller', true).limit(8),
   ]);
 
-  // Batch 4: bestsellers (1 request)
-  const bestsellersRes = await supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_bestseller', true).limit(8);
-
-  // Batch 5: new arrivals + bundles (2 requests)
   const [newRes, bundlesRes] = await Promise.all([
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).order('created_at', { ascending: false }).limit(8),
     supabase.from('bundles').select('*, items:bundle_items(*, product:products(name, price, images:product_images(*)))').eq('is_active', true).order('sort_order').limit(6),
@@ -103,7 +87,6 @@ const fetchHomeData = async () => {
   ];
   const uniqueProductIds = [...new Set(allProducts.map(p => p.id))];
 
-  // Batch 3: review stats
   let reviewStats: Record<string, { avgRating: number; reviewCount: number }> = {};
   if (uniqueProductIds.length > 0) {
     const { data: reviewData } = await supabase
@@ -127,15 +110,10 @@ const fetchHomeData = async () => {
   }
 
   return {
-    banners: (bannersRes.data || []) as Banner[],
-    middleBanners: (middleBannersRes.data || []) as Banner[],
-    popupBanner: ((popupBannersRes.data || [])[0] || null) as Banner | null,
-    categories: (categoriesRes.data || []) as Category[],
     featuredProducts: (featuredRes.data || []) as Product[],
     bestsellerProducts: (bestsellersRes.data || []) as Product[],
     newArrivals: (newRes.data || []) as Product[],
     bundles: bundlesRes.data || [],
-    lowStockSettings: displaySettingsRes.data?.value ? (displaySettingsRes.data.value as any) : null,
     reviewStats,
   };
 };
@@ -145,32 +123,24 @@ export default function HomePage() {
   const [showPopup, setShowPopup] = useState(false);
   const { toast } = useToast();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { getProductOffer, isLoading: isOffersLoading } = useOffers();
-
-  
+  const { categories, banners, middleBanners, popupBanner, storefrontDisplay, isLoading: isGlobalLoading, getProductOffer } = useGlobalStore();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['home-page-data'],
-    queryFn: fetchHomeData,
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    refetchOnMount: 'always',
+    queryKey: ['home-products-data'],
+    queryFn: fetchProductsData,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
     retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
-    // Wait for auth to finish before starting home data fetch to avoid connection overload
     enabled: !isAuthLoading,
   });
 
-  const banners = data?.banners || [];
-  const middleBanners = data?.middleBanners || [];
-  const popupBanner = data?.popupBanner || null;
-  const categories = data?.categories || [];
   const featuredProducts = data?.featuredProducts || [];
   const bestsellerProducts = data?.bestsellerProducts || [];
   const newArrivals = data?.newArrivals || [];
   const bundles = data?.bundles || [];
-  const lowStockSettings = data?.lowStockSettings || null;
+  const lowStockSettings = storefrontDisplay;
   const reviewStats = data?.reviewStats || {};
   useEffect(() => {
     if (banners.length > 1) {
@@ -234,7 +204,7 @@ export default function HomePage() {
     }
   };
 
-  if (isLoading || isOffersLoading) return <FullPageShimmer />;
+  if (isLoading || isGlobalLoading) return <FullPageShimmer />;
 
   return (
     <StorefrontLayout>
@@ -254,7 +224,9 @@ export default function HomePage() {
       {banners.length > 0 && (
         <section className="relative">
           <div className="relative overflow-hidden aspect-[16/9] sm:aspect-[16/9] md:aspect-[16/9] lg:aspect-[1920/900]">
-            {banners.map((banner, index) => (
+            {banners.map((banner, index) => {
+              const isFirst = index === 0;
+              return (
               <div key={banner.id} className={`absolute inset-0 transition-all duration-700 ${index === currentBanner ? 'opacity-100 z-10 scale-100' : 'opacity-0 z-0 scale-105'}`}>
                 <Link to={banner.redirect_url || '/products'}>
                   {/* Mobile image */}
@@ -262,22 +234,34 @@ export default function HomePage() {
                     src={banner.media_url_mobile || banner.media_url}
                     alt={banner.title}
                     className="w-full h-full object-cover block sm:hidden"
+                    loading={isFirst ? 'eager' : 'lazy'}
+                    {...(isFirst ? { fetchPriority: 'high' as any } : {})}
+                    width={800}
+                    height={450}
                   />
                   {/* Tablet image */}
                   <img
                     src={banner.media_url_tablet || banner.media_url}
                     alt={banner.title}
                     className="w-full h-full object-cover hidden sm:block lg:hidden"
+                    loading={isFirst ? 'eager' : 'lazy'}
+                    width={1200}
+                    height={675}
                   />
                   {/* Desktop image */}
                   <img
                     src={banner.media_url}
                     alt={banner.title}
                     className="w-full h-full object-cover hidden lg:block"
+                    loading={isFirst ? 'eager' : 'lazy'}
+                    {...(isFirst ? { fetchPriority: 'high' as any } : {})}
+                    width={1920}
+                    height={900}
                   />
                 </Link>
               </div>
-            ))}
+              );
+            })}
           </div>
           {banners.length > 1 && (
             <>

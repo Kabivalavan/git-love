@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Shimmer } from '@/components/ui/shimmer';
-import { useOffers } from '@/hooks/useOffers';
+import { useGlobalStore } from '@/hooks/useGlobalStore';
 import type { CartItem, Product, Coupon, ProductVariant } from '@/types/database';
 
 interface CartItemWithProduct extends CartItem {
@@ -34,7 +34,7 @@ export default function CartPage() {
   });
   const { toast } = useToast();
   const { user } = useAuth();
-  const { getProductOffer, calculateCartDiscount } = useOffers();
+  const { getProductOffer, calculateCartDiscount } = useGlobalStore();
   const navigate = useNavigate();
 
   useEffect(() => {
