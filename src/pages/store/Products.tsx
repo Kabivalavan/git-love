@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useOffers } from '@/hooks/useOffers';
+import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { ShimmerProductGrid } from '@/components/ui/shimmer';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { useQuery } from '@tanstack/react-query';
@@ -33,7 +33,7 @@ export default function ProductsPage() {
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { getProductOffer } = useOffers();
+  const { getProductOffer } = useGlobalStore();
 
   const searchQuery = searchParams.get('search') || '';
   const categorySlug = searchParams.get('category') || '';
