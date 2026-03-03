@@ -2,7 +2,7 @@ import { createContext, useContext, ReactNode, useCallback, useMemo } from 'reac
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import type { Category, Offer, Product } from '@/types/database';
+import type { Category, Offer, Product, Banner } from '@/types/database';
 
 interface StoreInfo {
   name?: string;
@@ -27,6 +27,9 @@ interface ProductOffer {
 interface GlobalStoreData {
   categories: Category[];
   offers: Offer[];
+  banners: Banner[];
+  middleBanners: Banner[];
+  popupBanner: Banner | null;
   storeInfo: StoreInfo | null;
   announcement: AnnouncementSettings | null;
   storefrontDisplay: any | null;
@@ -63,6 +66,9 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
 
   const categories = useMemo(() => (data?.categories || []) as Category[], [data?.categories]);
   const offers = useMemo(() => (data?.offers || []) as unknown as Offer[], [data?.offers]);
+  const banners = useMemo(() => (data?.banners || []) as unknown as Banner[], [data?.banners]);
+  const middleBanners = useMemo(() => (data?.middle_banners || []) as unknown as Banner[], [data?.middle_banners]);
+  const popupBanner = (data?.popup_banner || null) as unknown as Banner | null;
   const storeInfo = (data?.store_info || null) as StoreInfo | null;
   const announcement = (data?.announcement || null) as AnnouncementSettings | null;
   const storefrontDisplay = data?.storefront_display || null;
