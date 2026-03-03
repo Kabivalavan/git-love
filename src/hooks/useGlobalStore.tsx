@@ -144,13 +144,16 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({
     categories,
     offers,
+    banners,
+    middleBanners,
+    popupBanner,
     storeInfo,
     announcement,
     storefrontDisplay,
     isLoading,
     getProductOffer,
     calculateCartDiscount,
-  }), [categories, offers, storeInfo, announcement, storefrontDisplay, isLoading, getProductOffer, calculateCartDiscount]);
+  }), [categories, offers, banners, middleBanners, popupBanner, storeInfo, announcement, storefrontDisplay, isLoading, getProductOffer, calculateCartDiscount]);
 
   return (
     <GlobalStoreContext.Provider value={value}>
