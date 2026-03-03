@@ -221,7 +221,7 @@ export default function HomePage() {
     }
   };
 
-  if (isLoading || isOffersLoading) return <FullPageShimmer />;
+  if (isLoading || isGlobalLoading) return <FullPageShimmer />;
 
   return (
     <StorefrontLayout>
