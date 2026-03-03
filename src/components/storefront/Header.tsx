@@ -55,6 +55,7 @@ export function Header() {
     gcTime: 5 * 60 * 1000,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
+    enabled: !isAuthLoading,
   });
 
   const { data: cartCount = 0 } = useQuery({
