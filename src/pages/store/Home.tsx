@@ -123,32 +123,41 @@ export default function HomePage() {
   const [showPopup, setShowPopup] = useState(false);
   const { toast } = useToast();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { getProductOffer, isLoading: isOffersLoading } = useOffers();
+  const { categories, offers, storeInfo, announcement, storefrontDisplay, isLoading: isGlobalLoading, getProductOffer } = useGlobalStore();
 
-  
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['home-page-data'],
-    queryFn: fetchHomeData,
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    refetchOnMount: 'always',
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
-    // Wait for auth to finish before starting home data fetch to avoid connection overload
+  // Fetch banners from global store data (already in the RPC)
+  const { data: globalData } = useQuery({
+    queryKey: ['global-store-data'],
+    queryFn: async () => {
+      const { data } = await supabase.rpc('get_homepage_data');
+      return data as any;
+    },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
     enabled: !isAuthLoading,
   });
 
-  const banners = data?.banners || [];
-  const middleBanners = data?.middleBanners || [];
-  const popupBanner = data?.popupBanner || null;
-  const categories = data?.categories || [];
+  const { data, isLoading } = useQuery({
+    queryKey: ['home-products-data'],
+    queryFn: fetchProductsData,
+    staleTime: 5 * 60 * 1000,   // 5 minutes for product data
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    retry: 3,
+    enabled: !isAuthLoading,
+  });
+
+  const banners = (globalData?.banners || []) as Banner[];
+  const middleBanners = (globalData?.middle_banners || []) as Banner[];
+  const popupBanner = (globalData?.popup_banner || null) as Banner | null;
   const featuredProducts = data?.featuredProducts || [];
   const bestsellerProducts = data?.bestsellerProducts || [];
   const newArrivals = data?.newArrivals || [];
   const bundles = data?.bundles || [];
-  const lowStockSettings = data?.lowStockSettings || null;
+  const lowStockSettings = storefrontDisplay;
   const reviewStats = data?.reviewStats || {};
   useEffect(() => {
     if (banners.length > 1) {
