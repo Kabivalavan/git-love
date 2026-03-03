@@ -46,7 +46,7 @@ const fetchCartCount = async (userId: string) => {
 
 export function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, isLoading: isAuthLoading, signOut } = useAuth();
 
   const { data } = useQuery({
     queryKey: ['header-data'],
