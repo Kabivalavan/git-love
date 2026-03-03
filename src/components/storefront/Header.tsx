@@ -6,34 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { GlobalSearch } from './GlobalSearch';
 import { useAuth } from '@/hooks/useAuth';
+import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import type { Category, StoreInfo } from '@/types/database';
-
-interface AnnouncementSettings {
-  text: string;
-  is_active: boolean;
-  link?: string;
-}
-
-const fetchHeaderData = async () => {
-  // Combine store_settings into a single query to reduce concurrent connections
-  const [categoriesRes, settingsRes] = await Promise.all([
-    supabase.from('categories').select('*').eq('is_active', true).is('parent_id', null).order('sort_order'),
-    supabase.from('store_settings').select('key, value').in('key', ['store_info', 'announcement']),
-  ]);
-  let storeInfo: StoreInfo | null = null;
-  let announcement: AnnouncementSettings | null = null;
-  settingsRes.data?.forEach((item) => {
-    if (item.key === 'store_info') storeInfo = item.value as unknown as StoreInfo;
-    if (item.key === 'announcement') announcement = item.value as unknown as AnnouncementSettings;
-  });
-  return {
-    categories: (categoriesRes.data || []) as Category[],
-    storeInfo,
-    announcement,
-  };
-};
 
 const fetchCartCount = async (userId: string) => {
   const { data: cart } = await supabase.from('cart').select('id').eq('user_id', userId).single();
@@ -46,17 +21,8 @@ const fetchCartCount = async (userId: string) => {
 
 export function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const { user, isLoading: isAuthLoading, signOut } = useAuth();
-
-  const { data } = useQuery({
-    queryKey: ['header-data'],
-    queryFn: fetchHeaderData,
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    enabled: !isAuthLoading,
-  });
+  const { user } = useAuth();
+  const { categories, storeInfo, announcement } = useGlobalStore();
 
   const { data: cartCount = 0 } = useQuery({
     queryKey: ['cart-count', user?.id],
@@ -65,10 +31,6 @@ export function Header() {
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });
-
-  const categories = data?.categories || [];
-  const storeInfo = data?.storeInfo || null;
-  const announcement = data?.announcement || null;
 
   // Set dynamic favicon from store settings
   useEffect(() => {
@@ -121,7 +83,7 @@ export function Header() {
             </SheetContent>
           </Sheet>
 
-          {/* Logo - next to hamburger on mobile */}
+          {/* Logo */}
           <Link to="/" className="flex items-center gap-2 flex-shrink-0">
             {storeInfo?.logo_url ? (
               <img src={storeInfo.logo_url} alt={storeInfo.name} className="h-8 sm:h-10 max-w-[120px] object-contain" />
