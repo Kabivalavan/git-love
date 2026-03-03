@@ -68,26 +68,28 @@ function FullPageShimmer() {
 }
 
 const fetchHomeData = async () => {
-  // Batch 1: banners + settings (3 requests - within browser limit alongside header's 2)
-  const [bannersRes, middleBannersRes, displaySettingsRes] = await Promise.all([
+  // Batch 1: critical above-fold data only (2 requests - safe with header's 2 + auth done)
+  const [bannersRes, displaySettingsRes] = await Promise.all([
     supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_top').order('sort_order'),
-    supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_middle').order('sort_order'),
     supabase.from('store_settings').select('value').eq('key', 'storefront_display').single(),
   ]);
 
-  // Batch 2: popup banner + categories (2 requests)
-  const [popupBannersRes, categoriesRes] = await Promise.all([
-    supabase.from('banners').select('*').eq('is_active', true).eq('position', 'popup').order('sort_order').limit(1),
+  // Batch 2: secondary banners + categories (2 requests)
+  const [middleBannersRes, categoriesRes] = await Promise.all([
+    supabase.from('banners').select('*').eq('is_active', true).eq('position', 'home_middle').order('sort_order'),
     supabase.from('categories').select('*').eq('is_active', true).is('parent_id', null).order('sort_order').limit(8),
   ]);
 
-  // Batch 3: product queries (2 requests)
-  const [featuredRes, bestsellersRes] = await Promise.all([
+  // Batch 3: popup + featured (2 requests)
+  const [popupBannersRes, featuredRes] = await Promise.all([
+    supabase.from('banners').select('*').eq('is_active', true).eq('position', 'popup').order('sort_order').limit(1),
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_featured', true).limit(8),
-    supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_bestseller', true).limit(8),
   ]);
 
-  // Batch 4: more product queries (2 requests)
+  // Batch 4: bestsellers (1 request)
+  const bestsellersRes = await supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_bestseller', true).limit(8);
+
+  // Batch 5: new arrivals + bundles (2 requests)
   const [newRes, bundlesRes] = await Promise.all([
     supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).order('created_at', { ascending: false }).limit(8),
     supabase.from('bundles').select('*, items:bundle_items(*, product:products(name, price, images:product_images(*)))').eq('is_active', true).order('sort_order').limit(6),
@@ -142,8 +144,10 @@ export default function HomePage() {
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showPopup, setShowPopup] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const { getProductOffer, isLoading: isOffersLoading } = useOffers();
+
+  
 
   const { data, isLoading } = useQuery({
     queryKey: ['home-page-data'],
@@ -154,6 +158,8 @@ export default function HomePage() {
     refetchOnMount: 'always',
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
+    // Wait for auth to finish before starting home data fetch to avoid connection overload
+    enabled: !isAuthLoading,
   });
 
   const banners = data?.banners || [];

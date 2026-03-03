@@ -15,7 +15,7 @@ export function useOffers() {
 
   useEffect(() => {
     // Defer offers fetch to avoid competing with critical page-load requests
-    const timer = setTimeout(() => fetchOffers(), 300);
+    const timer = setTimeout(() => fetchOffers(), 800);
     return () => clearTimeout(timer);
   }, []);
 
