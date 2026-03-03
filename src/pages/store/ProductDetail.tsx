@@ -17,7 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useAnalytics } from '@/hooks/useAnalytics';
-import { useOffers } from '@/hooks/useOffers';
+import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { Shimmer } from '@/components/ui/shimmer';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { ContentSections, type ContentSection } from '@/components/product/ContentSections';
@@ -97,7 +97,7 @@ export default function ProductDetailPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { trackEvent } = useAnalytics();
-  const { getProductOffer } = useOffers();
+  const { getProductOffer } = useGlobalStore();
 
   // Observe when Buy Now button scrolls out of view on mobile
   useEffect(() => {
