@@ -143,11 +143,10 @@ const fetchHomeData = async () => {
 export default function HomePage() {
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showPopup, setShowPopup] = useState(false);
-  const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const { getProductOffer, isLoading: isOffersLoading } = useOffers();
 
-  const { isLoading: isAuthLoading } = useAuth();
+  
 
   const { data, isLoading } = useQuery({
     queryKey: ['home-page-data'],
