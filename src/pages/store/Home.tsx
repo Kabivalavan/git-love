@@ -1,26 +1,18 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ArrowRight, Truck, Shield, RefreshCw, Headphones, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, ChevronRight, Truck, Shield, RefreshCw, Headphones, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { SEOHead } from '@/components/seo/SEOHead';
-import { useLazySection } from '@/hooks/useLazySection';
-import type { Product } from '@/types/database';
-import type { Easing } from 'framer-motion';
-
-// Lazy-loaded below-fold sections
-const HomeBestsellers = lazy(() => import('@/components/home/HomeBestsellers'));
-const HomeMiddleBanners = lazy(() => import('@/components/home/HomeMiddleBanners'));
-const HomeFeatured = lazy(() => import('@/components/home/HomeFeatured'));
-const HomeBundles = lazy(() => import('@/components/home/HomeBundles'));
-const HomeNewArrivals = lazy(() => import('@/components/home/HomeNewArrivals'));
-
-const easeOut: Easing = [0, 0, 0.2, 1];
+import HomeBestsellers from '@/components/home/HomeBestsellers';
+import HomeMiddleBanners from '@/components/home/HomeMiddleBanners';
+import HomeFeatured from '@/components/home/HomeFeatured';
+import HomeBundles from '@/components/home/HomeBundles';
+import HomeNewArrivals from '@/components/home/HomeNewArrivals';
 
 function FullPageShimmer() {
   return (
@@ -34,57 +26,17 @@ function FullPageShimmer() {
             </div>
           </div>
         </div>
-        <div className="container mx-auto px-4 py-10">
-          <Skeleton className="h-8 w-48 mb-6" />
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-card rounded-xl border border-border overflow-hidden">
-                <Skeleton className="aspect-square" />
-                <div className="p-3 space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
-                  <Skeleton className="h-6 w-1/3" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </StorefrontLayout>
   );
 }
 
-function SectionShimmer() {
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <Skeleton className="h-8 w-48 mb-6" />
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {[1,2,3,4].map(i => (
-          <div key={i} className="bg-card rounded-xl border border-border overflow-hidden">
-            <Skeleton className="aspect-square" />
-            <div className="p-3 space-y-2">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-1/2" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function LazySection({ children }: { children: React.ReactNode }) {
-  const { ref, isVisible } = useLazySection();
-  return (
-    <div ref={ref}>
-      {isVisible ? (
-        <Suspense fallback={<SectionShimmer />}>{children}</Suspense>
-      ) : (
-        <SectionShimmer />
-      )}
-    </div>
-  );
-}
+const features = [
+  { icon: Truck, title: 'Free Shipping', desc: 'On orders above ₹500' },
+  { icon: Shield, title: 'Secure Payment', desc: '100% secure checkout' },
+  { icon: RefreshCw, title: 'Easy Returns', desc: '7-day return policy' },
+  { icon: Headphones, title: '24/7 Support', desc: 'Dedicated support' },
+];
 
 export default function HomePage() {
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -111,14 +63,13 @@ export default function HomePage() {
     }
   }, [popupBanner]);
 
-  // Only block on global data (1 RPC call), not products
   if (isGlobalLoading && isAuthLoading) return <FullPageShimmer />;
 
   return (
     <StorefrontLayout>
       <SEOHead
         title="Decon Fashions - Premium Men's Clothing Store"
-        description="Shop premium men's shirts, pants & fashion at Decon Fashions. Free shipping on orders above ₹500. Quality clothing at affordable prices."
+        description="Shop premium men's shirts, pants & fashion at Decon Fashions. Free shipping on orders above ₹500."
         jsonLd={{
           '@type': 'Store',
           name: 'Decon Fashions',
@@ -128,7 +79,7 @@ export default function HomePage() {
         }}
       />
 
-      {/* Hero Banner - CRITICAL LCP ELEMENT - renders immediately */}
+      {/* Hero Banner - CRITICAL LCP ELEMENT */}
       {banners.length > 0 && (
         <section className="relative">
           <div className="relative overflow-hidden aspect-[16/9] sm:aspect-[16/9] md:aspect-[16/9] lg:aspect-[1920/900]">
@@ -186,28 +137,12 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Features Strip - lightweight, render immediately */}
-      <motion.section
-        className="bg-primary text-primary-foreground py-3 md:py-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-      >
+      {/* Features Strip */}
+      <section className="bg-primary text-primary-foreground py-3 md:py-4">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-            {[
-              { icon: Truck, title: 'Free Shipping', desc: 'On orders above ₹500' },
-              { icon: Shield, title: 'Secure Payment', desc: '100% secure checkout' },
-              { icon: RefreshCw, title: 'Easy Returns', desc: '7-day return policy' },
-              { icon: Headphones, title: '24/7 Support', desc: 'Dedicated support' },
-            ].map((f, i) => (
-              <motion.div
-                key={i}
-                className="flex items-center gap-2 md:gap-3 justify-center"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 + i * 0.1 }}
-              >
+            {features.map((f, i) => (
+              <div key={i} className="flex items-center gap-2 md:gap-3 justify-center">
                 <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-primary-foreground/15 flex items-center justify-center flex-shrink-0">
                   <f.icon className="h-4 w-4 md:h-5 md:w-5" />
                 </div>
@@ -215,13 +150,13 @@ export default function HomePage() {
                   <p className="font-semibold text-[10px] md:text-sm truncate">{f.title}</p>
                   <p className="text-[9px] md:text-xs opacity-80 truncate hidden md:block">{f.desc}</p>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
-      </motion.section>
+      </section>
 
-      {/* Categories - from global cache, render immediately */}
+      {/* Categories */}
       {categories.length > 0 && (
         <section className="container mx-auto px-4 py-8 md:py-12">
           <div className="flex items-center gap-3 mb-6 md:mb-8">
@@ -247,26 +182,12 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* BELOW-FOLD: All sections lazy-loaded on scroll */}
-      <LazySection>
-        <HomeBestsellers />
-      </LazySection>
-
-      <LazySection>
-        <HomeMiddleBanners middleBanners={middleBanners} />
-      </LazySection>
-
-      <LazySection>
-        <HomeFeatured />
-      </LazySection>
-
-      <LazySection>
-        <HomeBundles />
-      </LazySection>
-
-      <LazySection>
-        <HomeNewArrivals />
-      </LazySection>
+      {/* ALL sections render immediately - no lazy loading */}
+      <HomeBestsellers />
+      <HomeMiddleBanners middleBanners={middleBanners} />
+      <HomeFeatured />
+      <HomeBundles />
+      <HomeNewArrivals />
 
       {/* Popup Banner */}
       <AnimatePresence>

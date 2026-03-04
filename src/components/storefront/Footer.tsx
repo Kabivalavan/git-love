@@ -1,53 +1,25 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Facebook, Instagram, Twitter, Youtube, Mail, Phone, MapPin } from 'lucide-react';
+import { useGlobalStore } from '@/hooks/useGlobalStore';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { StoreInfo, SocialLinks } from '@/types/database';
-
-// Cache footer data so it doesn't reload on every render
-let _footerCache: { storeInfo: StoreInfo | null; socialLinks: SocialLinks | null } | null = null;
-let _footerFetching = false;
-let _footerListeners: Array<(data: typeof _footerCache) => void> = [];
-
-async function fetchFooterData() {
-  if (_footerCache) return _footerCache;
-  if (_footerFetching) {
-    return new Promise<typeof _footerCache>((resolve) => { _footerListeners.push(resolve as any); });
-  }
-  _footerFetching = true;
-  const { data } = await supabase.from('store_settings').select('key, value').in('key', ['store_info', 'social_links']);
-  const result = { storeInfo: null as StoreInfo | null, socialLinks: null as SocialLinks | null };
-  data?.forEach((item) => {
-    if (item.key === 'store_info') result.storeInfo = item.value as unknown as StoreInfo;
-    if (item.key === 'social_links') result.socialLinks = item.value as unknown as SocialLinks;
-  });
-  _footerCache = result;
-  _footerFetching = false;
-  _footerListeners.forEach(l => l(result));
-  _footerListeners = [];
-  return result;
-}
+import type { SocialLinks } from '@/types/database';
 
 export function Footer() {
-  const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(_footerCache?.storeInfo ?? null);
-  const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(_footerCache?.socialLinks ?? null);
-  const [isLoaded, setIsLoaded] = useState(!!_footerCache);
+  const { storeInfo } = useGlobalStore();
 
-  useEffect(() => {
-    if (_footerCache) {
-      setStoreInfo(_footerCache.storeInfo);
-      setSocialLinks(_footerCache.socialLinks);
-      setIsLoaded(true);
-      return;
-    }
-    fetchFooterData().then(data => {
-      if (data) {
-        setStoreInfo(data.storeInfo);
-        setSocialLinks(data.socialLinks);
-        setIsLoaded(true);
-      }
-    });
-  }, []);
+  // Social links are the only extra fetch - cached for 30min
+  const { data: socialLinks } = useQuery({
+    queryKey: ['footer-social-links'],
+    queryFn: async () => {
+      const { data } = await supabase.from('store_settings').select('value').eq('key', 'social_links').maybeSingle();
+      return (data?.value as unknown as SocialLinks) || null;
+    },
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
 
   return (
     <footer className="bg-slate-900 text-slate-200">
@@ -113,17 +85,13 @@ export function Footer() {
               {storeInfo?.contact_email && (
                 <li className="flex items-center gap-2 text-slate-400">
                   <Mail className="h-4 w-4" />
-                  <a href={`mailto:${storeInfo.contact_email}`} className="hover:text-white transition-colors">
-                    {storeInfo.contact_email}
-                  </a>
+                  <a href={`mailto:${storeInfo.contact_email}`} className="hover:text-white transition-colors">{storeInfo.contact_email}</a>
                 </li>
               )}
               {storeInfo?.contact_phone && (
                 <li className="flex items-center gap-2 text-slate-400">
                   <Phone className="h-4 w-4" />
-                  <a href={`tel:${storeInfo.contact_phone}`} className="hover:text-white transition-colors">
-                    {storeInfo.contact_phone}
-                  </a>
+                  <a href={`tel:${storeInfo.contact_phone}`} className="hover:text-white transition-colors">{storeInfo.contact_phone}</a>
                 </li>
               )}
               {storeInfo?.address && (
@@ -137,17 +105,12 @@ export function Footer() {
         </div>
 
         <div className="border-t border-slate-700 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-slate-500">
-            © {new Date().getFullYear()} {storeInfo?.name || 'Store'}. All rights reserved.
-          </p>
+          <p className="text-sm text-slate-500">© {new Date().getFullYear()} {storeInfo?.name || 'Store'}. All rights reserved.</p>
           <div className="flex items-center gap-4 text-sm text-slate-500">
             <Link to="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
           </div>
-          {/* Hidden admin link */}
-          <Link to="/admin/login" className="text-slate-600 text-xs hover:text-slate-400 transition-colors">
-            Admin
-          </Link>
+          <Link to="/admin/login" className="text-slate-600 text-xs hover:text-slate-400 transition-colors">Admin</Link>
         </div>
       </div>
     </footer>
