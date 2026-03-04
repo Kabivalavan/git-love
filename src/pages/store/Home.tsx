@@ -1,39 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ArrowRight, Truck, Shield, RefreshCw, Headphones, Sparkles, Flame, Star, X } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { ChevronLeft, ChevronRight, ArrowRight, Truck, Shield, RefreshCw, Headphones, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
-import { ProductCard } from '@/components/storefront/ProductCard';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { SEOHead } from '@/components/seo/SEOHead';
-import type { Product, Banner, Category } from '@/types/database';
-
+import { useLazySection } from '@/hooks/useLazySection';
+import type { Product } from '@/types/database';
 import type { Easing } from 'framer-motion';
 
+// Lazy-loaded below-fold sections
+const HomeBestsellers = lazy(() => import('@/components/home/HomeBestsellers'));
+const HomeMiddleBanners = lazy(() => import('@/components/home/HomeMiddleBanners'));
+const HomeFeatured = lazy(() => import('@/components/home/HomeFeatured'));
+const HomeBundles = lazy(() => import('@/components/home/HomeBundles'));
+const HomeNewArrivals = lazy(() => import('@/components/home/HomeNewArrivals'));
+
 const easeOut: Easing = [0, 0, 0.2, 1];
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: easeOut } },
-};
-
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.1 } },
-};
-
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.9 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 0.4, ease: easeOut } },
-};
 
 function FullPageShimmer() {
   return (
@@ -67,81 +54,44 @@ function FullPageShimmer() {
   );
 }
 
-const fetchProductsData = async () => {
-  // Only fetch products and reviews - banners/categories/offers/settings come from global store
-  const [featuredRes, bestsellersRes] = await Promise.all([
-    supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_featured', true).limit(8),
-    supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).eq('is_bestseller', true).limit(8),
-  ]);
+function SectionShimmer() {
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <Skeleton className="h-8 w-48 mb-6" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {[1,2,3,4].map(i => (
+          <div key={i} className="bg-card rounded-xl border border-border overflow-hidden">
+            <Skeleton className="aspect-square" />
+            <div className="p-3 space-y-2">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-  const [newRes, bundlesRes] = await Promise.all([
-    supabase.from('products').select('*, category:categories(*), images:product_images(*)').eq('is_active', true).order('created_at', { ascending: false }).limit(8),
-    supabase.from('bundles').select('*, items:bundle_items(*, product:products(name, price, images:product_images(*)))').eq('is_active', true).order('sort_order').limit(6),
-  ]);
-
-  // Collect all product IDs to fetch review stats
-  const allProducts = [
-    ...((featuredRes.data || []) as Product[]),
-    ...((bestsellersRes.data || []) as Product[]),
-    ...((newRes.data || []) as Product[]),
-  ];
-  const uniqueProductIds = [...new Set(allProducts.map(p => p.id))];
-
-  let reviewStats: Record<string, { avgRating: number; reviewCount: number }> = {};
-  if (uniqueProductIds.length > 0) {
-    const { data: reviewData } = await supabase
-      .from('reviews')
-      .select('product_id, rating')
-      .eq('is_approved', true)
-      .in('product_id', uniqueProductIds);
-    if (reviewData) {
-      const grouped: Record<string, number[]> = {};
-      reviewData.forEach(r => {
-        if (!grouped[r.product_id]) grouped[r.product_id] = [];
-        grouped[r.product_id].push(r.rating);
-      });
-      Object.entries(grouped).forEach(([pid, ratings]) => {
-        reviewStats[pid] = {
-          avgRating: ratings.reduce((a, b) => a + b, 0) / ratings.length,
-          reviewCount: ratings.length,
-        };
-      });
-    }
-  }
-
-  return {
-    featuredProducts: (featuredRes.data || []) as Product[],
-    bestsellerProducts: (bestsellersRes.data || []) as Product[],
-    newArrivals: (newRes.data || []) as Product[],
-    bundles: bundlesRes.data || [],
-    reviewStats,
-  };
-};
+function LazySection({ children }: { children: React.ReactNode }) {
+  const { ref, isVisible } = useLazySection();
+  return (
+    <div ref={ref}>
+      {isVisible ? (
+        <Suspense fallback={<SectionShimmer />}>{children}</Suspense>
+      ) : (
+        <SectionShimmer />
+      )}
+    </div>
+  );
+}
 
 export default function HomePage() {
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showPopup, setShowPopup] = useState(false);
-  const { toast } = useToast();
-  const { user, isLoading: isAuthLoading } = useAuth();
-  const { categories, banners, middleBanners, popupBanner, storefrontDisplay, isLoading: isGlobalLoading, getProductOffer } = useGlobalStore();
+  const { isLoading: isAuthLoading } = useAuth();
+  const { categories, banners, middleBanners, popupBanner, isLoading: isGlobalLoading } = useGlobalStore();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['home-products-data'],
-    queryFn: fetchProductsData,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    retry: 3,
-    enabled: !isAuthLoading,
-  });
-
-  const featuredProducts = data?.featuredProducts || [];
-  const bestsellerProducts = data?.bestsellerProducts || [];
-  const newArrivals = data?.newArrivals || [];
-  const bundles = data?.bundles || [];
-  const lowStockSettings = storefrontDisplay;
-  const reviewStats = data?.reviewStats || {};
   useEffect(() => {
     if (banners.length > 1) {
       const interval = setInterval(() => {
@@ -151,7 +101,6 @@ export default function HomePage() {
     }
   }, [banners.length]);
 
-  // Popup banner - show after 4 seconds
   useEffect(() => {
     if (popupBanner) {
       const popupDismissed = sessionStorage.getItem('popup_banner_dismissed');
@@ -162,49 +111,8 @@ export default function HomePage() {
     }
   }, [popupBanner]);
 
-  const handleAddToCart = async (product: Product) => {
-    if (!user) {
-      toast({ title: 'Please login', description: 'You need to login to add items to cart' });
-      return;
-    }
-    try {
-      let { data: cart } = await supabase.from('cart').select('id').eq('user_id', user.id).single();
-      if (!cart) {
-        const { data: newCart } = await supabase.from('cart').insert({ user_id: user.id }).select().single();
-        cart = newCart;
-      }
-      if (cart) {
-        const { data: existingItem } = await supabase.from('cart_items').select('id, quantity').eq('cart_id', cart.id).eq('product_id', product.id).single();
-        if (existingItem) {
-          await supabase.from('cart_items').update({ quantity: existingItem.quantity + 1 }).eq('id', existingItem.id);
-        } else {
-          await supabase.from('cart_items').insert({ cart_id: cart.id, product_id: product.id, quantity: 1 });
-        }
-        toast({ title: 'Added to cart', description: `${product.name} has been added to your cart` });
-      }
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to add item to cart', variant: 'destructive' });
-    }
-  };
-
-  const handleAddToWishlist = async (product: Product) => {
-    if (!user) {
-      toast({ title: 'Please login', description: 'You need to login to add items to wishlist' });
-      return;
-    }
-    try {
-      await supabase.from('wishlist').insert({ user_id: user.id, product_id: product.id });
-      toast({ title: 'Added to wishlist', description: `${product.name} has been added to your wishlist` });
-    } catch (error: any) {
-      if (error.code === '23505') {
-        toast({ title: 'Already in wishlist', description: 'This item is already in your wishlist' });
-      } else {
-        toast({ title: 'Error', description: 'Failed to add item to wishlist', variant: 'destructive' });
-      }
-    }
-  };
-
-  if (isLoading || isGlobalLoading) return <FullPageShimmer />;
+  // Only block on global data (1 RPC call), not products
+  if (isGlobalLoading && isAuthLoading) return <FullPageShimmer />;
 
   return (
     <StorefrontLayout>
@@ -220,46 +128,43 @@ export default function HomePage() {
         }}
       />
 
-      {/* Hero Banner Slider */}
+      {/* Hero Banner - CRITICAL LCP ELEMENT - renders immediately */}
       {banners.length > 0 && (
         <section className="relative">
           <div className="relative overflow-hidden aspect-[16/9] sm:aspect-[16/9] md:aspect-[16/9] lg:aspect-[1920/900]">
             {banners.map((banner, index) => {
               const isFirst = index === 0;
               return (
-              <div key={banner.id} className={`absolute inset-0 transition-all duration-700 ${index === currentBanner ? 'opacity-100 z-10 scale-100' : 'opacity-0 z-0 scale-105'}`}>
-                <Link to={banner.redirect_url || '/products'}>
-                  {/* Mobile image */}
-                  <img
-                    src={banner.media_url_mobile || banner.media_url}
-                    alt={banner.title}
-                    className="w-full h-full object-cover block sm:hidden"
-                    loading={isFirst ? 'eager' : 'lazy'}
-                    {...(isFirst ? { fetchPriority: 'high' as any } : {})}
-                    width={800}
-                    height={450}
-                  />
-                  {/* Tablet image */}
-                  <img
-                    src={banner.media_url_tablet || banner.media_url}
-                    alt={banner.title}
-                    className="w-full h-full object-cover hidden sm:block lg:hidden"
-                    loading={isFirst ? 'eager' : 'lazy'}
-                    width={1200}
-                    height={675}
-                  />
-                  {/* Desktop image */}
-                  <img
-                    src={banner.media_url}
-                    alt={banner.title}
-                    className="w-full h-full object-cover hidden lg:block"
-                    loading={isFirst ? 'eager' : 'lazy'}
-                    {...(isFirst ? { fetchPriority: 'high' as any } : {})}
-                    width={1920}
-                    height={900}
-                  />
-                </Link>
-              </div>
+                <div key={banner.id} className={`absolute inset-0 transition-all duration-700 ${index === currentBanner ? 'opacity-100 z-10 scale-100' : 'opacity-0 z-0 scale-105'}`}>
+                  <Link to={banner.redirect_url || '/products'}>
+                    <img
+                      src={banner.media_url_mobile || banner.media_url}
+                      alt={banner.title}
+                      className="w-full h-full object-cover block sm:hidden"
+                      loading={isFirst ? 'eager' : 'lazy'}
+                      {...(isFirst ? { fetchPriority: 'high' as any } : {})}
+                      width={800}
+                      height={450}
+                    />
+                    <img
+                      src={banner.media_url_tablet || banner.media_url}
+                      alt={banner.title}
+                      className="w-full h-full object-cover hidden sm:block lg:hidden"
+                      loading={isFirst ? 'eager' : 'lazy'}
+                      width={1200}
+                      height={675}
+                    />
+                    <img
+                      src={banner.media_url}
+                      alt={banner.title}
+                      className="w-full h-full object-cover hidden lg:block"
+                      loading={isFirst ? 'eager' : 'lazy'}
+                      {...(isFirst ? { fetchPriority: 'high' as any } : {})}
+                      width={1920}
+                      height={900}
+                    />
+                  </Link>
+                </div>
               );
             })}
           </div>
@@ -281,7 +186,7 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Features Strip */}
+      {/* Features Strip - lightweight, render immediately */}
       <motion.section
         className="bg-primary text-primary-foreground py-3 md:py-4"
         initial={{ opacity: 0 }}
@@ -316,270 +221,52 @@ export default function HomePage() {
         </div>
       </motion.section>
 
-      {/* Categories */}
+      {/* Categories - from global cache, render immediately */}
       {categories.length > 0 && (
-        <motion.section
-          className="container mx-auto px-4 py-8 md:py-12"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-50px' }}
-        >
+        <section className="container mx-auto px-4 py-8 md:py-12">
           <div className="flex items-center gap-3 mb-6 md:mb-8">
             <h2 className="text-xl md:text-3xl font-bold text-foreground">Shop by Category</h2>
             <div className="flex-1 h-px bg-border" />
           </div>
-          <motion.div
-            className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-4 md:gap-6"
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
+          <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-4 md:gap-6">
             {categories.map((category) => (
-              <motion.div key={category.id} variants={scaleIn}>
-                <Link to={`/products?category=${category.slug}`} className="group text-center block">
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all duration-300 mx-auto w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 group-hover:shadow-lg group-hover:scale-105">
-                    {category.image_url ? (
-                      <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" loading="lazy" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-                        <span className="text-lg md:text-2xl font-bold text-primary">{category.name.charAt(0)}</span>
-                      </div>
-                    )}
-                  </div>
-                  <p className="mt-2 text-[10px] md:text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">{category.name}</p>
-                </Link>
-              </motion.div>
-            ))}
-          </motion.div>
-        </motion.section>
-      )}
-
-      {/* Best Sellers */}
-      {bestsellerProducts.length > 0 && (
-        <motion.section
-          className="bg-muted/50 py-8 md:py-12"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-50px' }}
-        >
-          <div className="container mx-auto px-4">
-            <div className="flex items-center justify-between mb-6 md:mb-8">
-              <div className="flex items-center gap-2">
-                <Flame className="h-5 w-5 md:h-6 md:w-6 text-amber-500" />
-                <h2 className="text-xl md:text-3xl font-bold text-foreground">Best Sellers</h2>
-              </div>
-              <Button variant="outline" asChild size="sm" className="rounded-full">
-                <Link to="/products?bestseller=true">View All <ArrowRight className="h-4 w-4 ml-1" /></Link>
-              </Button>
-            </div>
-            <motion.div
-              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4"
-              variants={staggerContainer}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-            >
-              {bestsellerProducts.map((product) => (
-                <motion.div key={product.id} variants={scaleIn}>
-                  <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" lowStockSettings={lowStockSettings} avgRating={reviewStats[product.id]?.avgRating || 0} reviewCount={reviewStats[product.id]?.reviewCount || 0} />
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </motion.section>
-      )}
-
-      {/* Middle Banners */}
-      {middleBanners.length > 0 && (
-        <motion.section
-          className="container mx-auto px-4 py-8 md:py-12"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-50px' }}
-        >
-          <div className={`grid gap-4 md:gap-6 ${middleBanners.length === 1 ? 'grid-cols-1' : 'md:grid-cols-2'}`}>
-            {middleBanners.map((banner) => (
-              <Card key={banner.id} className="overflow-hidden group cursor-pointer border-0 shadow-lg">
-                <CardContent className="p-0">
-                  <Link to={banner.redirect_url || '/products'}>
-                    <div className="aspect-[2/1] overflow-hidden">
-                      <img src={banner.media_url} alt={banner.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              <Link key={category.id} to={`/products?category=${category.slug}`} className="group text-center block">
+                <div className="aspect-square rounded-2xl overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all duration-300 mx-auto w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 group-hover:shadow-lg group-hover:scale-105">
+                  {category.image_url ? (
+                    <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" loading="lazy" width={96} height={96} />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+                      <span className="text-lg md:text-2xl font-bold text-primary">{category.name.charAt(0)}</span>
                     </div>
-                  </Link>
-                </CardContent>
-              </Card>
+                  )}
+                </div>
+                <p className="mt-2 text-[10px] md:text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">{category.name}</p>
+              </Link>
             ))}
           </div>
-        </motion.section>
+        </section>
       )}
 
-      {middleBanners.length === 0 && (
-        <motion.section
-          className="container mx-auto px-4 py-8 md:py-12"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-50px' }}
-        >
-          <div className="grid md:grid-cols-2 gap-4 md:gap-6">
-            <Card className="overflow-hidden border-0 shadow-lg">
-              <CardContent className="p-0 relative">
-                <div className="aspect-[2/1] bg-gradient-to-br from-primary via-primary/90 to-accent flex items-center p-6 md:p-10">
-                  <div className="text-primary-foreground">
-                    <Badge className="bg-primary-foreground/20 text-primary-foreground border-0 mb-3">SPECIAL OFFER</Badge>
-                    <h3 className="text-xl md:text-3xl font-bold mb-2">Up to 50% OFF</h3>
-                    <p className="text-sm opacity-90 mb-4">On selected items this season</p>
-                    <Button className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 rounded-full" size="sm" asChild><Link to="/products?offer=true">Shop Now <ArrowRight className="h-4 w-4 ml-1" /></Link></Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="overflow-hidden border-0 shadow-lg">
-              <CardContent className="p-0 relative">
-                <div className="aspect-[2/1] bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 flex items-center p-6 md:p-10">
-                  <div className="text-white">
-                    <Badge className="bg-white/20 text-white border-0 mb-3">NEW ARRIVALS</Badge>
-                    <h3 className="text-xl md:text-3xl font-bold mb-2">Fresh Collection</h3>
-                    <p className="text-sm opacity-90 mb-4">Just dropped this week</p>
-                    <Button className="bg-white text-orange-600 hover:bg-white/90 rounded-full" size="sm" asChild><Link to="/products?new=true">Explore <ArrowRight className="h-4 w-4 ml-1" /></Link></Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </motion.section>
-      )}
+      {/* BELOW-FOLD: All sections lazy-loaded on scroll */}
+      <LazySection>
+        <HomeBestsellers />
+      </LazySection>
 
-      {/* Featured Products */}
-      {featuredProducts.length > 0 && (
-        <motion.section
-          className="container mx-auto px-4 py-8 md:py-12"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-50px' }}
-        >
-          <div className="flex items-center justify-between mb-6 md:mb-8">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-              <h2 className="text-xl md:text-3xl font-bold text-foreground">Featured Products</h2>
-            </div>
-            <Button variant="outline" asChild size="sm" className="rounded-full">
-              <Link to="/products?featured=true">View All <ArrowRight className="h-4 w-4 ml-1" /></Link>
-            </Button>
-          </div>
-          <motion.div
-            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4"
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
-            {featuredProducts.map((product) => (
-              <motion.div key={product.id} variants={scaleIn}>
-                <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" lowStockSettings={lowStockSettings} avgRating={reviewStats[product.id]?.avgRating || 0} reviewCount={reviewStats[product.id]?.reviewCount || 0} />
-              </motion.div>
-            ))}
-          </motion.div>
-        </motion.section>
-      )}
+      <LazySection>
+        <HomeMiddleBanners middleBanners={middleBanners} />
+      </LazySection>
 
-      {/* Bundles */}
-      {bundles.length > 0 && (
-        <motion.section
-          className="container mx-auto px-4 py-8 md:py-12"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-50px' }}
-        >
-          <div className="flex items-center gap-3 mb-6 md:mb-8">
-            <h2 className="text-xl md:text-3xl font-bold text-foreground">Bundle Deals</h2>
-            <div className="flex-1 h-px bg-border" />
-          </div>
-          <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
-            {bundles.map((bundle: any) => {
-              const discount = bundle.compare_price && bundle.compare_price > bundle.bundle_price
-                ? Math.round(((bundle.compare_price - bundle.bundle_price) / bundle.compare_price) * 100)
-                : 0;
-              const bundleImage = bundle.image_url || bundle.items?.[0]?.product?.images?.[0]?.image_url || '/placeholder.svg';
-              return (
-                <motion.div key={bundle.id} variants={scaleIn}>
-                  <Link to={`/bundles/${bundle.slug}`} className="block group">
-                    <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 border-0 shadow-md">
-                      <CardContent className="p-0">
-                        <div className="aspect-[2/1] relative overflow-hidden bg-muted">
-                          <img src={bundleImage} alt={bundle.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                          {discount > 0 && (
-                            <Badge variant="destructive" className="absolute top-3 left-3 text-xs">{discount}% OFF</Badge>
-                          )}
-                        </div>
-                        <div className="p-4">
-                          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">{bundle.name}</h3>
-                          {bundle.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{bundle.description}</p>}
-                          <div className="flex items-center gap-2 mt-3">
-                            <span className="text-lg font-bold text-foreground">₹{Number(bundle.bundle_price).toFixed(0)}</span>
-                            {bundle.compare_price && bundle.compare_price > bundle.bundle_price && (
-                              <span className="text-sm text-muted-foreground line-through">₹{Number(bundle.compare_price).toFixed(0)}</span>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">{bundle.items?.length || 0} products included</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                </motion.div>
-              );
-            })}
-          </motion.div>
-        </motion.section>
-      )}
+      <LazySection>
+        <HomeFeatured />
+      </LazySection>
 
-      {/* New Arrivals / All Products */}
-      {newArrivals.length > 0 && (
-        <motion.section
-          className="bg-muted/50 py-8 md:py-12"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-50px' }}
-        >
-          <div className="container mx-auto px-4">
-            <div className="flex items-center justify-between mb-6 md:mb-8">
-              <div className="flex items-center gap-2">
-                <Star className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-                <h2 className="text-xl md:text-3xl font-bold text-foreground">Check All Products</h2>
-              </div>
-              <Button variant="outline" asChild size="sm" className="rounded-full">
-                <Link to="/products">View All <ArrowRight className="h-4 w-4 ml-1" /></Link>
-              </Button>
-            </div>
-            <motion.div
-              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4"
-              variants={staggerContainer}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-            >
-              {newArrivals.slice(0, 8).map((product) => (
-                <motion.div key={product.id} variants={scaleIn}>
-                  <ProductCard product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} lowStockSettings={lowStockSettings} avgRating={reviewStats[product.id]?.avgRating || 0} reviewCount={reviewStats[product.id]?.reviewCount || 0} />
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </motion.section>
-      )}
+      <LazySection>
+        <HomeBundles />
+      </LazySection>
+
+      <LazySection>
+        <HomeNewArrivals />
+      </LazySection>
 
       {/* Popup Banner */}
       <AnimatePresence>
@@ -609,7 +296,7 @@ export default function HomePage() {
                 to={popupBanner.redirect_url || '/products'}
                 onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
               >
-                <img src={popupBanner.media_url} alt={popupBanner.title} className="w-full h-auto" />
+                <img src={popupBanner.media_url} alt={popupBanner.title} className="w-full h-auto" loading="lazy" />
               </Link>
             </motion.div>
           </motion.div>
