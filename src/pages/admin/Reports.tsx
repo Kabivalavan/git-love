@@ -1,16 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   Search,
   Star,
@@ -26,7 +20,9 @@ import {
   Percent,
   ArrowLeft,
 } from 'lucide-react';
-import { ReportViewer } from '@/components/admin/ReportViewer';
+import { ShimmerCard } from '@/components/ui/shimmer';
+
+const ReportViewer = lazy(() => import('@/components/admin/ReportViewer').then(m => ({ default: m.ReportViewer })));
 
 export interface ReportDefinition {
   id: string;
@@ -124,7 +120,9 @@ export default function AdminReports() {
           </Button>
         }
       >
-        <ReportViewer report={activeReport} />
+        <Suspense fallback={<div className="space-y-4"><div className="grid grid-cols-2 md:grid-cols-4 gap-3">{[1,2,3,4].map(i => <ShimmerCard key={i} className="h-20" />)}</div><ShimmerCard className="h-80" /></div>}>
+          <ReportViewer report={activeReport} />
+        </Suspense>
       </AdminLayout>
     );
   }
