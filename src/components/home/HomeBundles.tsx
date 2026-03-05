@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
+import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useBundles } from './useHomeProducts';
 
@@ -9,10 +9,12 @@ export default function HomeBundles() {
   if (isLoading || bundles.length === 0) return null;
 
   return (
-    <section className="container mx-auto px-4 py-8 md:py-12">
-      <div className="flex items-center gap-3 mb-6 md:mb-8">
-        <h2 className="text-xl md:text-3xl font-bold text-foreground">Bundle Deals</h2>
-        <div className="flex-1 h-px bg-border" />
+    <section className="container mx-auto px-4 py-6 md:py-10">
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="text-lg md:text-2xl font-bold text-foreground">Bundle Deals</h2>
+        <span className="text-sm font-medium text-primary flex items-center gap-1">
+          View All <ChevronRight className="h-3.5 w-3.5" />
+        </span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {bundles.map((bundle: any) => {
@@ -22,27 +24,25 @@ export default function HomeBundles() {
           const bundleImage = bundle.image_url || bundle.items?.[0]?.product?.images?.[0]?.image_url || '/placeholder.svg';
           return (
             <Link key={bundle.id} to={`/bundles/${bundle.slug}`} className="block group">
-              <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 border-0 shadow-md">
-                <CardContent className="p-0">
-                  <div className="aspect-[2/1] relative overflow-hidden bg-muted">
-                    <img src={bundleImage} alt={bundle.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                    {discount > 0 && (
-                      <Badge variant="destructive" className="absolute top-3 left-3 text-xs">{discount}% OFF</Badge>
+              <div className="overflow-hidden rounded-xl border border-border bg-card hover:shadow-lg transition-all duration-300">
+                <div className="aspect-[2/1] relative overflow-hidden bg-muted">
+                  <img src={bundleImage} alt={bundle.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                  {discount > 0 && (
+                    <Badge className="absolute top-3 left-3 bg-green-500 text-white text-xs border-0 rounded-md">{discount}% OFF</Badge>
+                  )}
+                </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">{bundle.name}</h3>
+                  {bundle.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{bundle.description}</p>}
+                  <div className="flex items-center gap-2 mt-3">
+                    <span className="text-lg font-bold text-foreground">₹{Number(bundle.bundle_price).toFixed(0)}</span>
+                    {bundle.compare_price && bundle.compare_price > bundle.bundle_price && (
+                      <span className="text-sm text-muted-foreground line-through">₹{Number(bundle.compare_price).toFixed(0)}</span>
                     )}
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">{bundle.name}</h3>
-                    {bundle.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{bundle.description}</p>}
-                    <div className="flex items-center gap-2 mt-3">
-                      <span className="text-lg font-bold text-foreground">₹{Number(bundle.bundle_price).toFixed(0)}</span>
-                      {bundle.compare_price && bundle.compare_price > bundle.bundle_price && (
-                        <span className="text-sm text-muted-foreground line-through">₹{Number(bundle.compare_price).toFixed(0)}</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{bundle.items?.length || 0} products included</p>
-                  </div>
-                </CardContent>
-              </Card>
+                  <p className="text-xs text-muted-foreground mt-1">{bundle.items?.length || 0} products included</p>
+                </div>
+              </div>
             </Link>
           );
         })}

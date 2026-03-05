@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { ShoppingCart, User, Menu, Heart } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { ShoppingCart, User, Menu, Heart, Search, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { cn } from '@/lib/utils';
 
 const fetchCartCount = async (userId: string) => {
   const { data: cart } = await supabase.from('cart').select('id').eq('user_id', userId).single();
@@ -23,6 +24,7 @@ export function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { user } = useAuth();
   const { categories, storeInfo, announcement } = useGlobalStore();
+  const location = useLocation();
 
   const { data: cartCount = 0 } = useQuery({
     queryKey: ['cart-count', user?.id],
@@ -48,7 +50,7 @@ export function Header() {
   }, [storeInfo?.favicon_url]);
 
   return (
-    <header className="sticky top-0 z-50 bg-card border-b border-border">
+    <header className="sticky top-0 z-50 bg-card shadow-sm">
       {/* Top announcement bar */}
       {announcement?.is_active && announcement?.text && (
         <div className="bg-primary text-primary-foreground">
@@ -62,22 +64,22 @@ export function Header() {
         </div>
       )}
 
-      {/* Main header */}
+      {/* Main header row */}
       <div className="container mx-auto px-4 py-2.5">
-        <div className="flex items-center justify-between gap-3 relative">
+        <div className="flex items-center gap-3">
           {/* Mobile menu */}
           <Sheet>
             <SheetTrigger asChild className="lg:hidden">
-              <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-72">
               <nav className="flex flex-col gap-4 mt-6">
                 <Link to="/" className="text-lg font-semibold">Home</Link>
-                <Link to="/products" className="text-lg font-semibold">All Products</Link>
+                <Link to="/products" className="text-lg font-semibold">Shop</Link>
                 {categories.map((cat) => (
-                  <Link key={cat.id} to={`/products?category=${cat.slug}`} className="text-muted-foreground">{cat.name}</Link>
+                  <Link key={cat.id} to={`/products?category=${cat.slug}`} className="text-muted-foreground pl-2">{cat.name}</Link>
                 ))}
               </nav>
             </SheetContent>
@@ -86,67 +88,100 @@ export function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 flex-shrink-0">
             {storeInfo?.logo_url ? (
-              <img src={storeInfo.logo_url} alt={storeInfo.name} className="h-8 sm:h-10 max-w-[120px] object-contain" />
+              <img src={storeInfo.logo_url} alt={storeInfo.name} className="h-8 sm:h-10 max-w-[140px] object-contain" />
             ) : (
               <span className="text-xl sm:text-2xl font-bold text-primary">{storeInfo?.name || 'Store'}</span>
             )}
           </Link>
 
-          {/* Desktop search */}
-          <GlobalSearch className="hidden lg:block flex-1 max-w-xl" />
+          {/* Desktop inline nav links */}
+          <nav className="hidden lg:flex items-center gap-5 ml-4">
+            <Link to="/" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Home</Link>
+            <Link to="/products" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Shop</Link>
+          </nav>
 
-          {/* Actions */}
-          <div className="flex items-center gap-1">
+          {/* Search bar - centered, pill-shaped like Cartsy */}
+          <div className="hidden lg:block flex-1 max-w-xl mx-4">
+            <GlobalSearch className="w-full" />
+          </div>
+
+          {/* Right actions */}
+          <div className="flex items-center gap-0.5 ml-auto">
+            {/* Mobile search toggle */}
             <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9" onClick={() => setIsSearchOpen(!isSearchOpen)}>
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+              <Search className="h-5 w-5" />
             </Button>
 
+            {/* Wishlist */}
             {user && (
               <Button variant="ghost" size="icon" className="h-9 w-9" asChild>
                 <Link to="/wishlist"><Heart className="h-5 w-5" /></Link>
               </Button>
             )}
 
+            {/* Cart */}
             <Button variant="ghost" size="icon" className="relative h-9 w-9" asChild>
               <Link to="/cart">
                 <ShoppingCart className="h-5 w-5" />
                 {cartCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">{cartCount}</Badge>
+                  <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px] rounded-full">{cartCount}</Badge>
                 )}
               </Link>
             </Button>
 
+            {/* User */}
             {user ? (
               <Button variant="ghost" size="icon" className="h-9 w-9" asChild>
                 <Link to="/account"><User className="h-5 w-5" /></Link>
               </Button>
             ) : (
-              <Button asChild size="sm" className="h-8 text-xs"><Link to="/auth">Login</Link></Button>
+              <Button asChild size="sm" className="h-8 text-xs ml-1"><Link to="/auth">Sign In</Link></Button>
             )}
           </div>
         </div>
 
+        {/* Mobile search dropdown */}
         {isSearchOpen && (
-          <div className="lg:hidden mt-2">
+          <div className="lg:hidden mt-2 pb-1">
             <GlobalSearch onClose={() => setIsSearchOpen(false)} autoFocus />
           </div>
         )}
       </div>
 
-      {/* Desktop navigation */}
-      <nav className="hidden lg:block border-t border-border">
+      {/* Category navigation bar - horizontal scrollable chips like Cartsy */}
+      <nav className="border-t border-border bg-card">
         <div className="container mx-auto px-4">
-          <ul className="flex items-center gap-6 py-2">
-            <li><Link to="/" className="text-sm font-medium hover:text-primary transition-colors">Home</Link></li>
-            <li><Link to="/products" className="text-sm font-medium hover:text-primary transition-colors">All Products</Link></li>
-            {categories.slice(0, 6).map((cat) => (
-              <li key={cat.id}>
-                <Link to={`/products?category=${cat.slug}`} className="text-sm font-medium hover:text-primary transition-colors">{cat.name}</Link>
-              </li>
-            ))}
-          </ul>
+          <div className="flex items-center gap-1 py-2 overflow-x-auto scrollbar-thin">
+            {/* Categories dropdown on desktop */}
+            <Link
+              to="/products"
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0",
+                location.pathname === '/products' && !location.search
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-primary/10"
+              )}
+            >
+              All
+            </Link>
+            {categories.slice(0, 8).map((cat) => {
+              const isActive = location.search.includes(`category=${cat.slug}`);
+              return (
+                <Link
+                  key={cat.id}
+                  to={`/products?category=${cat.slug}`}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground hover:bg-primary/10"
+                  )}
+                >
+                  {cat.name}
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </nav>
     </header>

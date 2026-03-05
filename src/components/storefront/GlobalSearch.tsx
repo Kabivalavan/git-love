@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, X, Loader2 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import type { Product } from '@/types/database';
@@ -37,7 +36,6 @@ export function GlobalSearch({ className, onClose, autoFocus }: GlobalSearchProp
         setResults([]);
         return;
       }
-
       setIsLoading(true);
       const { data } = await supabase
         .from('products')
@@ -45,11 +43,9 @@ export function GlobalSearch({ className, onClose, autoFocus }: GlobalSearchProp
         .eq('is_active', true)
         .or(`name.ilike.%${query}%,description.ilike.%${query}%,sku.ilike.%${query}%`)
         .limit(6);
-
       setResults((data || []) as Product[]);
       setIsLoading(false);
     };
-
     const debounce = setTimeout(searchProducts, 300);
     return () => clearTimeout(debounce);
   }, [query]);
@@ -73,47 +69,51 @@ export function GlobalSearch({ className, onClose, autoFocus }: GlobalSearchProp
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <form onSubmit={handleSubmit}>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
+        <div className="relative flex items-center">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
             ref={inputRef}
-            placeholder="Search for products..."
+            placeholder="Search products..."
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
               setIsOpen(true);
             }}
             onFocus={() => setIsOpen(true)}
-            className="pl-10 pr-10"
+            className="w-full h-10 pl-10 pr-10 rounded-full border border-border bg-secondary/50 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
             autoFocus={autoFocus}
           />
-          {query && (
+          {query ? (
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => {
-                setQuery('');
-                setResults([]);
-              }}
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full"
+              onClick={() => { setQuery(''); setResults([]); }}
             >
               <X className="h-4 w-4" />
             </Button>
+          ) : (
+            <button
+              type="submit"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
+            >
+              <Search className="h-3.5 w-3.5" />
+            </button>
           )}
         </div>
       </form>
 
       {/* Results dropdown */}
       {isOpen && query.trim().length >= 2 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : results.length === 0 ? (
             <div className="py-8 text-center">
-              <p className="text-muted-foreground">No products found for "{query}"</p>
+              <p className="text-muted-foreground text-sm">No products found for "{query}"</p>
             </div>
           ) : (
             <>
@@ -123,19 +123,13 @@ export function GlobalSearch({ className, onClose, autoFocus }: GlobalSearchProp
                     key={product.id}
                     to={`/product/${product.slug}`}
                     onClick={handleProductClick}
-                    className="flex items-center gap-3 p-3 hover:bg-muted transition-colors border-b border-border last:border-b-0"
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-b-0"
                   >
-                    <div className="w-12 h-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                       {product.images?.[0] ? (
-                        <img
-                          src={product.images[0].image_url}
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                        />
+                        <img src={product.images[0].image_url} alt={product.name} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                          No img
-                        </div>
+                        <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">No img</div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -153,7 +147,7 @@ export function GlobalSearch({ className, onClose, autoFocus }: GlobalSearchProp
               <Link
                 to={`/products?search=${encodeURIComponent(query)}`}
                 onClick={handleProductClick}
-                className="block px-4 py-3 text-center text-sm font-medium text-primary hover:bg-muted transition-colors border-t border-border"
+                className="block px-4 py-3 text-center text-sm font-medium text-primary hover:bg-muted/50 transition-colors border-t border-border"
               >
                 View all results for "{query}"
               </Link>

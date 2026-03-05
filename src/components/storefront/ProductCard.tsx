@@ -47,7 +47,7 @@ function OfferTimer({ endDate }: { endDate: string }) {
   if (!timeLeft || timeLeft === 'Expired') return null;
 
   return (
-    <div className="flex items-center gap-1 bg-destructive text-destructive-foreground text-[10px] px-2 py-0.5 rounded font-bold animate-pulse">
+    <div className="flex items-center gap-1 bg-destructive text-destructive-foreground text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">
       <Clock className="h-3 w-3" />
       {timeLeft}
     </div>
@@ -89,11 +89,11 @@ export function ProductCard({
       <Link
         to={`/product/${product.slug}`}
         className={cn(
-          "flex gap-4 p-4 bg-card rounded-lg border border-border md:hover:shadow-md transition-shadow group",
+          "flex gap-4 p-4 bg-card rounded-xl border border-border md:hover:shadow-md transition-shadow group",
           isOutOfStock && "opacity-60"
         )}
       >
-        <div className="w-24 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">
+        <div className="w-24 h-24 rounded-xl overflow-hidden bg-muted flex-shrink-0 relative">
           <img src={primaryImage} alt={product.name} className="w-full h-full object-cover md:group-hover:scale-105 transition-transform duration-300" />
           {isOutOfStock && (
             <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
@@ -109,7 +109,7 @@ export function ProductCard({
             {hasDiscount && originalPrice && (
               <>
                 <span className="text-sm text-muted-foreground line-through">₹{Number(originalPrice).toFixed(0)}</span>
-                <Badge variant="destructive" className="text-xs">{discountLabel}</Badge>
+                <Badge variant="destructive" className="text-xs rounded-full">{discountLabel}</Badge>
               </>
             )}
           </div>
@@ -120,7 +120,7 @@ export function ProductCard({
 
   return (
     <div className={cn(
-      "group bg-card rounded-lg border border-border overflow-hidden transition-all duration-300",
+      "group bg-card rounded-xl border border-border overflow-hidden transition-all duration-300",
       "md:hover:shadow-lg",
       variant === 'compact' && "text-sm",
       isOutOfStock && "opacity-60"
@@ -129,30 +129,14 @@ export function ProductCard({
       <Link to={`/product/${product.slug}`} className="block relative aspect-square overflow-hidden bg-muted">
         <img src={primaryImage} alt={product.name} className={cn("w-full h-full object-cover transition-transform duration-500", !isOutOfStock && "md:group-hover:scale-105")} />
 
-        {/* Badges */}
-        <div className="absolute top-2 left-2 right-8 flex flex-wrap gap-1">
-          {isOutOfStock && (
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5 bg-background/80">Sold Out</Badge>
-          )}
-          {product.badge && !isOutOfStock && (
-            <Badge className="bg-primary text-[10px] px-1.5 py-0.5">{product.badge}</Badge>
-          )}
-          {productOffer && !isOutOfStock && (
-            <Badge variant="secondary" className="bg-green-500 text-white text-[10px] px-1.5 py-0.5">{productOffer.discountLabel}</Badge>
-          )}
-          {!productOffer && hasDiscount && discountLabel && !isOutOfStock && (
-            <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">{discountLabel}</Badge>
-          )}
-          {product.is_bestseller && !isOutOfStock && (
-            <Badge className="bg-amber-500 text-white text-[10px] px-1.5 py-0.5">Bestseller</Badge>
-          )}
-          {isLowStock && !isOutOfStock && (
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive"></span>
-            </span>
-          )}
-        </div>
+        {/* Discount badge - top left like Cartsy "Save 20%" */}
+        {hasDiscount && discountLabel && !isOutOfStock && (
+          <div className="absolute top-2 left-2">
+            <Badge className="bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-md font-semibold border-0">
+              Save {discountLabel.replace(' OFF', '')}
+            </Badge>
+          </div>
+        )}
 
         {/* Timer */}
         {showTimer && productOffer?.offer?.end_date && !isOutOfStock && (
@@ -161,16 +145,14 @@ export function ProductCard({
           </div>
         )}
 
-        {/* Wishlist button */}
+        {/* Wishlist button - top right like Cartsy */}
         {onAddToWishlist && !isOutOfStock && (
-          <Button
-            variant="secondary"
-            size="icon"
-            className="absolute top-2 right-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity h-7 w-7"
+          <button
+            className="absolute top-2 right-2 h-8 w-8 rounded-full bg-card/90 backdrop-blur-sm shadow-sm flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity border border-border"
             onClick={(e) => { e.preventDefault(); onAddToWishlist(product); }}
           >
-            <Heart className="h-3.5 w-3.5" />
-          </Button>
+            <Heart className="h-4 w-4 text-muted-foreground" />
+          </button>
         )}
 
         {/* Out of stock overlay */}
@@ -182,36 +164,27 @@ export function ProductCard({
       </Link>
 
       {/* Content */}
-      <div className="p-2.5">
+      <div className="p-3">
         <Link to={`/product/${product.slug}`}>
-          <h3 className={cn("font-medium text-foreground hover:text-primary transition-colors line-clamp-1", variant === 'compact' ? "text-xs" : "text-sm")}>
+          <h3 className={cn("font-medium text-foreground hover:text-primary transition-colors line-clamp-2", variant === 'compact' ? "text-xs" : "text-sm")}>
             {product.name}
           </h3>
         </Link>
 
-        {product.category && (
-          <p className="text-[10px] text-muted-foreground mt-0.5">{product.category.name}</p>
-        )}
-
-        {/* Short description */}
-        {product.short_description && (
-          <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{product.short_description}</p>
-        )}
-
-        {/* Rating stars */}
+        {/* Rating stars - Cartsy style */}
         {avgRating > 0 && (
-          <div className="flex items-center gap-1 mt-1">
+          <div className="flex items-center gap-1 mt-1.5">
             <div className="flex items-center">
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star key={star} className={cn("h-3 w-3", star <= Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-muted')} />
               ))}
             </div>
-            <span className="text-[10px] text-muted-foreground">({reviewCount})</span>
+            <span className="text-[11px] text-muted-foreground">({reviewCount.toLocaleString()})</span>
           </div>
         )}
 
-        {/* Price */}
-        <div className="flex items-center gap-1.5 mt-1.5">
+        {/* Price - Cartsy style with currency */}
+        <div className="flex items-baseline gap-1.5 mt-2">
           <span className={cn("font-bold text-foreground", variant === 'compact' ? "text-sm" : "text-base")}>
             ₹{Number(displayPrice).toFixed(0)}
           </span>
@@ -222,13 +195,13 @@ export function ProductCard({
 
         {/* Quick add button */}
         {showQuickAdd && onAddToCart && !isOutOfStock && (
-          <Button className="w-full mt-2 h-9 sm:h-9 text-sm sm:text-sm" size="sm" variant="outline" onClick={() => onAddToCart(product)}>
+          <Button className="w-full mt-2.5 h-9 text-sm rounded-lg" size="sm" onClick={() => onAddToCart(product)}>
             <ShoppingCart className="h-4 w-4 mr-1.5" />
             Add to Cart
           </Button>
         )}
         {isOutOfStock && (
-          <Button className="w-full mt-2 h-9 sm:h-9 text-sm sm:text-sm" size="sm" variant="secondary" disabled>
+          <Button className="w-full mt-2.5 h-9 text-sm rounded-lg" size="sm" variant="secondary" disabled>
             Out of Stock
           </Button>
         )}

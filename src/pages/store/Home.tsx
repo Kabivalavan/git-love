@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Truck, Shield, RefreshCw, Headphones, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, ChevronRight as ArrowRight } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
@@ -18,25 +18,21 @@ function FullPageShimmer() {
   return (
     <StorefrontLayout>
       <div className="min-h-screen">
-        <Skeleton className="w-full aspect-[16/9] lg:aspect-[1920/900]" />
-        <div className="py-4 bg-muted">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-14 rounded-xl" />)}
-            </div>
+        <Skeleton className="w-full aspect-[2/1] lg:aspect-[3/1] rounded-none" />
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex gap-4 overflow-hidden">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="flex flex-col items-center gap-2 flex-shrink-0">
+                <Skeleton className="w-16 h-16 rounded-full" />
+                <Skeleton className="w-14 h-3" />
+              </div>
+            ))}
           </div>
         </div>
       </div>
     </StorefrontLayout>
   );
 }
-
-const features = [
-  { icon: Truck, title: 'Free Shipping', desc: 'On orders above ₹500' },
-  { icon: Shield, title: 'Secure Payment', desc: '100% secure checkout' },
-  { icon: RefreshCw, title: 'Easy Returns', desc: '7-day return policy' },
-  { icon: Headphones, title: '24/7 Support', desc: 'Dedicated support' },
-];
 
 export default function HomePage() {
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -79,10 +75,10 @@ export default function HomePage() {
         }}
       />
 
-      {/* Hero Banner - CRITICAL LCP ELEMENT */}
+      {/* Hero Banner Carousel */}
       {banners.length > 0 && (
         <section className="relative">
-          <div className="relative overflow-hidden aspect-[16/9] sm:aspect-[16/9] md:aspect-[16/9] lg:aspect-[1920/900]">
+          <div className="relative overflow-hidden aspect-[2/1] sm:aspect-[2.5/1] lg:aspect-[3/1]">
             {banners.map((banner, index) => {
               const isFirst = index === 0;
               return (
@@ -95,24 +91,16 @@ export default function HomePage() {
                       loading={isFirst ? 'eager' : 'lazy'}
                       {...(isFirst ? { fetchPriority: 'high' as any } : {})}
                       width={800}
-                      height={450}
-                    />
-                    <img
-                      src={banner.media_url_tablet || banner.media_url}
-                      alt={banner.title}
-                      className="w-full h-full object-cover hidden sm:block lg:hidden"
-                      loading={isFirst ? 'eager' : 'lazy'}
-                      width={1200}
-                      height={675}
+                      height={400}
                     />
                     <img
                       src={banner.media_url}
                       alt={banner.title}
-                      className="w-full h-full object-cover hidden lg:block"
+                      className="w-full h-full object-cover hidden sm:block"
                       loading={isFirst ? 'eager' : 'lazy'}
                       {...(isFirst ? { fetchPriority: 'high' as any } : {})}
                       width={1920}
-                      height={900}
+                      height={640}
                     />
                   </Link>
                 </div>
@@ -121,15 +109,15 @@ export default function HomePage() {
           </div>
           {banners.length > 1 && (
             <>
-              <Button variant="secondary" size="icon" className="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 z-20 bg-card/80 backdrop-blur-sm hover:bg-card shadow-lg h-10 w-10 md:h-12 md:w-12 rounded-full" onClick={() => setCurrentBanner((prev) => (prev - 1 + banners.length) % banners.length)}>
-                <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
+              <Button variant="secondary" size="icon" className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-20 bg-card/80 backdrop-blur-sm hover:bg-card shadow-lg h-8 w-8 md:h-10 md:w-10 rounded-full" onClick={() => setCurrentBanner((prev) => (prev - 1 + banners.length) % banners.length)}>
+                <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
-              <Button variant="secondary" size="icon" className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 z-20 bg-card/80 backdrop-blur-sm hover:bg-card shadow-lg h-10 w-10 md:h-12 md:w-12 rounded-full" onClick={() => setCurrentBanner((prev) => (prev + 1) % banners.length)}>
-                <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
+              <Button variant="secondary" size="icon" className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-20 bg-card/80 backdrop-blur-sm hover:bg-card shadow-lg h-8 w-8 md:h-10 md:w-10 rounded-full" onClick={() => setCurrentBanner((prev) => (prev + 1) % banners.length)}>
+                <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
                 {banners.map((_, index) => (
-                  <button key={index} className={`rounded-full transition-all ${index === currentBanner ? 'bg-primary w-6 h-2.5' : 'bg-card/60 w-2.5 h-2.5'}`} onClick={() => setCurrentBanner(index)} />
+                  <button key={index} className={`rounded-full transition-all ${index === currentBanner ? 'bg-primary w-5 h-2' : 'bg-card/60 w-2 h-2'}`} onClick={() => setCurrentBanner(index)} />
                 ))}
               </div>
             </>
@@ -137,36 +125,19 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Features Strip */}
-      <section className="bg-primary text-primary-foreground py-3 md:py-4">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-            {features.map((f, i) => (
-              <div key={i} className="flex items-center gap-2 md:gap-3 justify-center">
-                <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-primary-foreground/15 flex items-center justify-center flex-shrink-0">
-                  <f.icon className="h-4 w-4 md:h-5 md:w-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-[10px] md:text-sm truncate">{f.title}</p>
-                  <p className="text-[9px] md:text-xs opacity-80 truncate hidden md:block">{f.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Categories */}
+      {/* Explore Popular Categories - circular icons like Cartsy */}
       {categories.length > 0 && (
-        <section className="container mx-auto px-4 py-8 md:py-12">
-          <div className="flex items-center gap-3 mb-6 md:mb-8">
-            <h2 className="text-xl md:text-3xl font-bold text-foreground">Shop by Category</h2>
-            <div className="flex-1 h-px bg-border" />
+        <section className="container mx-auto px-4 py-6 md:py-10">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg md:text-2xl font-bold text-foreground">Explore Popular Categories</h2>
+            <Link to="/products" className="text-sm font-medium text-primary flex items-center gap-1 hover:underline">
+              View All <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
-          <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-4 md:gap-6">
+          <div className="flex gap-5 md:gap-8 overflow-x-auto pb-2 scrollbar-thin">
             {categories.map((category) => (
-              <Link key={category.id} to={`/products?category=${category.slug}`} className="group text-center block">
-                <div className="aspect-square rounded-2xl overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all duration-300 mx-auto w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 group-hover:shadow-lg group-hover:scale-105">
+              <Link key={category.id} to={`/products?category=${category.slug}`} className="group text-center flex flex-col items-center flex-shrink-0">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all duration-300 group-hover:shadow-lg">
                   {category.image_url ? (
                     <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" loading="lazy" width={96} height={96} />
                   ) : (
@@ -175,14 +146,14 @@ export default function HomePage() {
                     </div>
                   )}
                 </div>
-                <p className="mt-2 text-[10px] md:text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">{category.name}</p>
+                <p className="mt-2 text-[11px] md:text-sm font-medium text-foreground group-hover:text-primary transition-colors w-16 sm:w-20 md:w-24 truncate text-center">{category.name}</p>
               </Link>
             ))}
           </div>
         </section>
       )}
 
-      {/* ALL sections render immediately - no lazy loading */}
+      {/* Product sections */}
       <HomeBestsellers />
       <HomeMiddleBanners middleBanners={middleBanners} />
       <HomeFeatured />
