@@ -1,12 +1,11 @@
-import { useEffect, useState, useRef, memo, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy, Home } from 'lucide-react';
+import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy, Home, Package, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -21,20 +20,20 @@ import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { Shimmer } from '@/components/ui/shimmer';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { ContentSections, type ContentSection } from '@/components/product/ContentSections';
+import { cn } from '@/lib/utils';
 import type { Product, ProductVariant, Review } from '@/types/database';
 
-// FAQ Accordion Item Component
 function FAQAccordionItem({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
-    <div className="border rounded-lg overflow-hidden">
+    <div className="border border-border rounded-xl overflow-hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-between w-full px-4 py-3 text-left font-semibold text-foreground hover:bg-muted/50 transition-colors"
       >
-        <span className="text-base">{title}</span>
+        <span className="text-sm">{title}</span>
         <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
-          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
         </motion.div>
       </button>
       <AnimatePresence initial={false}>
@@ -46,9 +45,7 @@ function FAQAccordionItem({ title, children, defaultOpen = false }: { title: str
             transition={{ duration: 0.3, ease: [0, 0, 0.2, 1] }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4 pt-1">
-              {children}
-            </div>
+            <div className="px-4 pb-4 pt-1">{children}</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -99,7 +96,6 @@ export default function ProductDetailPage() {
   const { trackEvent } = useAnalytics();
   const { getProductOffer } = useGlobalStore();
 
-  // Observe when Buy Now button scrolls out of view on mobile
   useEffect(() => {
     if (!buyNowRef.current) return;
     const observer = new IntersectionObserver(
@@ -135,10 +131,7 @@ export default function ProductDetailPage() {
       .eq('is_active', true)
       .single();
 
-    if (error || !data) {
-      navigate('/products');
-      return;
-    }
+    if (error || !data) { navigate('/products'); return; }
 
     const productData = data as unknown as Product;
     setProduct(productData);
@@ -146,11 +139,7 @@ export default function ProductDetailPage() {
     trackEvent('product_view', {
       product_id: productData.id,
       category_id: productData.category_id || undefined,
-      metadata: {
-        product_name: productData.name,
-        price: productData.price,
-        category: productData.category?.name || null,
-      },
+      metadata: { product_name: productData.name, price: productData.price, category: productData.category?.name || null },
     });
 
     const [variantsRes, reviewsRes] = await Promise.all([
@@ -161,8 +150,7 @@ export default function ProductDetailPage() {
     const variantList = (variantsRes.data || []) as ProductVariant[];
     setVariants(variantList);
     if (variantList.length > 0) setSelectedVariant(variantList[0]);
-    const reviewsList = (reviewsRes.data || []) as unknown as Review[];
-    setReviews(reviewsList);
+    setReviews((reviewsRes.data || []) as unknown as Review[]);
 
     if (productData.category_id) {
       const { data: relatedData } = await supabase
@@ -174,7 +162,6 @@ export default function ProductDetailPage() {
         .limit(4);
       setRelatedProducts((relatedData || []) as Product[]);
     }
-
     setIsLoading(false);
   };
 
@@ -187,7 +174,6 @@ export default function ProductDetailPage() {
       return;
     }
     if (!product) return;
-    
     if ((product as any).variant_required && variants.length > 0 && !selectedVariant) {
       setVariantError(true);
       toast({ title: 'Select a variant', description: 'Please select a variant before adding to cart', variant: 'destructive' });
@@ -195,107 +181,55 @@ export default function ProductDetailPage() {
     }
     setVariantError(false);
     setIsAddingToCart(true);
-
     try {
       let { data: cart } = await supabase.from('cart').select('id').eq('user_id', user.id).single();
       if (!cart) {
         const { data: newCart } = await supabase.from('cart').insert({ user_id: user.id }).select().single();
         cart = newCart;
       }
-
       if (cart) {
         const { data: existingItem } = await supabase
-          .from('cart_items')
-          .select('id, quantity')
-          .eq('cart_id', cart.id)
-          .eq('product_id', product.id)
-          .eq('variant_id', selectedVariant?.id || null)
-          .single();
-
+          .from('cart_items').select('id, quantity')
+          .eq('cart_id', cart.id).eq('product_id', product.id)
+          .eq('variant_id', selectedVariant?.id || null).single();
         if (existingItem) {
           await supabase.from('cart_items').update({ quantity: existingItem.quantity + quantity }).eq('id', existingItem.id);
         } else {
-          await supabase.from('cart_items').insert({
-            cart_id: cart.id,
-            product_id: product.id,
-            variant_id: selectedVariant?.id || null,
-            quantity,
-          });
+          await supabase.from('cart_items').insert({ cart_id: cart.id, product_id: product.id, variant_id: selectedVariant?.id || null, quantity });
         }
-
-        trackEvent('add_to_cart', {
-          product_id: product.id,
-          metadata: {
-            product_name: product.name,
-            price: selectedVariant?.price || product.price,
-            quantity,
-            variant: selectedVariant?.name || null,
-          },
-        });
-
+        trackEvent('add_to_cart', { product_id: product.id, metadata: { product_name: product.name, price: selectedVariant?.price || product.price, quantity, variant: selectedVariant?.name || null } });
         toast({ title: 'Added to cart', description: `${product.name} has been added to your cart` });
       }
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to add item to cart', variant: 'destructive' });
-    } finally {
-      setIsAddingToCart(false);
-    }
+    } catch { toast({ title: 'Error', description: 'Failed to add item to cart', variant: 'destructive' }); }
+    finally { setIsAddingToCart(false); }
   };
 
   const handleAddToWishlist = async () => {
-    if (!user) {
-      toast({ title: 'Please login', description: 'You need to login to add items to wishlist' });
-      return;
-    }
+    if (!user) { toast({ title: 'Please login', description: 'You need to login to add items to wishlist' }); return; }
     if (!product) return;
-
     try {
       await supabase.from('wishlist').insert({ user_id: user.id, product_id: product.id });
       trackEvent('wishlist_add', { product_id: product.id, metadata: { product_name: product.name } });
       toast({ title: 'Added to wishlist', description: `${product.name} has been added to your wishlist` });
     } catch (error: any) {
-      if (error.code === '23505') {
-        toast({ title: 'Already in wishlist', description: 'This item is already in your wishlist' });
-      } else {
-        toast({ title: 'Error', description: 'Failed to add item to wishlist', variant: 'destructive' });
-      }
+      if (error.code === '23505') toast({ title: 'Already in wishlist', description: 'This item is already in your wishlist' });
+      else toast({ title: 'Error', description: 'Failed to add item to wishlist', variant: 'destructive' });
     }
   };
 
-  const handleBuyNow = async () => {
-    await handleAddToCart();
-    navigate('/cart');
-  };
+  const handleBuyNow = async () => { await handleAddToCart(); navigate('/cart'); };
 
   const handleSubmitReview = async () => {
-    if (!user || !product) {
-      toast({ title: 'Please login', description: 'You need to login to submit a review' });
-      return;
-    }
-
+    if (!user || !product) { toast({ title: 'Please login', description: 'You need to login to submit a review' }); return; }
     setIsSubmittingReview(true);
     const { error } = await supabase.from('reviews').insert({
-      product_id: product.id,
-      user_id: user.id,
-      rating: reviewForm.rating,
-      title: reviewForm.title || null,
-      comment: reviewForm.comment || null,
-      is_approved: true,
-      is_verified: true,
+      product_id: product.id, user_id: user.id, rating: reviewForm.rating, title: reviewForm.title || null, comment: reviewForm.comment || null, is_approved: true, is_verified: true,
     });
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
+    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    else {
       toast({ title: 'Review submitted', description: 'Thank you for your feedback!' });
       setReviewForm({ rating: 5, title: '', comment: '' });
-      const { data } = await supabase
-        .from('reviews')
-        .select('*, profile:profiles(full_name)')
-        .eq('product_id', product.id)
-        .eq('is_approved', true)
-        .order('created_at', { ascending: false })
-        .limit(50);
+      const { data } = await supabase.from('reviews').select('*, profile:profiles(full_name)').eq('product_id', product.id).eq('is_approved', true).order('created_at', { ascending: false }).limit(50);
       setReviews((data || []) as unknown as Review[]);
     }
     setIsSubmittingReview(false);
@@ -304,13 +238,14 @@ export default function ProductDetailPage() {
   if (isLoading) {
     return (
       <StorefrontLayout>
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-6">
           <div className="grid md:grid-cols-2 gap-8">
-            <Shimmer className="aspect-square" />
+            <Shimmer className="aspect-square rounded-xl" />
             <div className="space-y-4">
+              <Shimmer className="h-6 w-24" />
               <Shimmer className="h-8 w-3/4" />
-              <Shimmer className="h-6 w-1/2" />
-              <Shimmer className="h-24 w-full" />
+              <Shimmer className="h-5 w-1/3" />
+              <Shimmer className="h-10 w-1/2" />
               <Shimmer className="h-12 w-full" />
             </div>
           </div>
@@ -325,101 +260,87 @@ export default function ProductDetailPage() {
   const currentImage = images[currentImageIndex]?.image_url || '/placeholder.svg';
   const currentPrice = selectedVariant?.price || product.price;
   const currentStock = selectedVariant?.stock_quantity ?? product.stock_quantity;
-
   const productOffer = getProductOffer(product);
   const offerPrice = productOffer?.discountedPrice;
   const displayPrice = offerPrice ?? currentPrice;
   const showOfferDiscount = productOffer && productOffer.discountAmount > 0;
-  const discount = showOfferDiscount
-    ? Math.round(((currentPrice - displayPrice) / currentPrice) * 100)
-    : 0;
-
-  const avgRating = reviews.length > 0
-    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length)
-    : 0;
-
+  const discount = showOfferDiscount ? Math.round(((currentPrice - displayPrice) / currentPrice) * 100) : 0;
+  const avgRating = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) : 0;
   const ratingDist = [5, 4, 3, 2, 1].map(star => ({
     star,
     count: reviews.filter(r => r.rating === star).length,
     percent: reviews.length > 0 ? (reviews.filter(r => r.rating === star).length / reviews.length) * 100 : 0,
   }));
-
   const contentSections: ContentSection[] = (product as any).content_sections || [];
 
   const productJsonLd = {
-    '@type': 'Product',
-    name: product.name,
-    description: product.description || product.short_description || '',
-    image: images.map(i => i.image_url),
-    sku: product.sku || undefined,
-    offers: {
-      '@type': 'Offer',
-      price: currentPrice,
-      priceCurrency: 'INR',
-      availability: currentStock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-    },
-    ...(reviews.length > 0 && {
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: avgRating.toFixed(1),
-        reviewCount: reviews.length,
-      },
-    }),
+    '@type': 'Product', name: product.name, description: product.description || product.short_description || '',
+    image: images.map(i => i.image_url), sku: product.sku || undefined,
+    offers: { '@type': 'Offer', price: currentPrice, priceCurrency: 'INR', availability: currentStock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' },
+    ...(reviews.length > 0 && { aggregateRating: { '@type': 'AggregateRating', ratingValue: avgRating.toFixed(1), reviewCount: reviews.length } }),
   };
 
   return (
     <StorefrontLayout>
       <SEOHead
-        title={`${product.name} - Buy Online | Decon Fashions`}
+        title={`${product.name} - Buy Online`}
         description={product.short_description || product.description?.slice(0, 160) || `Buy ${product.name} online at best price.`}
         image={images[0]?.image_url}
         jsonLd={productJsonLd}
       />
-      <div className="container mx-auto px-4 py-6 md:py-8 max-w-full overflow-hidden">
+      <div className="container mx-auto px-4 py-4 md:py-6 max-w-full overflow-hidden">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-4 md:mb-6 overflow-x-auto whitespace-nowrap">
-          <Link to="/" className="hover:text-primary flex-shrink-0">Home</Link>
-          <span>/</span>
-          <Link to="/products" className="hover:text-primary flex-shrink-0">Products</Link>
-          {product.category && (
-            <>
-              <span>/</span>
-              <Link to={`/products?category=${product.category.slug}`} className="hover:text-primary flex-shrink-0">
-                {product.category.name}
-              </Link>
-            </>
-          )}
-          <span>/</span>
+        <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4 overflow-x-auto whitespace-nowrap">
+          <Link to="/" className="hover:text-primary flex-shrink-0">← Back</Link>
+          <span className="mx-1">·</span>
           <span className="text-foreground truncate">{product.name}</span>
         </nav>
 
-        {/* Product Hero: 2-column grid. On desktop, left is sticky, right scrolls */}
-        <div className="grid md:grid-cols-2 gap-4 md:gap-8 mb-8 md:mb-12">
-          {/* Images - sticky on desktop */}
+        {/* Product Hero */}
+        <div className="grid md:grid-cols-2 gap-6 md:gap-10 mb-8">
+          {/* Images - Cartsy style with thumbnails below */}
           <div className="space-y-3 min-w-0 md:self-start md:sticky md:top-20" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
-            <div className="relative aspect-square bg-muted rounded-lg overflow-hidden w-full">
+            <div className="relative aspect-square bg-muted rounded-2xl overflow-hidden w-full">
               <img src={currentImage} alt={product.name} className="w-full h-full object-contain" />
               {images.length > 1 && (
                 <>
-                  <Button variant="secondary" size="icon" className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8" onClick={() => setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)}>
+                  <Button variant="secondary" size="icon" className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-card/80 backdrop-blur-sm" onClick={() => setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)}>
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <Button variant="secondary" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8" onClick={() => setCurrentImageIndex((prev) => (prev + 1) % images.length)}>
+                  <Button variant="secondary" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-card/80 backdrop-blur-sm" onClick={() => setCurrentImageIndex((prev) => (prev + 1) % images.length)}>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </>
               )}
+              {/* Wishlist + Share floating buttons */}
+              <div className="absolute top-3 right-3 flex gap-2">
+                <button onClick={handleAddToWishlist} className="h-9 w-9 rounded-full bg-card/90 backdrop-blur-sm shadow flex items-center justify-center border border-border">
+                  <Heart className="h-4 w-4 text-primary" />
+                </button>
+                <button onClick={() => {
+                  navigator.share?.({ title: product.name, url: window.location.href }).catch(() => {
+                    navigator.clipboard.writeText(window.location.href);
+                    toast({ title: 'Link copied!' });
+                  });
+                }} className="h-9 w-9 rounded-full bg-card/90 backdrop-blur-sm shadow flex items-center justify-center border border-border">
+                  <Share2 className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
               {discount > 0 && (
-                <Badge variant="destructive" className="absolute top-3 left-3">{discount}% OFF</Badge>
+                <Badge className="absolute top-3 left-3 bg-green-500 text-white border-0 rounded-md">{discount}% OFF</Badge>
               )}
             </div>
+            {/* Thumbnail strip */}
             {images.length > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
                 {images.map((img, index) => (
                   <button
                     key={img.id}
                     onClick={() => setCurrentImageIndex(index)}
-                    className={`w-14 h-14 rounded-md overflow-hidden border-2 flex-shrink-0 ${index === currentImageIndex ? 'border-primary' : 'border-transparent'}`}
+                    className={cn(
+                      "w-16 h-16 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all",
+                      index === currentImageIndex ? 'border-primary shadow-md' : 'border-border opacity-70 hover:opacity-100'
+                    )}
                   >
                     <img src={img.image_url} alt="" className="w-full h-full object-cover" />
                   </button>
@@ -428,45 +349,93 @@ export default function ProductDetailPage() {
             )}
           </div>
 
-          {/* Product Info - scrollable right side on desktop */}
-          <div className="space-y-4 md:space-y-6 min-w-0">
-            <div>
-              {product.badge && <Badge className="mb-2">{product.badge}</Badge>}
-              <h1 className="text-xl md:text-3xl font-bold text-foreground">{product.name}</h1>
-              {product.short_description && (
-                <p className="text-muted-foreground mt-2 text-sm md:text-base">{product.short_description}</p>
+          {/* Product Info - Cartsy style right column */}
+          <div className="space-y-4 min-w-0">
+            {/* Brand badge */}
+            {product.category && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-primary">{product.category.name}</span>
+              </div>
+            )}
+
+            <h1 className="text-xl md:text-2xl font-bold text-foreground leading-tight">{product.name}</h1>
+
+            {/* Rating + review count inline */}
+            {reviews.length > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star key={star} className={cn("h-4 w-4", star <= Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-muted')} />
+                  ))}
+                </div>
+                <span className="text-sm text-muted-foreground">({reviews.length.toLocaleString()} ratings)</span>
+              </div>
+            )}
+
+            {/* Availability + SKU */}
+            <div className="flex items-center gap-4 text-sm">
+              <span className="flex items-center gap-1">
+                <span className="text-muted-foreground">Availability:</span>
+                {currentStock > 0 ? (
+                  <span className="text-green-600 font-medium flex items-center gap-1"><Check className="h-3.5 w-3.5" /> In stock</span>
+                ) : (
+                  <span className="text-destructive font-medium">Out of stock</span>
+                )}
+              </span>
+              {product.sku && (
+                <span className="text-muted-foreground">Code: <span className="text-foreground font-medium">{product.sku}</span></span>
               )}
             </div>
 
-            {/* Price + Rating inline */}
-            <div className="space-y-2">
-              <div className="flex items-baseline gap-3 flex-wrap">
-                <span className="text-2xl md:text-3xl font-bold text-foreground">₹{Number(displayPrice).toFixed(0)}</span>
-                {showOfferDiscount && (
-                  <>
-                    <span className="text-lg md:text-xl text-muted-foreground line-through">₹{Number(currentPrice).toFixed(0)}</span>
-                    <Badge variant="destructive" className="animate-pulse">{productOffer.discountLabel}</Badge>
-                  </>
-                )}
-                <span className="text-xs text-muted-foreground">(Tax Inclusive)</span>
-              </div>
-              {reviews.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star key={star} className={`h-4 w-4 md:h-5 md:w-5 ${star <= Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-muted'}`} />
-                    ))}
-                  </div>
-                  <span className="font-medium text-sm">{avgRating.toFixed(1)}</span>
-                  <span className="text-muted-foreground text-sm">({reviews.length} reviews)</span>
+            {/* Variants - chip/pill style like Cartsy */}
+            {variants.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Label className={cn("text-sm font-semibold", variantError && 'text-destructive')}>
+                    Select Variant {(product as any).variant_required && <span className="text-destructive">*</span>}
+                  </Label>
                 </div>
+                {variantError && <p className="text-xs text-destructive mb-1">⚠️ Please select a variant</p>}
+                <RadioGroup
+                  value={selectedVariant?.id || ''}
+                  onValueChange={(val) => setSelectedVariant(variants.find(v => v.id === val) || null)}
+                  className="flex flex-wrap gap-2"
+                >
+                  {variants.map((variant) => {
+                    const isSelected = selectedVariant?.id === variant.id;
+                    return (
+                      <div key={variant.id}>
+                        <RadioGroupItem value={variant.id} id={variant.id} className="peer sr-only" />
+                        <Label
+                          htmlFor={variant.id}
+                          className={cn(
+                            "flex items-center gap-1.5 px-4 py-2 border-2 rounded-full cursor-pointer text-sm font-medium transition-all",
+                            isSelected ? "border-primary bg-primary/10 text-primary" : "border-border text-foreground hover:border-primary/50"
+                          )}
+                        >
+                          {variant.name}
+                          {variant.price && <span className="text-xs text-muted-foreground ml-1">₹{variant.price}</span>}
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </RadioGroup>
+              </div>
+            )}
+
+            {/* Price - large Cartsy style */}
+            <div className="flex items-baseline gap-3 flex-wrap pt-1">
+              <span className="text-3xl md:text-4xl font-bold text-foreground">₹{Number(displayPrice).toFixed(0)}</span>
+              {showOfferDiscount && (
+                <span className="text-lg text-muted-foreground line-through">₹{Number(currentPrice).toFixed(0)}</span>
               )}
+              <span className="text-xs text-muted-foreground">(Tax Inclusive)</span>
             </div>
 
             {/* Offer Timer */}
             {productOffer?.offer?.end_date && (productOffer.offer as any).show_timer && (
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 bg-destructive text-destructive-foreground text-sm px-3 py-1 rounded font-bold animate-pulse">
+                <div className="flex items-center gap-1 bg-destructive text-destructive-foreground text-sm px-3 py-1 rounded-full font-bold animate-pulse">
                   <Clock className="h-4 w-4" />
                   <OfferCountdown endDate={productOffer.offer.end_date} />
                 </div>
@@ -474,169 +443,99 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Offer name */}
+            {/* Offer info */}
             {productOffer && (
-              <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3">
-                <p className="text-sm font-medium text-green-700 dark:text-green-400">{productOffer.offer.name}</p>
+              <div className="bg-accent border border-border rounded-xl p-3">
+                <p className="text-sm font-medium text-accent-foreground">{productOffer.offer.name}</p>
                 {productOffer.offer.description && (
-                  <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">{productOffer.offer.description}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{productOffer.offer.description}</p>
                 )}
-              </div>
-            )}
-
-            {/* Variants */}
-            {variants.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Label className={`text-sm md:text-base font-semibold ${variantError ? 'text-destructive' : ''}`}>
-                    Select Variant {(product as any).variant_required && <span className="text-destructive">*</span>}
-                  </Label>
-                  <span className="text-xs text-muted-foreground">(First variant selected by default)</span>
-                </div>
-                {variantError && (
-                  <p className="text-xs text-destructive mt-1 mb-1">⚠️ Please select a variant to continue</p>
-                )}
-                <RadioGroup
-                  value={selectedVariant?.id || ''}
-                  onValueChange={(val) => setSelectedVariant(variants.find(v => v.id === val) || null)}
-                  className="flex flex-wrap gap-2 mt-2"
-                >
-                  {variants.map((variant) => (
-                    <div key={variant.id}>
-                      <RadioGroupItem value={variant.id} id={variant.id} className="peer sr-only" />
-                      <Label
-                        htmlFor={variant.id}
-                        className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md cursor-pointer text-sm peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"
-                      >
-                        {variant.name}
-                        {variant.price && <span className="text-xs">₹{variant.price}</span>}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
               </div>
             )}
 
             {/* Quantity */}
-            <div>
-              <Label className="text-sm md:text-base font-semibold">Quantity</Label>
-              <div className="flex items-center gap-3 mt-2">
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-muted-foreground">Qty:</span>
+              <div className="flex items-center border border-border rounded-full overflow-hidden">
+                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none" onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>
                   <Minus className="h-4 w-4" />
                 </Button>
-                <span className="w-10 text-center font-medium">{quantity}</span>
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(Math.min(currentStock, quantity + 1))} disabled={quantity >= currentStock}>
+                <span className="w-10 text-center font-semibold text-sm">{String(quantity).padStart(2, '0')}</span>
+                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none" onClick={() => setQuantity(Math.min(currentStock, quantity + 1))} disabled={quantity >= currentStock}>
                   <Plus className="h-4 w-4" />
                 </Button>
-                {currentStock <= 5 && currentStock > 0 && (
-                  <span className="text-sm text-destructive font-medium">Only {currentStock} left!</span>
-                )}
               </div>
+              {currentStock <= 5 && currentStock > 0 && (
+                <span className="text-xs text-destructive font-medium">Only {currentStock} left!</span>
+              )}
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-3">
+            {/* Action buttons - Cartsy style */}
+            <div className="flex gap-3 pt-1">
               <Button
-                size="lg"
-                className="flex-1 h-14 text-lg font-semibold"
+                className="flex-1 h-12 text-base font-semibold rounded-xl"
+                variant="outline"
                 onClick={handleAddToCart}
                 disabled={isAddingToCart || currentStock === 0}
-                data-action="add-to-cart"
-                data-product-id={product.id}
               >
-                {isAddingToCart ? <Loader2 className="h-6 w-6 mr-2 animate-spin" /> : <ShoppingCart className="h-6 w-6 mr-2" />}
-                {currentStock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                {isAddingToCart ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <ShoppingCart className="h-5 w-5 mr-2" />}
+                Add to Cart
               </Button>
-              <Button ref={buyNowRef} size="lg" variant="outline" className="flex-1 h-14 text-lg font-semibold border-2" onClick={handleBuyNow} disabled={currentStock === 0}>
+              <Button
+                ref={buyNowRef}
+                className="flex-1 h-12 text-base font-semibold rounded-xl"
+                onClick={handleBuyNow}
+                disabled={currentStock === 0}
+              >
                 Buy Now
               </Button>
             </div>
 
-            {/* Wishlist & Share */}
-            <div className="flex gap-3">
-              <Button variant="outline" size="sm" onClick={handleAddToWishlist} data-action="add-to-wishlist" data-product-id={product.id}>
-                <Heart className="h-4 w-4 mr-2" />
-                Wishlist
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => {
-                navigator.share?.({ title: product.name, url: window.location.href }).catch(() => {
-                  navigator.clipboard.writeText(window.location.href);
-                  toast({ title: 'Link copied!' });
-                });
-              }}>
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </Button>
+            {/* Trust features - horizontal like Cartsy */}
+            <div className="flex items-center gap-4 pt-2 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-primary" /> Free Shipping</span>
+              <span className="flex items-center gap-1.5"><RefreshCw className="h-4 w-4 text-primary" /> Easy Returns</span>
+              <span className="flex items-center gap-1.5"><Shield className="h-4 w-4 text-primary" /> Secure</span>
             </div>
 
-            {/* Available Coupons Section */}
+            {/* Coupons */}
             {storeCoupons.length > 0 && (
-              <div className="border border-dashed border-primary/40 rounded-xl p-4 bg-primary/3">
+              <div className="border border-dashed border-border rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Tag className="h-4 w-4 text-primary" />
                   <span className="text-sm font-semibold text-foreground">Available Coupons</span>
                 </div>
                 <div className="space-y-2">
                   {(couponsExpanded ? storeCoupons : storeCoupons.slice(0, 3)).map((coupon) => (
-                    <div key={coupon.id} className="flex items-center justify-between bg-background rounded-lg px-3 py-2 border border-border">
+                    <div key={coupon.id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-mono font-bold text-primary text-sm bg-primary/10 px-2 py-0.5 rounded">
-                          {coupon.code}
-                        </span>
+                        <span className="font-mono font-bold text-primary text-sm bg-primary/10 px-2 py-0.5 rounded">{coupon.code}</span>
                         <span className="text-xs text-muted-foreground truncate">
                           {coupon.description || (coupon.type === 'percentage' ? `${coupon.value}% off` : `₹${coupon.value} off`)}
-                          {coupon.min_order_value ? ` on orders ≥₹${coupon.min_order_value}` : ''}
                         </span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs flex-shrink-0"
-                        onClick={() => {
-                          navigator.clipboard.writeText(coupon.code);
-                          toast({ title: 'Copied!', description: `${coupon.code} copied to clipboard` });
-                        }}
-                      >
-                        <Copy className="h-3 w-3 mr-1" />
-                        Copy
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs flex-shrink-0" onClick={() => {
+                        navigator.clipboard.writeText(coupon.code);
+                        toast({ title: 'Copied!', description: `${coupon.code} copied to clipboard` });
+                      }}>
+                        <Copy className="h-3 w-3 mr-1" /> Copy
                       </Button>
                     </div>
                   ))}
                 </div>
                 {storeCoupons.length > 3 && (
-                  <button
-                    onClick={() => setCouponsExpanded(!couponsExpanded)}
-                    className="flex items-center gap-1 text-xs text-primary mt-2 hover:underline"
-                  >
-                    <motion.div animate={{ rotate: couponsExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    </motion.div>
-                    {couponsExpanded ? 'Show less' : `Show ${storeCoupons.length - 3} more coupons`}
+                  <button onClick={() => setCouponsExpanded(!couponsExpanded)} className="flex items-center gap-1 text-xs text-primary mt-2 hover:underline">
+                    <motion.div animate={{ rotate: couponsExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}><ChevronDown className="h-3.5 w-3.5" /></motion.div>
+                    {couponsExpanded ? 'Show less' : `Show ${storeCoupons.length - 3} more`}
                   </button>
                 )}
               </div>
             )}
 
-            {/* Trust Badges */}
-            <div className="grid grid-cols-3 gap-2 pt-2">
-              <div className="text-center p-2 bg-muted rounded-lg">
-                <Truck className="h-5 w-5 mx-auto mb-1 text-primary" />
-                <p className="text-[10px] md:text-xs font-medium">Free Shipping</p>
-              </div>
-              <div className="text-center p-2 bg-muted rounded-lg">
-                <Shield className="h-5 w-5 mx-auto mb-1 text-primary" />
-                <p className="text-[10px] md:text-xs font-medium">Secure Payment</p>
-              </div>
-              <div className="text-center p-2 bg-muted rounded-lg">
-                <RefreshCw className="h-5 w-5 mx-auto mb-1 text-primary" />
-                <p className="text-[10px] md:text-xs font-medium">Easy Returns</p>
-              </div>
-            </div>
-
-            {/* Product Details Sections - inside right column on desktop */}
-            <div className="space-y-3">
+            {/* Description accordion */}
+            <div className="space-y-3 pt-2">
               {product.description && (
-                <FAQAccordionItem title="Product Description">
+                <FAQAccordionItem title="Description" defaultOpen>
                   <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">{product.description}</div>
                 </FAQAccordionItem>
               )}
@@ -645,61 +544,49 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Reviews Section - FULL WIDTH, outside the 2-col grid */}
-        <div className="mb-8 md:mb-12">
-          <h2 className="text-lg md:text-xl font-bold mb-4">Customer Reviews</h2>
-
+        {/* Reviews Section */}
+        <div className="mb-8">
+          <h2 className="text-lg md:text-xl font-bold mb-4">Ratings and reviews</h2>
           {reviews.length > 0 && (
             <div className="grid md:grid-cols-3 gap-6 mb-6">
-              <Card className="md:col-span-1">
-                <CardContent className="py-6 text-center">
-                  <p className="text-4xl font-bold">{avgRating.toFixed(1)}</p>
-                  <div className="flex justify-center my-2">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star key={star} className={`h-5 w-5 ${star <= Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-muted'}`} />
-                    ))}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{reviews.length} reviews</p>
-                  <div className="mt-4 space-y-2">
-                    {ratingDist.map(rd => (
-                      <div key={rd.star} className="flex items-center gap-2">
-                        <span className="text-xs w-3">{rd.star}</span>
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                        <Progress value={rd.percent} className="flex-1 h-2" />
-                        <span className="text-xs text-muted-foreground w-6">{rd.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="md:col-span-2 space-y-4">
+              <div className="bg-card border border-border rounded-xl p-6 text-center">
+                <p className="text-5xl font-bold text-foreground">{avgRating.toFixed(1)}</p>
+                <div className="flex justify-center my-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star key={star} className={cn("h-5 w-5", star <= Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-muted')} />
+                  ))}
+                </div>
+                <p className="text-sm text-muted-foreground">{reviews.length.toLocaleString()} rating{reviews.length !== 1 ? 's' : ''}</p>
+                <div className="mt-4 space-y-2">
+                  {ratingDist.map(rd => (
+                    <div key={rd.star} className="flex items-center gap-2">
+                      <span className="text-xs w-3">{rd.star}</span>
+                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                      <Progress value={rd.percent} className="flex-1 h-2" />
+                      <span className="text-xs text-muted-foreground w-6">{rd.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="md:col-span-2 space-y-3">
                 {reviews.slice(0, visibleReviewCount).map((review) => (
-                  <Card key={review.id}>
-                    <CardContent className="py-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star key={star} className={`h-3 w-3 ${star <= review.rating ? 'fill-amber-400 text-amber-400' : 'text-muted'}`} />
-                          ))}
-                        </div>
-                        <span className="text-sm font-medium">{(review as any).profile?.full_name || 'Customer'}</span>
-                        {review.is_verified && <Badge variant="secondary" className="text-[10px]">Verified</Badge>}
-                        <span className="text-xs text-muted-foreground ml-auto">
-                          {new Date(review.created_at).toLocaleDateString()}
-                        </span>
+                  <div key={review.id} className="bg-card border border-border rounded-xl px-4 py-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className="flex">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star key={star} className={cn("h-3 w-3", star <= review.rating ? 'fill-amber-400 text-amber-400' : 'text-muted')} />
+                        ))}
                       </div>
-                      {review.title && <p className="font-medium text-sm">{review.title}</p>}
-                      {review.comment && <p className="text-sm text-muted-foreground mt-1">{review.comment}</p>}
-                    </CardContent>
-                  </Card>
+                      <span className="text-sm font-medium">{(review as any).profile?.full_name || 'Customer'}</span>
+                      {review.is_verified && <Badge variant="secondary" className="text-[10px]">Verified</Badge>}
+                      <span className="text-xs text-muted-foreground ml-auto">{new Date(review.created_at).toLocaleDateString()}</span>
+                    </div>
+                    {review.title && <p className="font-medium text-sm">{review.title}</p>}
+                    {review.comment && <p className="text-sm text-muted-foreground mt-0.5">{review.comment}</p>}
+                  </div>
                 ))}
                 {reviews.length > visibleReviewCount && (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setVisibleReviewCount(prev => prev + 10)}
-                  >
+                  <Button variant="outline" className="w-full rounded-xl" onClick={() => setVisibleReviewCount(prev => prev + 10)}>
                     Show More Reviews ({reviews.length - visibleReviewCount} remaining)
                   </Button>
                 )}
@@ -707,54 +594,48 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Write Review - AFTER reviews list */}
           {user && (
-            <Card>
-              <CardContent className="py-4">
-                <h3 className="font-semibold mb-3">Write a Review</h3>
-                <div className="space-y-3">
-                  <div>
-                    <Label>Rating</Label>
-                    <div className="flex gap-1 mt-1">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button key={star} onClick={() => setReviewForm({ ...reviewForm, rating: star })}>
-                          <Star className={`h-6 w-6 ${star <= reviewForm.rating ? 'fill-amber-400 text-amber-400' : 'text-muted'}`} />
-                        </button>
-                      ))}
-                    </div>
+            <div className="bg-card border border-border rounded-xl px-4 py-4">
+              <h3 className="font-semibold mb-3">Write a Review</h3>
+              <div className="space-y-3">
+                <div>
+                  <Label>Rating</Label>
+                  <div className="flex gap-1 mt-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button key={star} onClick={() => setReviewForm({ ...reviewForm, rating: star })}>
+                        <Star className={cn("h-6 w-6", star <= reviewForm.rating ? 'fill-amber-400 text-amber-400' : 'text-muted')} />
+                      </button>
+                    ))}
                   </div>
-                  <div>
-                    <Label>Title (optional)</Label>
-                    <Input value={reviewForm.title} onChange={(e) => setReviewForm({ ...reviewForm, title: e.target.value })} placeholder="Great product!" />
-                  </div>
-                  <div>
-                    <Label>Comment (optional)</Label>
-                    <Textarea value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} placeholder="Share your experience..." rows={3} />
-                  </div>
-                  <Button onClick={handleSubmitReview} disabled={isSubmittingReview}>
-                    {isSubmittingReview ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting...</> : 'Submit Review'}
-                  </Button>
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <Label>Title (optional)</Label>
+                  <Input value={reviewForm.title} onChange={(e) => setReviewForm({ ...reviewForm, title: e.target.value })} placeholder="Great product!" className="rounded-xl" />
+                </div>
+                <div>
+                  <Label>Comment (optional)</Label>
+                  <Textarea value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} placeholder="Share your experience..." rows={3} className="rounded-xl" />
+                </div>
+                <Button onClick={handleSubmitReview} disabled={isSubmittingReview} className="rounded-xl">
+                  {isSubmittingReview ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting...</> : 'Submit Review'}
+                </Button>
+              </div>
+            </div>
           )}
         </div>
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (
-          <div>
+          <div className="mb-8">
             <h2 className="text-lg md:text-xl font-bold mb-4">You May Also Like</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {relatedProducts.map((rp) => (
-                <ProductCard key={rp.id} product={rp} />
-              ))
-            }
+              {relatedProducts.map((rp) => <ProductCard key={rp.id} product={rp} />)}
             </div>
           </div>
         )}
       </div>
 
-      {/* Mobile Sticky Bottom Bar - appears when Buy Now scrolls out of view */}
+      {/* Mobile Sticky Bottom Bar */}
       <AnimatePresence>
         {showStickyBar && product && currentStock > 0 && (
           <motion.div
@@ -765,14 +646,10 @@ export default function ProductDetailPage() {
             className="fixed bottom-14 left-0 right-0 z-40 bg-card border-t border-border px-4 py-3 lg:hidden shadow-lg"
           >
             <div className="flex items-center gap-3">
-              <Link to="/" className="flex-shrink-0 p-2 rounded-lg border border-border bg-background">
+              <Link to="/" className="flex-shrink-0 p-2 rounded-xl border border-border bg-background">
                 <Home className="h-5 w-5 text-foreground" />
               </Link>
-              <Button
-                className="flex-1 h-12 text-base font-semibold"
-                onClick={handleAddToCart}
-                disabled={isAddingToCart}
-              >
+              <Button className="flex-1 h-12 text-base font-semibold rounded-xl" onClick={handleAddToCart} disabled={isAddingToCart}>
                 {isAddingToCart ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <ShoppingCart className="h-5 w-5 mr-2" />}
                 Add to Cart · ₹{Number(displayPrice).toFixed(0)}
               </Button>
@@ -782,13 +659,4 @@ export default function ProductDetailPage() {
       </AnimatePresence>
     </StorefrontLayout>
   );
-}
-
-// Card component used inline
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`bg-card border border-border rounded-lg ${className}`}>{children}</div>;
-}
-
-function CardContent({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`px-4 ${className}`}>{children}</div>;
 }
