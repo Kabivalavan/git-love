@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.email-triggers]
 verify_jwt = false
+
+[functions.ai-assistant-sync]
+verify_jwt = false
