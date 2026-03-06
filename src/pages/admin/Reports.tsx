@@ -41,6 +41,7 @@ const REPORT_CATEGORIES = [
   { key: 'delivery', label: 'Delivery', icon: Truck },
   { key: 'expenses', label: 'Expenses', icon: DollarSign },
   { key: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { key: 'ai_assistant', label: 'AI Assistant', icon: TrendingUp },
 ];
 
 const REPORTS: ReportDefinition[] = [
@@ -84,6 +85,12 @@ const REPORTS: ReportDefinition[] = [
   { id: 'page-views', name: 'Page Views', category: 'analytics', description: 'Most visited pages', icon: BarChart3 },
   { id: 'product-views', name: 'Product Views', category: 'analytics', description: 'Most viewed products', icon: Package },
   { id: 'conversion-funnel', name: 'Conversion Funnel', category: 'analytics', description: 'View to purchase conversion', icon: TrendingUp },
+  // AI Assistant
+  { id: 'ai-session-overview', name: 'AI Session Overview', category: 'ai_assistant', description: 'Total sessions, completion rate, and engagement trends', icon: BarChart3 },
+  { id: 'ai-popular-answers', name: 'Popular Preferences', category: 'ai_assistant', description: 'Most selected answers across all questionnaires', icon: Users },
+  { id: 'ai-recommendation-clicks', name: 'Recommendation Clicks', category: 'ai_assistant', description: 'Which recommended products get clicked most', icon: TrendingUp },
+  { id: 'ai-surface-breakdown', name: 'Surface Breakdown', category: 'ai_assistant', description: 'Widget usage by page type (home vs product)', icon: Package },
+  { id: 'ai-user-sessions', name: 'User Sessions', category: 'ai_assistant', description: 'Individual customer AI interactions and preferences', icon: Users },
 ];
 
 export default function AdminReports() {

@@ -5,7 +5,6 @@ export function AIAssistantWidget() {
   const { storeInfo } = useGlobalStore();
 
   useEffect(() => {
-    // We need to fetch the ai_assistant config from store_settings
     let script: HTMLScriptElement | null = null;
     let cleanup = false;
 
@@ -21,7 +20,21 @@ export function AIAssistantWidget() {
       const config = data?.value as any;
       if (!config?.enabled || !config?.site_id || !config?.api_base) return;
 
-      // Inject inline script
+      // Get current user for session tracking
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id || '';
+      const userEmail = session?.user?.email || '';
+
+      // Get or create visitor ID
+      let visitorId = localStorage.getItem('ai_visitor_id');
+      if (!visitorId) {
+        visitorId = crypto.randomUUID();
+        localStorage.setItem('ai_visitor_id', visitorId);
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       script = document.createElement('script');
       script.id = 'ai-assistant-widget';
       script.textContent = `
@@ -30,6 +43,11 @@ export function AIAssistantWidget() {
   var SITE_ID = '${config.site_id}';
   var API_BASE = '${config.api_base}';
   var BTN_TEXT = '${(config.button_text || '✨ Need help choosing?').replace(/'/g, "\\'")}';
+  var SUPABASE_URL = '${supabaseUrl}';
+  var SUPABASE_KEY = '${supabaseKey}';
+  var USER_ID = '${userId}';
+  var USER_EMAIL = '${userEmail}';
+  var VISITOR_ID = '${visitorId}';
 
   var style = document.createElement('style');
   style.textContent = \`
@@ -75,23 +93,81 @@ export function AIAssistantWidget() {
   panel.id = 'ai-assistant-panel';
   document.body.appendChild(panel);
 
-  var state = { questions:[], step:0, answers:{}, recs:[] };
+  var state = { questions:[], step:0, answers:{}, recs:[], localSessionId:null };
+
+  // Save session to Supabase
+  function saveSession(payload) {
+    try {
+      fetch(SUPABASE_URL + '/rest/v1/ai_assistant_sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(payload)
+      }).then(function(r) { return r.json(); })
+       .then(function(data) {
+         if (data && data[0]) state.localSessionId = data[0].id;
+       });
+    } catch(e) { console.error('AI session save error', e); }
+  }
+
+  function updateSession(payload) {
+    if (!state.localSessionId) return;
+    try {
+      fetch(SUPABASE_URL + '/rest/v1/ai_assistant_sessions?id=eq.' + state.localSessionId, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch(e) { console.error('AI session update error', e); }
+  }
 
   btn.onclick = async function() {
     btn.style.display = 'none';
     panel.classList.add('open');
     panel.innerHTML = '<div class="ai-body" style="text-align:center;padding:40px"><p>Loading...</p></div>';
     var surface = detectSurface();
+
+    // Create local session record
+    var sessionId = crypto.randomUUID();
+    saveSession({
+      session_id: sessionId,
+      user_id: USER_ID || null,
+      visitor_id: VISITOR_ID,
+      surface: surface.surface,
+      pathname: location.pathname,
+      product_slug: surface.slug || null,
+      started_at: new Date().toISOString()
+    });
+
     try {
       var res = await fetch(API_BASE + '/widget-config', {
         method:'POST',
         headers:{'Content-Type':'application/json','x-site-id':SITE_ID},
-        body:JSON.stringify({ surface:surface.surface, pathname:location.pathname, productSlug:surface.slug })
+        body:JSON.stringify({
+          surface:surface.surface,
+          pathname:location.pathname,
+          productSlug:surface.slug,
+          userId: USER_ID || undefined,
+          userEmail: USER_EMAIL || undefined,
+          visitorId: VISITOR_ID
+        })
       });
       var data = await res.json();
       state.questions = data.questions || [];
       state.step = 0;
       state.answers = {};
+
+      // Save questions to local session
+      updateSession({ questions: state.questions });
+
       renderQuestion();
     } catch(e) {
       panel.innerHTML = '<div class="ai-body" style="text-align:center;padding:40px"><p>Failed to load. Please try again.</p><button class="ai-next-btn" onclick="document.getElementById(\\'ai-assistant-panel\\').classList.remove(\\'open\\');document.getElementById(\\'ai-assistant-btn\\').style.display=\\'block\\'">Close</button></div>';
@@ -135,6 +211,10 @@ export function AIAssistantWidget() {
     document.getElementById('ai-next').onclick = function() {
       state.answers[q.id] = selected;
       state.step++;
+
+      // Update answers in local session after each step
+      updateSession({ answers: state.answers });
+
       if (state.step < state.questions.length) renderQuestion();
       else submitAnswers();
     };
@@ -146,21 +226,45 @@ export function AIAssistantWidget() {
     var res = await fetch(API_BASE + '/widget-session', {
       method:'POST',
       headers:{'Content-Type':'application/json','x-site-id':SITE_ID},
-      body:JSON.stringify({ surface:surface.surface, pathname:location.pathname, productSlug:surface.slug, answers:state.answers })
+      body:JSON.stringify({
+        surface:surface.surface,
+        pathname:location.pathname,
+        productSlug:surface.slug,
+        answers:state.answers,
+        userId: USER_ID || undefined,
+        userEmail: USER_EMAIL || undefined,
+        visitorId: VISITOR_ID
+      })
     });
     var data = await res.json();
-    renderRecommendations(data.recommendations || [], data.sessionId);
+    var recs = data.recommendations || [];
+
+    // Save recommendations and completion to local session
+    updateSession({
+      recommendations: recs,
+      recommendation_count: recs.length,
+      completed_at: new Date().toISOString()
+    });
+
+    renderRecommendations(recs, data.sessionId);
   }
 
   function renderRecommendations(recs, sessionId) {
     var html = '<div class="ai-header"><p style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:hsl(var(--muted-foreground));margin:0">Results</p><h3>Your best matches</h3></div><div class="ai-body">';
-    recs.forEach(function(r) {
+    recs.forEach(function(r, idx) {
       html += '<div class="ai-rec-card"><div style="display:flex;justify-content:space-between;align-items:start"><div><strong>'+r.name+'</strong><p style="font-size:13px;color:hsl(var(--muted-foreground));margin:4px 0">'+(r.explanation||r.description||'Recommended for you')+'</p></div><span class="ai-score">'+r.matchScore+'%</span></div>';
-      if (r.productUrl) html += '<a href="'+r.productUrl+'" style="color:hsl(var(--primary));font-size:13px;font-weight:600;text-decoration:none">View product →</a>';
+      if (r.productUrl) html += '<a href="'+r.productUrl+'" data-rec-idx="'+idx+'" class="ai-rec-link" style="color:hsl(var(--primary));font-size:13px;font-weight:600;text-decoration:none">View product →</a>';
       html += '</div>';
     });
     html += '<button class="ai-next-btn" id="ai-close" style="background:hsl(var(--muted));color:hsl(var(--foreground));margin-top:16px">Close</button></div>';
     panel.innerHTML = html;
+
+    // Track recommendation clicks
+    panel.querySelectorAll('.ai-rec-link').forEach(function(link) {
+      link.addEventListener('click', function() {
+        updateSession({ clicked_product_url: link.getAttribute('href') });
+      });
+    });
 
     document.getElementById('ai-close').onclick = function() {
       panel.classList.remove('open');
@@ -170,7 +274,7 @@ export function AIAssistantWidget() {
     fetch(API_BASE + '/widget-event', {
       method:'POST',
       headers:{'Content-Type':'application/json','x-site-id':SITE_ID},
-      body:JSON.stringify({ eventType:'recommendation_viewed', sessionId:sessionId, payload:{count:recs.length} })
+      body:JSON.stringify({ eventType:'recommendation_viewed', sessionId:sessionId, payload:{count:recs.length, userId: USER_ID, visitorId: VISITOR_ID} })
     });
   }
 })();
@@ -182,7 +286,6 @@ export function AIAssistantWidget() {
 
     return () => {
       cleanup = true;
-      // Remove injected elements on unmount
       document.getElementById('ai-assistant-btn')?.remove();
       document.getElementById('ai-assistant-panel')?.remove();
       document.getElementById('ai-assistant-widget')?.remove();
