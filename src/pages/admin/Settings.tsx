@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Save, Store, Palette, Truck, Link as LinkIcon, Bell, CreditCard, Megaphone, Loader2, CheckCircle2, XCircle, ExternalLink, Shield, Unplug, Mail, Send, Eye, EyeOff, FileEdit, Image as ImageIcon, RotateCcw, Code } from 'lucide-react';
+import { Save, Store, Palette, Truck, Link as LinkIcon, Bell, CreditCard, Megaphone, Loader2, CheckCircle2, XCircle, ExternalLink, Shield, Unplug, Mail, Send, Eye, EyeOff, FileEdit, Image as ImageIcon, RotateCcw, Code, Bot, RefreshCw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import type { StoreInfo, ThemeSettings, CheckoutSettings, SocialLinks } from '@/types/database';
 import { useStorefrontTheme, THEME_OPTIONS, type StorefrontTheme } from '@/hooks/useTheme';
@@ -118,6 +118,14 @@ export default function AdminSettings() {
     show_low_stock_badge: false,
     low_stock_threshold: 5,
   });
+  const [aiAssistant, setAiAssistant] = useState({
+    enabled: false,
+    site_id: '',
+    secret_key: '',
+    api_base: 'https://nobmlsasqdwjfydtiswd.supabase.co/functions/v1',
+    button_text: '✨ Need help choosing?',
+  });
+  const [isSyncingProducts, setIsSyncingProducts] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -182,6 +190,9 @@ export default function AdminSettings() {
             break;
           case 'storefront_display':
             setStorefrontDisplay({ ...storefrontDisplay, ...(value as any) });
+            break;
+          case 'ai_assistant':
+            setAiAssistant({ ...aiAssistant, ...(value as any) });
             break;
         }
       });
@@ -369,7 +380,7 @@ export default function AdminSettings() {
   return (
     <AdminLayout title="Settings" description="Configure your store settings">
       <Tabs defaultValue="store" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-9 lg:w-auto lg:inline-grid">
           <TabsTrigger value="store" className="gap-2">
             <Store className="h-4 w-4" />
             <span className="hidden sm:inline">Store</span>
@@ -401,6 +412,10 @@ export default function AdminSettings() {
           <TabsTrigger value="notifications" className="gap-2">
             <Bell className="h-4 w-4" />
             <span className="hidden sm:inline">Alerts</span>
+          </TabsTrigger>
+          <TabsTrigger value="ai_assistant" className="gap-2">
+            <Bot className="h-4 w-4" />
+            <span className="hidden sm:inline">AI</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1349,6 +1364,163 @@ export default function AdminSettings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+        {/* AI Assistant */}
+        <TabsContent value="ai_assistant">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bot className="h-5 w-5" />
+                  AI Shopping Assistant
+                </CardTitle>
+                <CardDescription>
+                  Connect an AI-powered shopping assistant widget to help customers find the right products.
+                  Get your Site ID and Secret Key from the AI assistant dashboard.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <Label className="text-base font-medium">Enable Widget</Label>
+                    <p className="text-sm text-muted-foreground">Show the AI assistant button on your storefront</p>
+                  </div>
+                  <Switch
+                    checked={aiAssistant.enabled}
+                    onCheckedChange={(checked) => setAiAssistant({ ...aiAssistant, enabled: checked })}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ai_site_id">Site ID <Badge variant="secondary" className="ml-1 text-[10px]">Publishable</Badge></Label>
+                    <Input
+                      id="ai_site_id"
+                      value={aiAssistant.site_id}
+                      onChange={(e) => setAiAssistant({ ...aiAssistant, site_id: e.target.value })}
+                      placeholder="e.g. 6ac77d7b86bef6cc6b6552b761923d5c"
+                      autoComplete="off"
+                    />
+                    <p className="text-xs text-muted-foreground">Used in the widget embed — safe to expose on client</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ai_secret_key">Secret Key <Badge variant="destructive" className="ml-1 text-[10px]">Private</Badge></Label>
+                    <div className="relative">
+                      <Input
+                        id="ai_secret_key"
+                        type={showSmtpPassword ? 'text' : 'password'}
+                        value={aiAssistant.secret_key}
+                        onChange={(e) => setAiAssistant({ ...aiAssistant, secret_key: e.target.value })}
+                        placeholder="Enter your secret key"
+                        autoComplete="off"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                        onClick={() => setShowSmtpPassword(!showSmtpPassword)}
+                      >
+                        {showSmtpPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Used server-side only for product sync — never exposed on client</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ai_api_base">API Base URL</Label>
+                    <Input
+                      id="ai_api_base"
+                      value={aiAssistant.api_base}
+                      onChange={(e) => setAiAssistant({ ...aiAssistant, api_base: e.target.value })}
+                      placeholder="https://your-project.supabase.co/functions/v1"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ai_button_text">Widget Button Text</Label>
+                    <Input
+                      id="ai_button_text"
+                      value={aiAssistant.button_text}
+                      onChange={(e) => setAiAssistant({ ...aiAssistant, button_text: e.target.value })}
+                      placeholder="✨ Need help choosing?"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => handleSave('ai_assistant', aiAssistant as unknown as Record<string, unknown>)}
+                    disabled={isSaving === 'ai_assistant'}
+                  >
+                    {isSaving === 'ai_assistant' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                    Save Settings
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Product Sync */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <RefreshCw className="h-5 w-5" />
+                  Product Catalog Sync
+                </CardTitle>
+                <CardDescription>
+                  Push your product catalog to the AI assistant so it can recommend products to customers.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!aiAssistant.site_id || !aiAssistant.secret_key ? (
+                  <div className="p-4 border border-dashed rounded-lg text-center text-muted-foreground">
+                    <p>Enter your Site ID and Secret Key above, then save before syncing products.</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      This will sync all active products (name, slug, category, description, price, images) to the AI assistant.
+                    </p>
+                    <Button
+                      onClick={async () => {
+                        setIsSyncingProducts(true);
+                        try {
+                          const { data: { session } } = await supabase.auth.getSession();
+                          if (!session) throw new Error('Not authenticated');
+
+                          const response = await fetch(
+                            `https://riqjidlyjyhfpgnjtbqi.supabase.co/functions/v1/ai-assistant-sync`,
+                            {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${session.access_token}`,
+                              },
+                            }
+                          );
+                          const result = await response.json();
+                          if (!response.ok) throw new Error(result.error || 'Sync failed');
+                          toast({ title: 'Sync Complete', description: `${result.synced} products synced to AI assistant.` });
+                        } catch (error: any) {
+                          toast({ title: 'Sync Failed', description: error.message, variant: 'destructive' });
+                        } finally {
+                          setIsSyncingProducts(false);
+                        }
+                      }}
+                      disabled={isSyncingProducts}
+                    >
+                      {isSyncingProducts ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                      {isSyncingProducts ? 'Syncing...' : 'Sync Products Now'}
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </AdminLayout>
