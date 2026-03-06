@@ -65,6 +65,60 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_assistant_sessions: {
+        Row: {
+          answers: Json | null
+          clicked_product_url: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          pathname: string | null
+          product_slug: string | null
+          questions: Json | null
+          recommendation_count: number | null
+          recommendations: Json | null
+          session_id: string
+          started_at: string
+          surface: string
+          user_id: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          answers?: Json | null
+          clicked_product_url?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          pathname?: string | null
+          product_slug?: string | null
+          questions?: Json | null
+          recommendation_count?: number | null
+          recommendations?: Json | null
+          session_id: string
+          started_at?: string
+          surface?: string
+          user_id?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          answers?: Json | null
+          clicked_product_url?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          pathname?: string | null
+          product_slug?: string | null
+          questions?: Json | null
+          recommendation_count?: number | null
+          recommendations?: Json | null
+          session_id?: string
+          started_at?: string
+          surface?: string
+          user_id?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: []
+      }
       analytics_events: {
         Row: {
           category_id: string | null

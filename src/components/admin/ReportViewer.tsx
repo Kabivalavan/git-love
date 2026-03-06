@@ -893,6 +893,179 @@ export function ReportViewer({ report }: ReportViewerProps) {
           break;
         }
 
+        // ── AI ASSISTANT ──────────────────────────────────────────────────────
+
+        case 'ai-session-overview': {
+          const { data: sessions } = await supabase.from('ai_assistant_sessions').select('*').gte('created_at', since).order('created_at');
+          const all = sessions || [];
+          const total = all.length;
+          const completed = all.filter((s: any) => s.completed_at).length;
+          const completionRate = total > 0 ? ((completed / total) * 100).toFixed(1) : '0';
+          const avgRecs = total > 0 ? (all.reduce((s: number, a: any) => s + (a.recommendation_count || 0), 0) / total).toFixed(1) : '0';
+          const clicked = all.filter((s: any) => s.clicked_product_url).length;
+          const clickRate = completed > 0 ? ((clicked / completed) * 100).toFixed(1) : '0';
+
+          // Daily trend
+          const daily: Record<string, any> = {};
+          all.forEach((s: any) => {
+            const date = new Date(s.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+            if (!daily[date]) daily[date] = { date, sessions: 0, completed: 0, clicks: 0 };
+            daily[date].sessions += 1;
+            if (s.completed_at) daily[date].completed += 1;
+            if (s.clicked_product_url) daily[date].clicks += 1;
+          });
+          const list = Object.values(daily);
+
+          setData({ kpis: [
+            { label: 'Total Sessions', value: fmtNum(total), icon: Users, color: 'blue' },
+            { label: 'Completion Rate', value: completionRate + '%', icon: TrendingUp, color: 'green' },
+            { label: 'Avg Recommendations', value: avgRecs, icon: Package, color: 'purple' },
+            { label: 'Click-through Rate', value: clickRate + '%', icon: ShoppingCart, color: 'amber' },
+          ], chart: { type: 'composed-bar-line', data: list, xKey: 'date', barKey: 'sessions', barName: 'Sessions', lineKey: 'completed', lineName: 'Completed' }, table: list,
+          columns: ['date', 'sessions', 'completed', 'clicks'] });
+          break;
+        }
+
+        case 'ai-popular-answers': {
+          const { data: sessions } = await supabase.from('ai_assistant_sessions').select('answers, questions').gte('created_at', since);
+          const all = sessions || [];
+          const answerCounts: Record<string, { question: string; answer: string; count: number }> = {};
+
+          all.forEach((s: any) => {
+            const answers = s.answers || {};
+            const questions = s.questions || [];
+            const qMap: Record<string, string> = {};
+            questions.forEach((q: any) => { if (q.id && q.questionText) qMap[q.id] = q.questionText; });
+
+            Object.entries(answers).forEach(([qId, vals]: [string, any]) => {
+              const qText = qMap[qId] || qId;
+              (Array.isArray(vals) ? vals : [vals]).forEach((v: string) => {
+                const key = qText + '||' + v;
+                if (!answerCounts[key]) answerCounts[key] = { question: qText, answer: v, count: 0 };
+                answerCounts[key].count += 1;
+              });
+            });
+          });
+
+          const list = Object.values(answerCounts).sort((a, b) => b.count - a.count);
+          const uniqueQuestions = [...new Set(list.map(l => l.question))].length;
+          const totalAnswers = list.reduce((s, l) => s + l.count, 0);
+          const topAnswer = list[0]?.answer || '-';
+
+          setData({ kpis: [
+            { label: 'Total Sessions', value: fmtNum(all.length), icon: Users, color: 'blue' },
+            { label: 'Unique Questions', value: uniqueQuestions, icon: Package, color: 'purple' },
+            { label: 'Total Answers', value: fmtNum(totalAnswers), icon: TrendingUp, color: 'green' },
+            { label: 'Top Preference', value: topAnswer, icon: Users, color: 'amber' },
+          ], chart: { type: 'bar-horizontal', data: list.slice(0, 15).map(l => ({ name: l.answer, count: l.count })), xKey: 'count', yKey: 'name', xLabel: 'Count' }, table: list,
+          columns: ['question', 'answer', 'count'] });
+          break;
+        }
+
+        case 'ai-recommendation-clicks': {
+          const { data: sessions } = await supabase.from('ai_assistant_sessions').select('recommendations, clicked_product_url, completed_at').gte('created_at', since).not('completed_at', 'is', null);
+          const all = sessions || [];
+          const productClicks: Record<string, { name: string; recommended: number; clicked: number }> = {};
+
+          all.forEach((s: any) => {
+            const recs = s.recommendations || [];
+            recs.forEach((r: any) => {
+              const name = r.name || 'Unknown';
+              if (!productClicks[name]) productClicks[name] = { name, recommended: 0, clicked: 0 };
+              productClicks[name].recommended += 1;
+              if (s.clicked_product_url && r.productUrl && s.clicked_product_url.includes(r.productUrl.split('/').pop())) {
+                productClicks[name].clicked += 1;
+              }
+            });
+          });
+
+          const list = Object.values(productClicks).sort((a, b) => b.recommended - a.recommended)
+            .map(p => ({ ...p, clickRate: p.recommended > 0 ? ((p.clicked / p.recommended) * 100).toFixed(1) + '%' : '0%' }));
+          const totalRecs = list.reduce((s, l) => s + l.recommended, 0);
+          const totalClicks = list.reduce((s, l) => s + l.clicked, 0);
+
+          setData({ kpis: [
+            { label: 'Total Recommendations', value: fmtNum(totalRecs), icon: Package, color: 'blue' },
+            { label: 'Total Clicks', value: fmtNum(totalClicks), icon: ShoppingCart, color: 'green' },
+            { label: 'Click Rate', value: totalRecs > 0 ? ((totalClicks / totalRecs) * 100).toFixed(1) + '%' : '0%', icon: TrendingUp, color: 'purple' },
+            { label: 'Unique Products', value: list.length, icon: Package, color: 'amber' },
+          ], chart: { type: 'bar-horizontal', data: list.slice(0, 15).map(l => ({ name: l.name, recommended: l.recommended })), xKey: 'recommended', yKey: 'name', xLabel: 'Times Recommended' }, table: list,
+          columns: ['name', 'recommended', 'clicked', 'clickRate'] });
+          break;
+        }
+
+        case 'ai-surface-breakdown': {
+          const { data: sessions } = await supabase.from('ai_assistant_sessions').select('surface, completed_at, clicked_product_url, recommendation_count').gte('created_at', since);
+          const all = sessions || [];
+          const grouped: Record<string, any> = {};
+          all.forEach((s: any) => {
+            const surface = s.surface || 'unknown';
+            if (!grouped[surface]) grouped[surface] = { surface, sessions: 0, completed: 0, clicks: 0, avgRecs: 0, totalRecs: 0 };
+            grouped[surface].sessions += 1;
+            if (s.completed_at) grouped[surface].completed += 1;
+            if (s.clicked_product_url) grouped[surface].clicks += 1;
+            grouped[surface].totalRecs += (s.recommendation_count || 0);
+          });
+          const list = Object.values(grouped).map((g: any) => ({
+            ...g, completionRate: g.sessions > 0 ? ((g.completed / g.sessions) * 100).toFixed(1) + '%' : '0%',
+            avgRecs: g.completed > 0 ? (g.totalRecs / g.completed).toFixed(1) : '0'
+          }));
+
+          setData({ kpis: [
+            { label: 'Total Sessions', value: fmtNum(all.length), icon: Users, color: 'blue' },
+            { label: 'Home Page', value: fmtNum(grouped['home']?.sessions || 0), icon: Package, color: 'green' },
+            { label: 'Product Pages', value: fmtNum(grouped['product_page']?.sessions || 0), icon: ShoppingCart, color: 'purple' },
+            { label: 'Overall Completion', value: all.length > 0 ? ((all.filter((s: any) => s.completed_at).length / all.length) * 100).toFixed(1) + '%' : '0%', icon: TrendingUp, color: 'amber' },
+          ], chart: { type: 'donut', data: list.map((l: any) => ({ name: l.surface, value: l.sessions })) }, table: list,
+          columns: ['surface', 'sessions', 'completed', 'clicks', 'completionRate', 'avgRecs'] });
+          break;
+        }
+
+        case 'ai-user-sessions': {
+          const { data: sessions } = await supabase.from('ai_assistant_sessions').select('*').gte('created_at', since).order('created_at', { ascending: false }).limit(200);
+          const all = sessions || [];
+
+          // Enrich with user names
+          const userIds = [...new Set(all.filter((s: any) => s.user_id).map((s: any) => s.user_id))];
+          let profileMap: Record<string, string> = {};
+          if (userIds.length > 0) {
+            const { data: profiles } = await supabase.from('profiles').select('user_id, full_name, email').in('user_id', userIds);
+            (profiles || []).forEach((p: any) => { profileMap[p.user_id] = p.full_name || p.email || 'Unknown'; });
+          }
+
+          const list = all.map((s: any) => {
+            const answers = s.answers || {};
+            // Summarize answers as human-readable preferences
+            const questions = s.questions || [];
+            const preferences: string[] = [];
+            questions.forEach((q: any) => {
+              const ans = answers[q.id];
+              if (ans && Array.isArray(ans) && ans.length) {
+                preferences.push(q.questionText + ': ' + ans.join(', '));
+              }
+            });
+
+            return {
+              user: s.user_id ? (profileMap[s.user_id] || 'User') : ('Visitor ' + (s.visitor_id || '').slice(0, 8)),
+              surface: s.surface,
+              preferences: preferences.join(' | ') || '—',
+              recommendations: (s.recommendations || []).map((r: any) => r.name).join(', ') || '—',
+              clicked: s.clicked_product_url ? '✓ ' + s.clicked_product_url.split('/').pop() : '—',
+              status: s.completed_at ? 'Completed' : 'Abandoned',
+              date: new Date(s.created_at).toLocaleDateString('en-IN'),
+            };
+          });
+
+          setData({ kpis: [
+            { label: 'Total Sessions', value: fmtNum(all.length), icon: Users, color: 'blue' },
+            { label: 'Logged-in Users', value: fmtNum(all.filter((s: any) => s.user_id).length), icon: Users, color: 'green' },
+            { label: 'Completed', value: fmtNum(all.filter((s: any) => s.completed_at).length), icon: TrendingUp, color: 'purple' },
+            { label: 'Clicked Product', value: fmtNum(all.filter((s: any) => s.clicked_product_url).length), icon: ShoppingCart, color: 'amber' },
+          ], chart: null, table: list,
+          columns: ['user', 'surface', 'preferences', 'recommendations', 'clicked', 'status', 'date'] });
+          break;
+        }
+
         default:
           setData({ kpis: [], chart: null, table: [], columns: [] });
       }

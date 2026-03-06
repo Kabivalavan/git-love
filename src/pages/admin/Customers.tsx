@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, ShoppingCart, DollarSign, MessageCircle, LayoutGrid, List, UserPlus, Filter, MapPin } from 'lucide-react';
+import { Users, ShoppingCart, DollarSign, MessageCircle, LayoutGrid, List, UserPlus, Filter, MapPin, Sparkles } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Shimmer } from '@/components/ui/shimmer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -36,6 +36,7 @@ export default function AdminCustomers() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [customerCart, setCustomerCart] = useState<any[]>([]);
+  const [customerAISessions, setCustomerAISessions] = useState<any[]>([]);
   const [customerAddresses, setCustomerAddresses] = useState<any[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [stats, setStats] = useState({ total: 0, active: 0, blocked: 0, todayCount: 0 });
@@ -107,11 +108,11 @@ export default function AdminCustomers() {
     setSelectedCustomer(customer);
     setIsDetailOpen(true);
     setCustomerCart([]);
-    setCustomerAddresses([]);
+    setCustomerAISessions([]);
     setCustomerOrders([]);
 
     // Fetch orders, cart, and addresses in parallel
-    const [ordersRes, cartRes, addressesRes] = await Promise.all([
+    const [ordersRes, cartRes, addressesRes, aiRes] = await Promise.all([
       supabase
         .from('orders')
         .select('*')
@@ -128,10 +129,17 @@ export default function AdminCustomers() {
         .select('*')
         .eq('user_id', customer.user_id)
         .order('is_default', { ascending: false }),
+      supabase
+        .from('ai_assistant_sessions')
+        .select('*')
+        .eq('user_id', customer.user_id)
+        .order('created_at', { ascending: false })
+        .limit(10),
     ]);
 
     setCustomerOrders(ordersRes.data || []);
     setCustomerAddresses(addressesRes.data || []);
+    setCustomerAISessions(aiRes.data || []);
 
     // Fetch cart items if cart exists
     if (cartRes.data?.id) {
@@ -475,6 +483,83 @@ export default function AdminCustomers() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* AI Assistant Insights */}
+            {customerAISessions.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" /> AI Assistant Insights ({customerAISessions.length} session{customerAISessions.length > 1 ? 's' : ''})
+                </h3>
+                {(() => {
+                  // Aggregate preferences across sessions
+                  const prefMap: Record<string, Set<string>> = {};
+                  customerAISessions.forEach((s: any) => {
+                    const questions = s.questions || [];
+                    const answers = s.answers || {};
+                    questions.forEach((q: any) => {
+                      const ans = answers[q.id];
+                      if (ans && Array.isArray(ans) && ans.length) {
+                        if (!prefMap[q.questionText]) prefMap[q.questionText] = new Set();
+                        ans.forEach((a: string) => prefMap[q.questionText].add(a));
+                      }
+                    });
+                  });
+
+                  const completedSessions = customerAISessions.filter((s: any) => s.completed_at);
+                  const allRecs = completedSessions.flatMap((s: any) => s.recommendations || []);
+                  const clickedUrls = customerAISessions.filter((s: any) => s.clicked_product_url).map((s: any) => s.clicked_product_url);
+
+                  return (
+                    <div className="space-y-3">
+                      {/* Customer Preferences Summary */}
+                      {Object.keys(prefMap).length > 0 && (
+                        <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg space-y-2">
+                          <p className="text-xs font-semibold text-primary uppercase tracking-wide">Customer Preferences</p>
+                          {Object.entries(prefMap).map(([question, answers]) => (
+                            <div key={question}>
+                              <p className="text-xs text-muted-foreground">{question}</p>
+                              <div className="flex flex-wrap gap-1 mt-0.5">
+                                {[...answers].map(a => (
+                                  <Badge key={a} variant="secondary" className="text-[10px]">{a}</Badge>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Recommended Products */}
+                      {allRecs.length > 0 && (
+                        <div className="p-3 bg-muted/50 rounded-lg space-y-1.5">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">AI Recommended Products</p>
+                          {[...new Map(allRecs.map((r: any) => [r.name, r])).values()].slice(0, 5).map((r: any, i: number) => (
+                            <div key={i} className="flex items-center justify-between text-sm">
+                              <span className="truncate">{r.name}</span>
+                              <Badge variant="outline" className="text-[10px] ml-2 flex-shrink-0">{r.matchScore}% match</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Clicked Products */}
+                      {clickedUrls.length > 0 && (
+                        <div className="p-3 bg-muted/50 rounded-lg space-y-1">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Products Clicked from AI</p>
+                          {clickedUrls.map((url: string, i: number) => (
+                            <p key={i} className="text-xs text-primary truncate">{url.split('/').pop()?.replace(/-/g, ' ')}</p>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Session Summary */}
+                      <p className="text-[10px] text-muted-foreground">
+                        {completedSessions.length} completed · {customerAISessions.length - completedSessions.length} abandoned · Last: {new Date(customerAISessions[0].created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
