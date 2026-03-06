@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, ShoppingCart, DollarSign, MessageCircle, LayoutGrid, List, UserPlus, Filter, MapPin } from 'lucide-react';
+import { Users, ShoppingCart, DollarSign, MessageCircle, LayoutGrid, List, UserPlus, Filter, MapPin, Sparkles } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Shimmer } from '@/components/ui/shimmer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
