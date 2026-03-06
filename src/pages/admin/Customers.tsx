@@ -112,7 +112,7 @@ export default function AdminCustomers() {
     setCustomerOrders([]);
 
     // Fetch orders, cart, and addresses in parallel
-    const [ordersRes, cartRes, addressesRes] = await Promise.all([
+    const [ordersRes, cartRes, addressesRes, aiRes] = await Promise.all([
       supabase
         .from('orders')
         .select('*')
@@ -129,10 +129,17 @@ export default function AdminCustomers() {
         .select('*')
         .eq('user_id', customer.user_id)
         .order('is_default', { ascending: false }),
+      supabase
+        .from('ai_assistant_sessions')
+        .select('*')
+        .eq('user_id', customer.user_id)
+        .order('created_at', { ascending: false })
+        .limit(10),
     ]);
 
     setCustomerOrders(ordersRes.data || []);
     setCustomerAddresses(addressesRes.data || []);
+    setCustomerAISessions(aiRes.data || []);
 
     // Fetch cart items if cart exists
     if (cartRes.data?.id) {
