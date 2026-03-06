@@ -36,6 +36,7 @@ export default function AdminCustomers() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [customerCart, setCustomerCart] = useState<any[]>([]);
+  const [customerAISessions, setCustomerAISessions] = useState<any[]>([]);
   const [customerAddresses, setCustomerAddresses] = useState<any[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [stats, setStats] = useState({ total: 0, active: 0, blocked: 0, todayCount: 0 });
@@ -107,7 +108,7 @@ export default function AdminCustomers() {
     setSelectedCustomer(customer);
     setIsDetailOpen(true);
     setCustomerCart([]);
-    setCustomerAddresses([]);
+    setCustomerAISessions([]);
     setCustomerOrders([]);
 
     // Fetch orders, cart, and addresses in parallel
