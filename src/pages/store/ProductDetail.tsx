@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy, Home, Package, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,8 @@ import { Shimmer } from '@/components/ui/shimmer';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { ContentSections, type ContentSection } from '@/components/product/ContentSections';
 import { cn } from '@/lib/utils';
+import { useProductBySlug, useProductVariants, useProductReviews, useRelatedProducts, useStorefrontCoupons } from '@/hooks/useProductQuery';
+import { useCartMutations } from '@/hooks/useCartQuery';
 import type { Product, ProductVariant, Review } from '@/types/database';
 
 function FAQAccordionItem({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
@@ -75,18 +78,12 @@ function OfferCountdown({ endDate }: { endDate: string }) {
 export default function ProductDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [variants, setVariants] = useState<ProductVariant[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const queryClient = useQueryClient();
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', comment: '' });
-  const [storeCoupons, setStoreCoupons] = useState<any[]>([]);
   const [visibleReviewCount, setVisibleReviewCount] = useState(5);
   const [couponsExpanded, setCouponsExpanded] = useState(false);
   const [showStickyBar, setShowStickyBar] = useState(false);
@@ -95,6 +92,48 @@ export default function ProductDetailPage() {
   const { user } = useAuth();
   const { trackEvent } = useAnalytics();
   const { getProductOffer } = useGlobalStore();
+  const { addToCart } = useCartMutations();
+
+  // Deduplicated queries via react-query
+  const { data: product, isLoading: isProductLoading, error: productError } = useProductBySlug(slug);
+  const { data: variants = [] } = useProductVariants(product?.id);
+  const { data: reviews = [] } = useProductReviews(product?.id);
+  const { data: relatedProducts = [] } = useRelatedProducts(product?.category_id || undefined, product?.id);
+  const { data: storeCoupons = [] } = useStorefrontCoupons();
+
+  const isLoading = isProductLoading;
+  const isAddingToCart = addToCart.isPending;
+
+  // Auto-select first variant
+  useEffect(() => {
+    if (variants.length > 0 && !selectedVariant) {
+      setSelectedVariant(variants[0]);
+    }
+  }, [variants]);
+
+  // Reset state on slug change
+  useEffect(() => {
+    setCurrentImageIndex(0);
+    setQuantity(1);
+    setSelectedVariant(null);
+    setVisibleReviewCount(5);
+  }, [slug]);
+
+  // Track product view
+  useEffect(() => {
+    if (product) {
+      trackEvent('product_view', {
+        product_id: product.id,
+        category_id: product.category_id || undefined,
+        metadata: { product_name: product.name, price: product.price, category: product.category?.name || null },
+      });
+    }
+  }, [product?.id]);
+
+  // Redirect if product not found
+  useEffect(() => {
+    if (productError) navigate('/products');
+  }, [productError]);
 
   useEffect(() => {
     if (!buyNowRef.current) return;
@@ -105,65 +144,6 @@ export default function ProductDetailPage() {
     observer.observe(buyNowRef.current);
     return () => observer.disconnect();
   }, [isLoading, product]);
-
-  useEffect(() => {
-    if (slug) fetchProduct();
-    fetchStoreCoupons();
-  }, [slug]);
-
-  const fetchStoreCoupons = async () => {
-    const { data } = await supabase
-      .from('coupons')
-      .select('*')
-      .eq('is_active', true)
-      .eq('show_on_storefront', true)
-      .order('created_at', { ascending: false });
-    setStoreCoupons(data || []);
-  };
-
-  const fetchProduct = async () => {
-    setIsLoading(true);
-    setVisibleReviewCount(5);
-    const { data, error } = await supabase
-      .from('products')
-      .select('*, category:categories(*), images:product_images(*)')
-      .eq('slug', slug)
-      .eq('is_active', true)
-      .single();
-
-    if (error || !data) { navigate('/products'); return; }
-
-    const productData = data as unknown as Product;
-    setProduct(productData);
-
-    trackEvent('product_view', {
-      product_id: productData.id,
-      category_id: productData.category_id || undefined,
-      metadata: { product_name: productData.name, price: productData.price, category: productData.category?.name || null },
-    });
-
-    const [variantsRes, reviewsRes] = await Promise.all([
-      supabase.from('product_variants').select('*').eq('product_id', productData.id).eq('is_active', true),
-      supabase.from('reviews').select('*, profile:profiles(full_name)').eq('product_id', productData.id).eq('is_approved', true).order('created_at', { ascending: false }).limit(50),
-    ]);
-
-    const variantList = (variantsRes.data || []) as ProductVariant[];
-    setVariants(variantList);
-    if (variantList.length > 0) setSelectedVariant(variantList[0]);
-    setReviews((reviewsRes.data || []) as unknown as Review[]);
-
-    if (productData.category_id) {
-      const { data: relatedData } = await supabase
-        .from('products')
-        .select('*, category:categories(*), images:product_images(*)')
-        .eq('category_id', productData.category_id)
-        .eq('is_active', true)
-        .neq('id', productData.id)
-        .limit(4);
-      setRelatedProducts((relatedData || []) as Product[]);
-    }
-    setIsLoading(false);
-  };
 
   const [variantError, setVariantError] = useState(false);
 
@@ -180,28 +160,14 @@ export default function ProductDetailPage() {
       return;
     }
     setVariantError(false);
-    setIsAddingToCart(true);
-    try {
-      let { data: cart } = await supabase.from('cart').select('id').eq('user_id', user.id).single();
-      if (!cart) {
-        const { data: newCart } = await supabase.from('cart').insert({ user_id: user.id }).select().single();
-        cart = newCart;
+    addToCart.mutate(
+      { product, quantity, variantId: selectedVariant?.id || null },
+      {
+        onSuccess: () => {
+          trackEvent('add_to_cart', { product_id: product.id, metadata: { product_name: product.name, price: selectedVariant?.price || product.price, quantity, variant: selectedVariant?.name || null } });
+        },
       }
-      if (cart) {
-        const { data: existingItem } = await supabase
-          .from('cart_items').select('id, quantity')
-          .eq('cart_id', cart.id).eq('product_id', product.id)
-          .eq('variant_id', selectedVariant?.id || null).single();
-        if (existingItem) {
-          await supabase.from('cart_items').update({ quantity: existingItem.quantity + quantity }).eq('id', existingItem.id);
-        } else {
-          await supabase.from('cart_items').insert({ cart_id: cart.id, product_id: product.id, variant_id: selectedVariant?.id || null, quantity });
-        }
-        trackEvent('add_to_cart', { product_id: product.id, metadata: { product_name: product.name, price: selectedVariant?.price || product.price, quantity, variant: selectedVariant?.name || null } });
-        toast({ title: 'Added to cart', description: `${product.name} has been added to your cart` });
-      }
-    } catch { toast({ title: 'Error', description: 'Failed to add item to cart', variant: 'destructive' }); }
-    finally { setIsAddingToCart(false); }
+    );
   };
 
   const handleAddToWishlist = async () => {
@@ -217,7 +183,10 @@ export default function ProductDetailPage() {
     }
   };
 
-  const handleBuyNow = async () => { await handleAddToCart(); navigate('/cart'); };
+  const handleBuyNow = async () => {
+    await handleAddToCart();
+    navigate('/cart');
+  };
 
   const handleSubmitReview = async () => {
     if (!user || !product) { toast({ title: 'Please login', description: 'You need to login to submit a review' }); return; }
@@ -229,8 +198,7 @@ export default function ProductDetailPage() {
     else {
       toast({ title: 'Review submitted', description: 'Thank you for your feedback!' });
       setReviewForm({ rating: 5, title: '', comment: '' });
-      const { data } = await supabase.from('reviews').select('*, profile:profiles(full_name)').eq('product_id', product.id).eq('is_approved', true).order('created_at', { ascending: false }).limit(50);
-      setReviews((data || []) as unknown as Review[]);
+      queryClient.invalidateQueries({ queryKey: ['product-reviews', product.id] });
     }
     setIsSubmittingReview(false);
   };

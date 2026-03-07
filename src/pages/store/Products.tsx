@@ -18,6 +18,7 @@ import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { ShimmerProductGrid } from '@/components/ui/shimmer';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { useQuery } from '@tanstack/react-query';
+import { useCartMutations } from '@/hooks/useCartQuery';
 import type { Product, Category } from '@/types/database';
 
 const ITEMS_PER_PAGE = 20;
@@ -34,6 +35,7 @@ export default function ProductsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { getProductOffer } = useGlobalStore();
+  const { addToCart } = useCartMutations();
 
   const searchQuery = searchParams.get('search') || '';
   const categorySlug = searchParams.get('category') || '';
@@ -188,26 +190,7 @@ export default function ProductsPage() {
       toast({ title: 'Please login', description: 'You need to login to add items to cart' });
       return;
     }
-    try {
-      let { data: cart } = await supabase.from('cart').select('id').eq('user_id', user.id).single();
-      if (!cart) {
-        const { data: newCart } = await supabase.from('cart').insert({ user_id: user.id }).select().single();
-        cart = newCart;
-      }
-      if (cart) {
-        const { data: existingItem } = await supabase
-          .from('cart_items').select('id, quantity')
-          .eq('cart_id', cart.id).eq('product_id', product.id).single();
-        if (existingItem) {
-          await supabase.from('cart_items').update({ quantity: existingItem.quantity + 1 }).eq('id', existingItem.id);
-        } else {
-          await supabase.from('cart_items').insert({ cart_id: cart.id, product_id: product.id, quantity: 1 });
-        }
-        toast({ title: 'Added to cart', description: `${product.name} has been added to your cart` });
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to add item to cart', variant: 'destructive' });
-    }
+    addToCart.mutate({ product, quantity: 1 });
   };
 
   const clearFilters = () => {

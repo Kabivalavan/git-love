@@ -11,87 +11,59 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Shimmer } from '@/components/ui/shimmer';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
+import { useCartQuery, useCartMutations, type CartItemWithProduct } from '@/hooks/useCartQuery';
+import { useCheckoutSettings } from '@/hooks/useProductQuery';
 import { cn } from '@/lib/utils';
-import type { CartItem, Product, Coupon, ProductVariant } from '@/types/database';
-
-interface CartItemWithProduct extends CartItem {
-  product: Product;
-  variant?: ProductVariant;
-  bundle_id?: string | null;
-  bundle_name?: string | null;
-}
+import type { Product, Coupon, ProductVariant } from '@/types/database';
 
 export default function CartPage() {
-  const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
-  const [checkoutSettings, setCheckoutSettings] = useState<{ free_shipping_threshold: number; default_shipping_charge: number }>({
-    free_shipping_threshold: 500,
-    default_shipping_charge: 50,
-  });
   const { toast } = useToast();
   const { user } = useAuth();
   const { getProductOffer, calculateCartDiscount } = useGlobalStore();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (user) {
-      fetchCart();
-      const savedCoupon = localStorage.getItem('applied_coupon');
-      if (savedCoupon) {
-        try {
-          const coupon = JSON.parse(savedCoupon) as Coupon;
-          if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
-            localStorage.removeItem('applied_coupon');
-          } else {
-            setAppliedCoupon(coupon);
-            setCouponCode(coupon.code);
-          }
-        } catch { localStorage.removeItem('applied_coupon'); }
-      }
-    } else {
-      setIsLoading(false);
-    }
-  }, [user]);
-
-  const fetchCart = async () => {
-    if (!user) return;
-    setIsLoading(true);
-    const [cartRes, settingsRes] = await Promise.all([
-      supabase.from('cart').select('id').eq('user_id', user.id).single(),
-      supabase.from('store_settings').select('value').eq('key', 'checkout').single(),
-    ]);
-    if (settingsRes.data?.value) {
-      const cs = settingsRes.data.value as any;
-      setCheckoutSettings({ free_shipping_threshold: cs.free_shipping_threshold ?? 500, default_shipping_charge: cs.default_shipping_charge ?? 50 });
-    }
-    if (cartRes.data) {
-      const { data: items } = await supabase
-        .from('cart_items')
-        .select('*, product:products(*, images:product_images(*)), variant:product_variants(*)')
-        .eq('cart_id', cartRes.data.id);
-      setCartItems((items || []) as CartItemWithProduct[]);
-    }
-    setIsLoading(false);
+  // Centralized cart query - no duplicate fetches
+  const { data: cartItems = [], isLoading } = useCartQuery();
+  const { updateQuantity: updateQtyMutation, removeItem: removeItemMutation } = useCartMutations();
+  const { data: checkoutSettingsData } = useCheckoutSettings();
+  const checkoutSettings = {
+    free_shipping_threshold: checkoutSettingsData?.free_shipping_threshold ?? 500,
+    default_shipping_charge: checkoutSettingsData?.default_shipping_charge ?? 50,
   };
+
+  // Restore saved coupon
+  useEffect(() => {
+    const savedCoupon = localStorage.getItem('applied_coupon');
+    if (savedCoupon) {
+      try {
+        const coupon = JSON.parse(savedCoupon) as Coupon;
+        if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
+          localStorage.removeItem('applied_coupon');
+        } else {
+          setAppliedCoupon(coupon);
+          setCouponCode(coupon.code);
+        }
+      } catch { localStorage.removeItem('applied_coupon'); }
+    }
+  }, []);
 
   const updateQuantity = async (itemId: string, newQuantity: number) => {
     if (newQuantity < 1) return;
     const item = cartItems.find(i => i.id === itemId);
-    if (!item || newQuantity > item.product.stock_quantity) {
+    if (!item || newQuantity > (item.product.stock_quantity ?? 0)) {
       toast({ title: 'Error', description: 'Not enough stock available', variant: 'destructive' });
       return;
     }
-    await supabase.from('cart_items').update({ quantity: newQuantity }).eq('id', itemId);
-    setCartItems(cartItems.map(i => i.id === itemId ? { ...i, quantity: newQuantity } : i));
+    updateQtyMutation.mutate({ itemId, quantity: newQuantity });
   };
 
   const removeItem = async (itemId: string) => {
-    await supabase.from('cart_items').delete().eq('id', itemId);
-    setCartItems(cartItems.filter(i => i.id !== itemId));
-    toast({ title: 'Removed', description: 'Item removed from cart' });
+    removeItemMutation.mutate(itemId, {
+      onSuccess: () => toast({ title: 'Removed', description: 'Item removed from cart' }),
+    });
   };
 
   const applyCoupon = async () => {
@@ -225,9 +197,8 @@ export default function CartPage() {
                       <p className="text-xs text-muted-foreground mt-1">{items.map(i => i.product.name).join(' + ')}</p>
                       <div className="flex items-center gap-3 mt-2">
                         <span className="font-bold">₹{bundleTotal.toFixed(0)}</span>
-                        <Button variant="ghost" size="sm" className="text-destructive text-xs h-7" onClick={async () => {
-                          for (const item of items) { await supabase.from('cart_items').delete().eq('id', item.id); }
-                          setCartItems(cartItems.filter(i => i.bundle_id !== bundleId));
+                        <Button variant="ghost" size="sm" className="text-destructive text-xs h-7" onClick={() => {
+                          for (const item of items) { removeItemMutation.mutate(item.id); }
                           toast({ title: 'Removed', description: 'Bundle removed from cart' });
                         }}>
                           <Trash2 className="h-3 w-3 mr-1" /> Remove

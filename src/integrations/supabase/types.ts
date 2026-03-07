@@ -1409,6 +1409,8 @@ export type Database = {
         Args: { p_order_id?: string; p_user_id: string }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       app_role: "admin" | "staff" | "customer"

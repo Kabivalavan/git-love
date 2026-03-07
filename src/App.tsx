@@ -54,8 +54,14 @@ const queryClient = new QueryClient({
       gcTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
-      retry: 3,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
+      // Deduplicate identical in-flight requests automatically (default behavior)
+      // structuralSharing keeps referential equality for unchanged data
+      structuralSharing: true,
+    },
+    mutations: {
+      retry: 1,
     },
   },
 });
