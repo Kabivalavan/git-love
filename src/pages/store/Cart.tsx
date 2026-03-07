@@ -11,15 +11,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Shimmer } from '@/components/ui/shimmer';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
+import { useCartQuery, useCartMutations, type CartItemWithProduct } from '@/hooks/useCartQuery';
+import { useCheckoutSettings } from '@/hooks/useProductQuery';
 import { cn } from '@/lib/utils';
-import type { CartItem, Product, Coupon, ProductVariant } from '@/types/database';
-
-interface CartItemWithProduct extends CartItem {
-  product: Product;
-  variant?: ProductVariant;
-  bundle_id?: string | null;
-  bundle_name?: string | null;
-}
+import type { Product, Coupon, ProductVariant } from '@/types/database';
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
