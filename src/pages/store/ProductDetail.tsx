@@ -160,28 +160,14 @@ export default function ProductDetailPage() {
       return;
     }
     setVariantError(false);
-    setIsAddingToCart(true);
-    try {
-      let { data: cart } = await supabase.from('cart').select('id').eq('user_id', user.id).single();
-      if (!cart) {
-        const { data: newCart } = await supabase.from('cart').insert({ user_id: user.id }).select().single();
-        cart = newCart;
+    addToCart.mutate(
+      { product, quantity, variantId: selectedVariant?.id || null },
+      {
+        onSuccess: () => {
+          trackEvent('add_to_cart', { product_id: product.id, metadata: { product_name: product.name, price: selectedVariant?.price || product.price, quantity, variant: selectedVariant?.name || null } });
+        },
       }
-      if (cart) {
-        const { data: existingItem } = await supabase
-          .from('cart_items').select('id, quantity')
-          .eq('cart_id', cart.id).eq('product_id', product.id)
-          .eq('variant_id', selectedVariant?.id || null).single();
-        if (existingItem) {
-          await supabase.from('cart_items').update({ quantity: existingItem.quantity + quantity }).eq('id', existingItem.id);
-        } else {
-          await supabase.from('cart_items').insert({ cart_id: cart.id, product_id: product.id, variant_id: selectedVariant?.id || null, quantity });
-        }
-        trackEvent('add_to_cart', { product_id: product.id, metadata: { product_name: product.name, price: selectedVariant?.price || product.price, quantity, variant: selectedVariant?.name || null } });
-        toast({ title: 'Added to cart', description: `${product.name} has been added to your cart` });
-      }
-    } catch { toast({ title: 'Error', description: 'Failed to add item to cart', variant: 'destructive' }); }
-    finally { setIsAddingToCart(false); }
+    );
   };
 
   const handleAddToWishlist = async () => {
@@ -197,7 +183,10 @@ export default function ProductDetailPage() {
     }
   };
 
-  const handleBuyNow = async () => { await handleAddToCart(); navigate('/cart'); };
+  const handleBuyNow = async () => {
+    await handleAddToCart();
+    navigate('/cart');
+  };
 
   const handleSubmitReview = async () => {
     if (!user || !product) { toast({ title: 'Please login', description: 'You need to login to submit a review' }); return; }
@@ -209,8 +198,7 @@ export default function ProductDetailPage() {
     else {
       toast({ title: 'Review submitted', description: 'Thank you for your feedback!' });
       setReviewForm({ rating: 5, title: '', comment: '' });
-      const { data } = await supabase.from('reviews').select('*, profile:profiles(full_name)').eq('product_id', product.id).eq('is_approved', true).order('created_at', { ascending: false }).limit(50);
-      setReviews((data || []) as unknown as Review[]);
+      queryClient.invalidateQueries({ queryKey: ['product-reviews', product.id] });
     }
     setIsSubmittingReview(false);
   };
