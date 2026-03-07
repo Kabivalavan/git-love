@@ -199,8 +199,10 @@ export default function CartPage() {
                         <span className="font-bold">₹{bundleTotal.toFixed(0)}</span>
                         <Button variant="ghost" size="sm" className="text-destructive text-xs h-7" onClick={async () => {
                           for (const item of items) { await supabase.from('cart_items').delete().eq('id', item.id); }
-                          setCartItems(cartItems.filter(i => i.bundle_id !== bundleId));
+                          const { invalidateCart } = useCartMutations();
+                          invalidateCart();
                           toast({ title: 'Removed', description: 'Bundle removed from cart' });
+                        }}>
                         }}>
                           <Trash2 className="h-3 w-3 mr-1" /> Remove
                         </Button>
