@@ -2,36 +2,20 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { useGlobalStore } from '@/hooks/useGlobalStore';
+import { useCartMutations } from '@/hooks/useCartQuery';
 import type { Product } from '@/types/database';
 
 export function useHomeAddToCart() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { addToCart } = useCartMutations();
 
   const handleAddToCart = async (product: Product) => {
     if (!user) {
       toast({ title: 'Please login', description: 'You need to login to add items to cart' });
       return;
     }
-    try {
-      let { data: cart } = await supabase.from('cart').select('id').eq('user_id', user.id).single();
-      if (!cart) {
-        const { data: newCart } = await supabase.from('cart').insert({ user_id: user.id }).select().single();
-        cart = newCart;
-      }
-      if (cart) {
-        const { data: existingItem } = await supabase.from('cart_items').select('id, quantity').eq('cart_id', cart.id).eq('product_id', product.id).single();
-        if (existingItem) {
-          await supabase.from('cart_items').update({ quantity: existingItem.quantity + 1 }).eq('id', existingItem.id);
-        } else {
-          await supabase.from('cart_items').insert({ cart_id: cart.id, product_id: product.id, quantity: 1 });
-        }
-        toast({ title: 'Added to cart', description: `${product.name} has been added to your cart` });
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to add item to cart', variant: 'destructive' });
-    }
+    addToCart.mutate({ product, quantity: 1 });
   };
 
   const handleAddToWishlist = async (product: Product) => {
