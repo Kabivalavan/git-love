@@ -197,10 +197,9 @@ export default function CartPage() {
                       <p className="text-xs text-muted-foreground mt-1">{items.map(i => i.product.name).join(' + ')}</p>
                       <div className="flex items-center gap-3 mt-2">
                         <span className="font-bold">₹{bundleTotal.toFixed(0)}</span>
-                        <Button variant="ghost" size="sm" className="text-destructive text-xs h-7" onClick={async () => {
+                        <Button variant="ghost" size="sm" className="text-destructive text-xs h-7" onClick={() => {
                           for (const item of items) { removeItemMutation.mutate(item.id); }
                           toast({ title: 'Removed', description: 'Bundle removed from cart' });
-                        }}>
                         }}>
                           <Trash2 className="h-3 w-3 mr-1" /> Remove
                         </Button>
