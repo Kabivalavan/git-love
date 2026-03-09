@@ -1,19 +1,21 @@
+import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 interface ShimmerProps {
   className?: string;
 }
 
-export function Shimmer({ className }: ShimmerProps) {
-  return (
-    <div
-      className={cn(
-        "animate-pulse rounded-md bg-muted",
-        className
-      )}
-    />
-  );
-}
+export const Shimmer = forwardRef<HTMLDivElement, ShimmerProps>(
+  ({ className }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn("animate-pulse rounded-md bg-muted", className)}
+      />
+    );
+  }
+);
+Shimmer.displayName = "Shimmer";
 
 export function ShimmerText({ className }: ShimmerProps) {
   return <Shimmer className={cn("h-4 w-full", className)} />;
@@ -32,13 +34,11 @@ export function ShimmerCard({ className }: ShimmerProps) {
 export function ShimmerTable({ rows = 5, columns = 4 }: { rows?: number; columns?: number }) {
   return (
     <div className="space-y-3">
-      {/* Header */}
       <div className="flex gap-4 p-4 border-b">
         {Array.from({ length: columns }).map((_, i) => (
           <Shimmer key={i} className="h-4 flex-1" />
         ))}
       </div>
-      {/* Rows */}
       {Array.from({ length: rows }).map((_, rowIndex) => (
         <div key={rowIndex} className="flex gap-4 p-4 border-b">
           {Array.from({ length: columns }).map((_, colIndex) => (
