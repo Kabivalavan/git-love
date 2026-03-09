@@ -49,7 +49,7 @@ export function useProductReviews(productId: string | undefined) {
     queryFn: async () => {
       const { data } = await supabase
         .from('reviews')
-        .select('*, profile:profiles(full_name)')
+        .select('*')
         .eq('product_id', productId!)
         .eq('is_approved', true)
         .order('created_at', { ascending: false })
