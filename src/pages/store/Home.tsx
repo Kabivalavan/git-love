@@ -4,8 +4,7 @@ import { ChevronLeft, ChevronRight, X, ChevronRight as ArrowRight } from 'lucide
 import { AnimatePresence, motion } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/hooks/useAuth';
+import { Shimmer } from '@/components/ui/shimmer';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { SEOHead } from '@/components/seo/SEOHead';
 import HomeBestsellers from '@/components/home/HomeBestsellers';
@@ -14,30 +13,36 @@ import HomeFeatured from '@/components/home/HomeFeatured';
 import HomeBundles from '@/components/home/HomeBundles';
 import HomeNewArrivals from '@/components/home/HomeNewArrivals';
 
-function FullPageShimmer() {
+function HeroBannerShimmer() {
   return (
-    <StorefrontLayout>
-      <div className="min-h-screen">
-        <Skeleton className="w-full aspect-[2/1] lg:aspect-[3/1] rounded-none" />
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex gap-4 overflow-hidden">
-            {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="flex flex-col items-center gap-2 flex-shrink-0">
-                <Skeleton className="w-16 h-16 rounded-full" />
-                <Skeleton className="w-14 h-3" />
-              </div>
-            ))}
-          </div>
-        </div>
+    <div className="relative">
+      <Shimmer className="w-full aspect-[2/1] sm:aspect-[2.5/1] lg:aspect-[3/1] rounded-none" />
+    </div>
+  );
+}
+
+function CategoryShimmer() {
+  return (
+    <section className="container mx-auto px-4 py-6 md:py-10">
+      <div className="flex items-center justify-between mb-5">
+        <Shimmer className="h-7 w-56" />
+        <Shimmer className="h-5 w-20" />
       </div>
-    </StorefrontLayout>
+      <div className="flex gap-5 md:gap-8 overflow-hidden pb-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex flex-col items-center gap-2 flex-shrink-0">
+            <Shimmer className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full" />
+            <Shimmer className="w-14 h-3" />
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
 export default function HomePage() {
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showPopup, setShowPopup] = useState(false);
-  const { isLoading: isAuthLoading } = useAuth();
   const { categories, banners, middleBanners, popupBanner, isLoading: isGlobalLoading } = useGlobalStore();
 
   useEffect(() => {
@@ -59,8 +64,7 @@ export default function HomePage() {
     }
   }, [popupBanner]);
 
-  if (isGlobalLoading && isAuthLoading) return <FullPageShimmer />;
-
+  // Render the full page shell immediately — sections show their own shimmers
   return (
     <StorefrontLayout>
       <SEOHead
@@ -75,8 +79,10 @@ export default function HomePage() {
         }}
       />
 
-      {/* Hero Banner Carousel */}
-      {banners.length > 0 && (
+      {/* Hero Banner — shimmer while loading, instant swap when ready */}
+      {isGlobalLoading ? (
+        <HeroBannerShimmer />
+      ) : banners.length > 0 ? (
         <section className="relative">
           <div className="relative overflow-hidden aspect-[2/1] sm:aspect-[2.5/1] lg:aspect-[3/1]">
             {banners.map((banner, index) => {
@@ -123,10 +129,12 @@ export default function HomePage() {
             </>
           )}
         </section>
-      )}
+      ) : null}
 
-      {/* Explore Popular Categories - circular icons like Cartsy */}
-      {categories.length > 0 && (
+      {/* Categories — shimmer while loading */}
+      {isGlobalLoading ? (
+        <CategoryShimmer />
+      ) : categories.length > 0 ? (
         <section className="container mx-auto px-4 py-6 md:py-10">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg md:text-2xl font-bold text-foreground">Explore Popular Categories</h2>
@@ -151,9 +159,9 @@ export default function HomePage() {
             ))}
           </div>
         </section>
-      )}
+      ) : null}
 
-      {/* Product sections */}
+      {/* Product sections — each renders its own shimmer independently */}
       <HomeBestsellers />
       <HomeMiddleBanners middleBanners={middleBanners} />
       <HomeFeatured />

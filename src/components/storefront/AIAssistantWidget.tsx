@@ -1,296 +1,573 @@
-import { useEffect } from 'react';
-import { useGlobalStore } from '@/hooks/useGlobalStore';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { X, Send, Sparkles, ChevronRight, Star, ShoppingCart, RotateCcw } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
+
+interface AIConfig {
+  enabled: boolean;
+  site_id: string;
+  api_base: string;
+  secret_key?: string;
+  button_text?: string;
+}
+
+interface Question {
+  id: string;
+  questionText: string;
+  options: string[];
+  inputType: 'single_select' | 'multi_select';
+}
+
+interface Recommendation {
+  name: string;
+  description?: string;
+  explanation?: string;
+  matchScore: number;
+  productUrl?: string;
+  imageUrl?: string;
+  price?: number;
+}
+
+type MessageType =
+  | { role: 'assistant'; type: 'greeting'; text: string }
+  | { role: 'assistant'; type: 'question'; question: Question; stepIndex: number; totalSteps: number }
+  | { role: 'user'; type: 'answer'; text: string }
+  | { role: 'assistant'; type: 'thinking'; text: string }
+  | { role: 'assistant'; type: 'recommendations'; recs: Recommendation[] }
+  | { role: 'assistant'; type: 'error'; text: string };
+
+function getVisitorId() {
+  let id = localStorage.getItem('ai_visitor_id');
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem('ai_visitor_id', id);
+  }
+  return id;
+}
+
+function detectSurface() {
+  const path = location.pathname;
+  if (path.match(/\/products?\/[^/]+/i)) {
+    return { surface: 'product_page', slug: path.split('/').pop() || null };
+  }
+  return { surface: 'home', slug: null };
+}
 
 export function AIAssistantWidget() {
-  const { storeInfo } = useGlobalStore();
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<MessageType[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string[]>>({});
+  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  const [sessionStarted, setSessionStarted] = useState(false);
+  const [localSessionId, setLocalSessionId] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
 
-  useEffect(() => {
-    let script: HTMLScriptElement | null = null;
-    let cleanup = false;
-
-    async function loadWidget() {
-      const { supabase } = await import('@/integrations/supabase/client');
+  const { data: config } = useQuery({
+    queryKey: ['ai-assistant-config'],
+    queryFn: async () => {
       const { data } = await supabase
         .from('store_settings')
         .select('value')
         .eq('key', 'ai_assistant')
         .single();
+      return (data?.value as unknown as AIConfig) || null;
+    },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
-      if (cleanup) return;
-      const config = data?.value as any;
-      if (!config?.enabled || !config?.site_id || !config?.api_base) return;
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  }, []);
 
-      // Get current user for session tracking
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id || '';
-      const userEmail = session?.user?.email || '';
+  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
-      // Get or create visitor ID
-      let visitorId = localStorage.getItem('ai_visitor_id');
-      if (!visitorId) {
-        visitorId = crypto.randomUUID();
-        localStorage.setItem('ai_visitor_id', visitorId);
-      }
-
+  const saveSession = useCallback(async (payload: Record<string, any>) => {
+    try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      script = document.createElement('script');
-      script.id = 'ai-assistant-widget';
-      script.textContent = `
-(function() {
-  if (document.getElementById('ai-assistant-btn')) return;
-  var SITE_ID = '${config.site_id}';
-  var API_BASE = '${config.api_base}';
-  var BTN_TEXT = '${(config.button_text || '✨ Need help choosing?').replace(/'/g, "\\'")}';
-  var SUPABASE_URL = '${supabaseUrl}';
-  var SUPABASE_KEY = '${supabaseKey}';
-  var USER_ID = '${userId}';
-  var USER_EMAIL = '${userEmail}';
-  var VISITOR_ID = '${visitorId}';
-
-  var style = document.createElement('style');
-  style.textContent = \`
-    #ai-assistant-btn { position:fixed; bottom:80px; right:24px; z-index:9998;
-      background:linear-gradient(135deg,hsl(var(--primary)),hsl(var(--primary)/0.8)); color:hsl(var(--primary-foreground));
-      border:none; border-radius:50px; padding:14px 24px; font-size:15px;
-      font-weight:600; cursor:pointer; box-shadow:0 8px 32px rgba(0,0,0,.2);
-      font-family:system-ui,-apple-system,sans-serif; transition:transform .2s; }
-    #ai-assistant-btn:hover { transform:scale(1.05); }
-    @media(min-width:1024px) { #ai-assistant-btn { bottom:24px; } }
-    #ai-assistant-panel { display:none; position:fixed; bottom:80px; right:24px;
-      z-index:9998; width:380px; max-width:calc(100vw - 32px); max-height:80vh;
-      background:hsl(var(--card)); color:hsl(var(--card-foreground));
-      border-radius:24px; box-shadow:0 20px 60px rgba(0,0,0,.15);
-      font-family:system-ui,-apple-system,sans-serif; overflow:hidden; }
-    @media(min-width:1024px) { #ai-assistant-panel { bottom:24px; } }
-    #ai-assistant-panel.open { display:flex; flex-direction:column; }
-    .ai-header { padding:20px; border-bottom:1px solid hsl(var(--border)); flex-shrink:0; }
-    .ai-header h3 { margin:0; font-size:18px; }
-    .ai-body { padding:20px; overflow-y:auto; flex:1; }
-    .ai-option { display:block; width:100%; padding:12px 16px; margin:6px 0;
-      border:1px solid hsl(var(--border)); border-radius:12px; background:hsl(var(--muted));
-      cursor:pointer; text-align:left; font-size:14px; color:hsl(var(--foreground)); }
-    .ai-option:hover { border-color:hsl(var(--primary)); background:hsl(var(--primary)/0.05); }
-    .ai-option.selected { border-color:hsl(var(--primary)); background:hsl(var(--primary)/0.1); }
-    .ai-next-btn { width:100%; padding:14px; margin-top:12px;
-      background:linear-gradient(135deg,hsl(var(--primary)),hsl(var(--primary)/0.8)); color:hsl(var(--primary-foreground));
-      border:none; border-radius:14px; font-size:15px; font-weight:600; cursor:pointer; }
-    .ai-next-btn:disabled { opacity:.5; cursor:not-allowed; }
-    .ai-rec-card { padding:16px; margin:8px 0; border:1px solid hsl(var(--border));
-      border-radius:16px; background:hsl(var(--muted)); }
-    .ai-score { background:hsl(var(--primary)/0.1); color:hsl(var(--primary)); padding:4px 10px;
-      border-radius:20px; font-size:12px; font-weight:700; }
-  \`;
-  document.head.appendChild(style);
-
-  var btn = document.createElement('button');
-  btn.id = 'ai-assistant-btn';
-  btn.textContent = BTN_TEXT;
-  document.body.appendChild(btn);
-
-  var panel = document.createElement('div');
-  panel.id = 'ai-assistant-panel';
-  document.body.appendChild(panel);
-
-  var state = { questions:[], step:0, answers:{}, recs:[], localSessionId:null };
-
-  // Save session to Supabase
-  function saveSession(payload) {
-    try {
-      fetch(SUPABASE_URL + '/rest/v1/ai_assistant_sessions', {
+      const res = await fetch(`${supabaseUrl}/rest/v1/ai_assistant_sessions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': SUPABASE_KEY,
-          'Authorization': 'Bearer ' + SUPABASE_KEY,
-          'Prefer': 'return=representation'
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Prefer': 'return=representation',
         },
-        body: JSON.stringify(payload)
-      }).then(function(r) { return r.json(); })
-       .then(function(data) {
-         if (data && data[0]) state.localSessionId = data[0].id;
-       });
-    } catch(e) { console.error('AI session save error', e); }
-  }
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data?.[0]?.id) setLocalSessionId(data[0].id);
+    } catch (e) { console.error('AI session save error', e); }
+  }, []);
 
-  function updateSession(payload) {
-    if (!state.localSessionId) return;
+  const updateSession = useCallback(async (payload: Record<string, any>) => {
+    if (!localSessionId) return;
     try {
-      fetch(SUPABASE_URL + '/rest/v1/ai_assistant_sessions?id=eq.' + state.localSessionId, {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      await fetch(`${supabaseUrl}/rest/v1/ai_assistant_sessions?id=eq.${localSessionId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': SUPABASE_KEY,
-          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
-    } catch(e) { console.error('AI session update error', e); }
-  }
+    } catch (e) { console.error('AI session update error', e); }
+  }, [localSessionId]);
 
-  btn.onclick = async function() {
-    btn.style.display = 'none';
-    panel.classList.add('open');
-    panel.innerHTML = '<div class="ai-body" style="text-align:center;padding:40px"><p>Loading...</p></div>';
-    var surface = detectSurface();
+  const startSession = useCallback(async () => {
+    if (!config?.enabled || !config?.site_id || !config?.api_base) return;
 
-    // Create local session record
-    var sessionId = crypto.randomUUID();
+    setSessionStarted(true);
+    setMessages([
+      { role: 'assistant', type: 'greeting', text: "Hi there! 👋 I'm your shopping assistant. Let me help you find the perfect product." },
+      { role: 'assistant', type: 'thinking', text: 'Loading questions...' },
+    ]);
+
+    const surface = detectSurface();
+    const visitorId = getVisitorId();
+    const sessionId = crypto.randomUUID();
+
     saveSession({
       session_id: sessionId,
-      user_id: USER_ID || null,
-      visitor_id: VISITOR_ID,
+      user_id: user?.id || null,
+      visitor_id: visitorId,
       surface: surface.surface,
       pathname: location.pathname,
       product_slug: surface.slug || null,
-      started_at: new Date().toISOString()
+      started_at: new Date().toISOString(),
     });
 
     try {
-      var res = await fetch(API_BASE + '/widget-config', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','x-site-id':SITE_ID},
-        body:JSON.stringify({
-          surface:surface.surface,
-          pathname:location.pathname,
-          productSlug:surface.slug,
-          userId: USER_ID || undefined,
-          userEmail: USER_EMAIL || undefined,
-          visitorId: VISITOR_ID
-        })
+      const res = await fetch(`${config.api_base}/widget-config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-site-id': config.site_id },
+        body: JSON.stringify({
+          surface: surface.surface,
+          pathname: location.pathname,
+          productSlug: surface.slug,
+          userId: user?.id,
+          visitorId,
+        }),
       });
-      var data = await res.json();
-      state.questions = data.questions || [];
-      state.step = 0;
-      state.answers = {};
+      const data = await res.json();
+      const q = (data.questions || []) as Question[];
+      setQuestions(q);
+      setCurrentStep(0);
+      setAnswers({});
 
-      // Save questions to local session
-      updateSession({ questions: state.questions });
+      updateSession({ questions: q });
 
-      renderQuestion();
-    } catch(e) {
-      panel.innerHTML = '<div class="ai-body" style="text-align:center;padding:40px"><p>Failed to load. Please try again.</p><button class="ai-next-btn" onclick="document.getElementById(\\'ai-assistant-panel\\').classList.remove(\\'open\\');document.getElementById(\\'ai-assistant-btn\\').style.display=\\'block\\'">Close</button></div>';
+      // Remove thinking message and show first question
+      setMessages(prev => [
+        prev[0], // greeting
+        ...(q.length > 0
+          ? [{ role: 'assistant' as const, type: 'question' as const, question: q[0], stepIndex: 0, totalSteps: q.length }]
+          : [{ role: 'assistant' as const, type: 'error' as const, text: 'No questions available right now.' }]),
+      ]);
+    } catch {
+      setMessages(prev => [
+        prev[0],
+        { role: 'assistant', type: 'error', text: 'Failed to load. Please try again.' },
+      ]);
+    }
+  }, [config, user, saveSession, updateSession]);
+
+  const handleOptionSelect = (option: string, inputType: string) => {
+    if (inputType === 'single_select') {
+      setSelectedOptions([option]);
+    } else {
+      setSelectedOptions(prev =>
+        prev.includes(option) ? prev.filter(o => o !== option) : [...prev, option]
+      );
     }
   };
 
-  function detectSurface() {
-    var path = location.pathname;
-    if (path.match(/\\/products?\\/[^/]+/i)) {
-      var slug = path.split('/').pop();
-      return { surface:'product_page', slug:slug };
+  const handleContinue = useCallback(async () => {
+    if (selectedOptions.length === 0 || currentStep >= questions.length) return;
+
+    const q = questions[currentStep];
+    const newAnswers = { ...answers, [q.id]: selectedOptions };
+    setAnswers(newAnswers);
+
+    // Add user answer as a message
+    setMessages(prev => [
+      ...prev,
+      { role: 'user', type: 'answer', text: selectedOptions.join(', ') },
+    ]);
+    setSelectedOptions([]);
+
+    updateSession({ answers: newAnswers });
+
+    const nextStep = currentStep + 1;
+    setCurrentStep(nextStep);
+
+    if (nextStep < questions.length) {
+      // Show next question
+      setTimeout(() => {
+        setMessages(prev => [
+          ...prev,
+          { role: 'assistant', type: 'question', question: questions[nextStep], stepIndex: nextStep, totalSteps: questions.length },
+        ]);
+      }, 400);
+    } else {
+      // Submit answers
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', type: 'thinking', text: 'Analyzing your preferences...' },
+      ]);
+
+      try {
+        const surface = detectSurface();
+        const res = await fetch(`${config!.api_base}/widget-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-site-id': config!.site_id },
+          body: JSON.stringify({
+            surface: surface.surface,
+            pathname: location.pathname,
+            productSlug: surface.slug,
+            answers: newAnswers,
+            userId: user?.id,
+            visitorId: getVisitorId(),
+          }),
+        });
+        const data = await res.json();
+        const recs = (data.recommendations || []) as Recommendation[];
+
+        updateSession({
+          recommendations: recs,
+          recommendation_count: recs.length,
+          completed_at: new Date().toISOString(),
+        });
+
+        setTimeout(() => {
+          setMessages(prev => [
+            ...prev.filter(m => m.type !== 'thinking'),
+            { role: 'assistant', type: 'recommendations', recs },
+          ]);
+        }, 800);
+      } catch {
+        setMessages(prev => [
+          ...prev.filter(m => m.type !== 'thinking'),
+          { role: 'assistant', type: 'error', text: 'Something went wrong. Please try again.' },
+        ]);
+      }
     }
-    return { surface:'home', slug:null };
+  }, [selectedOptions, currentStep, questions, answers, config, user, updateSession]);
+
+  const handleRestart = () => {
+    setMessages([]);
+    setQuestions([]);
+    setCurrentStep(0);
+    setAnswers({});
+    setSelectedOptions([]);
+    setSessionStarted(false);
+    setLocalSessionId(null);
+  };
+
+  const handleProductClick = (url: string) => {
+    updateSession({ clicked_product_url: url });
+  };
+
+  if (!config?.enabled) return null;
+
+  return (
+    <>
+      {/* Floating trigger button — Rufus style pill */}
+      <AnimatePresence>
+        {!isOpen && (
+          <motion.button
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            onClick={() => {
+              setIsOpen(true);
+              if (!sessionStarted) startSession();
+            }}
+            className={cn(
+              "fixed z-[9998] flex items-center gap-2 px-5 py-3 rounded-full",
+              "bg-gradient-to-r from-amber-500 to-orange-500 text-white",
+              "shadow-[0_8px_30px_rgba(245,158,11,0.4)] hover:shadow-[0_8px_40px_rgba(245,158,11,0.5)]",
+              "transition-all duration-300 hover:scale-105",
+              "font-semibold text-sm",
+              "bottom-20 right-4 lg:bottom-6 lg:right-6"
+            )}
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>{config.button_text || 'Ask AI'}</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Chat panel — Rufus-style bottom-right */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className={cn(
+              "fixed z-[9999] flex flex-col",
+              "bg-card border border-border rounded-2xl shadow-2xl overflow-hidden",
+              "bottom-20 right-4 lg:bottom-6 lg:right-6",
+              "w-[360px] max-w-[calc(100vw-32px)] h-[520px] max-h-[calc(100vh-120px)]"
+            )}
+          >
+            {/* Header — gradient like Rufus */}
+            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm leading-tight">Shopping Assistant</h3>
+                  <p className="text-[10px] text-white/80">Powered by AI</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                {sessionStarted && (
+                  <button
+                    onClick={handleRestart}
+                    className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
+                    title="Start over"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Messages area */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-muted/30">
+              {messages.map((msg, i) => (
+                <MessageBubble
+                  key={i}
+                  message={msg}
+                  selectedOptions={i === messages.length - 1 && msg.type === 'question' ? selectedOptions : undefined}
+                  onOptionSelect={i === messages.length - 1 && msg.type === 'question' ? handleOptionSelect : undefined}
+                  onContinue={i === messages.length - 1 && msg.type === 'question' ? handleContinue : undefined}
+                  onProductClick={handleProductClick}
+                />
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+interface MessageBubbleProps {
+  message: MessageType;
+  selectedOptions?: string[];
+  onOptionSelect?: (option: string, inputType: string) => void;
+  onContinue?: () => void;
+  onProductClick?: (url: string) => void;
+}
+
+function MessageBubble({ message, selectedOptions, onOptionSelect, onContinue, onProductClick }: MessageBubbleProps) {
+  if (message.role === 'user') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="flex justify-end"
+      >
+        <div className="bg-primary text-primary-foreground px-4 py-2.5 rounded-2xl rounded-br-md max-w-[85%] text-sm">
+          {message.text}
+        </div>
+      </motion.div>
+    );
   }
 
-  function renderQuestion() {
-    var q = state.questions[state.step];
-    if (!q) return;
-    var html = '<div class="ai-header"><p style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:hsl(var(--muted-foreground));margin:0">Step '+(state.step+1)+' of '+state.questions.length+'</p><h3>'+q.questionText+'</h3></div><div class="ai-body">';
-    q.options.forEach(function(opt) {
-      html += '<button class="ai-option" data-opt="'+opt+'">'+opt+'</button>';
-    });
-    html += '<button class="ai-next-btn" disabled id="ai-next">Continue</button></div>';
-    panel.innerHTML = html;
-
-    var selected = [];
-    panel.querySelectorAll('.ai-option').forEach(function(el) {
-      el.onclick = function() {
-        if (q.inputType === 'single_select') {
-          panel.querySelectorAll('.ai-option').forEach(function(o){o.classList.remove('selected')});
-          el.classList.add('selected');
-          selected = [el.dataset.opt];
-        } else {
-          el.classList.toggle('selected');
-          selected = Array.from(panel.querySelectorAll('.ai-option.selected')).map(function(o){return o.dataset.opt});
-        }
-        document.getElementById('ai-next').disabled = selected.length === 0;
-      };
-    });
-
-    document.getElementById('ai-next').onclick = function() {
-      state.answers[q.id] = selected;
-      state.step++;
-
-      // Update answers in local session after each step
-      updateSession({ answers: state.answers });
-
-      if (state.step < state.questions.length) renderQuestion();
-      else submitAnswers();
-    };
+  if (message.type === 'greeting') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="flex justify-start"
+      >
+        <div className="bg-card border border-border px-4 py-2.5 rounded-2xl rounded-bl-md max-w-[85%] text-sm text-foreground shadow-sm">
+          {message.text}
+        </div>
+      </motion.div>
+    );
   }
 
-  async function submitAnswers() {
-    panel.innerHTML = '<div class="ai-body" style="text-align:center;padding:40px"><p>Analyzing your preferences...</p></div>';
-    var surface = detectSurface();
-    var res = await fetch(API_BASE + '/widget-session', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-site-id':SITE_ID},
-      body:JSON.stringify({
-        surface:surface.surface,
-        pathname:location.pathname,
-        productSlug:surface.slug,
-        answers:state.answers,
-        userId: USER_ID || undefined,
-        userEmail: USER_EMAIL || undefined,
-        visitorId: VISITOR_ID
-      })
-    });
-    var data = await res.json();
-    var recs = data.recommendations || [];
-
-    // Save recommendations and completion to local session
-    updateSession({
-      recommendations: recs,
-      recommendation_count: recs.length,
-      completed_at: new Date().toISOString()
-    });
-
-    renderRecommendations(recs, data.sessionId);
+  if (message.type === 'thinking') {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex justify-start"
+      >
+        <div className="bg-card border border-border px-4 py-3 rounded-2xl rounded-bl-md shadow-sm">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex gap-1">
+              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+            {message.text}
+          </div>
+        </div>
+      </motion.div>
+    );
   }
 
-  function renderRecommendations(recs, sessionId) {
-    var html = '<div class="ai-header"><p style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:hsl(var(--muted-foreground));margin:0">Results</p><h3>Your best matches</h3></div><div class="ai-body">';
-    recs.forEach(function(r, idx) {
-      html += '<div class="ai-rec-card"><div style="display:flex;justify-content:space-between;align-items:start"><div><strong>'+r.name+'</strong><p style="font-size:13px;color:hsl(var(--muted-foreground));margin:4px 0">'+(r.explanation||r.description||'Recommended for you')+'</p></div><span class="ai-score">'+r.matchScore+'%</span></div>';
-      if (r.productUrl) html += '<a href="'+r.productUrl+'" data-rec-idx="'+idx+'" class="ai-rec-link" style="color:hsl(var(--primary));font-size:13px;font-weight:600;text-decoration:none">View product →</a>';
-      html += '</div>';
-    });
-    html += '<button class="ai-next-btn" id="ai-close" style="background:hsl(var(--muted));color:hsl(var(--foreground));margin-top:16px">Close</button></div>';
-    panel.innerHTML = html;
-
-    // Track recommendation clicks
-    panel.querySelectorAll('.ai-rec-link').forEach(function(link) {
-      link.addEventListener('click', function() {
-        updateSession({ clicked_product_url: link.getAttribute('href') });
-      });
-    });
-
-    document.getElementById('ai-close').onclick = function() {
-      panel.classList.remove('open');
-      btn.style.display = 'block';
-    };
-
-    fetch(API_BASE + '/widget-event', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-site-id':SITE_ID},
-      body:JSON.stringify({ eventType:'recommendation_viewed', sessionId:sessionId, payload:{count:recs.length, userId: USER_ID, visitorId: VISITOR_ID} })
-    });
+  if (message.type === 'error') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="flex justify-start"
+      >
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-2.5 rounded-2xl rounded-bl-md max-w-[85%] text-sm">
+          {message.text}
+        </div>
+      </motion.div>
+    );
   }
-})();
-      `;
-      document.body.appendChild(script);
-    }
 
-    loadWidget();
+  if (message.type === 'question') {
+    const q = message.question;
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="space-y-2"
+      >
+        {/* Question bubble */}
+        <div className="flex justify-start">
+          <div className="bg-card border border-border px-4 py-2.5 rounded-2xl rounded-bl-md max-w-[90%] shadow-sm">
+            <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider mb-1">
+              Step {message.stepIndex + 1} of {message.totalSteps}
+            </p>
+            <p className="text-sm font-medium text-foreground">{q.questionText}</p>
+          </div>
+        </div>
 
-    return () => {
-      cleanup = true;
-      document.getElementById('ai-assistant-btn')?.remove();
-      document.getElementById('ai-assistant-panel')?.remove();
-      document.getElementById('ai-assistant-widget')?.remove();
-    };
-  }, []);
+        {/* Options as chips */}
+        <div className="flex flex-wrap gap-1.5 pl-1">
+          {q.options.map((opt) => {
+            const isSelected = selectedOptions?.includes(opt);
+            return (
+              <button
+                key={opt}
+                onClick={() => onOptionSelect?.(opt, q.inputType)}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-200",
+                  isSelected
+                    ? "bg-amber-500 text-white border-amber-500 shadow-sm"
+                    : "bg-card text-foreground border-border hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                )}
+              >
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Continue button */}
+        {onContinue && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={onContinue}
+            disabled={!selectedOptions || selectedOptions.length === 0}
+            className={cn(
+              "w-full py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2",
+              selectedOptions && selectedOptions.length > 0
+                ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md hover:shadow-lg"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            )}
+          >
+            Continue <ChevronRight className="h-4 w-4" />
+          </motion.button>
+        )}
+      </motion.div>
+    );
+  }
+
+  if (message.type === 'recommendations') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-2"
+      >
+        <div className="flex justify-start">
+          <div className="bg-card border border-border px-4 py-2.5 rounded-2xl rounded-bl-md shadow-sm">
+            <p className="text-sm font-medium text-foreground">
+              ✨ Here are your best matches!
+            </p>
+          </div>
+        </div>
+
+        {message.recs.map((rec, idx) => (
+          <motion.div
+            key={idx}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.15 }}
+          >
+            <div className="bg-card border border-border rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-foreground leading-tight">{rec.name}</p>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                    {rec.explanation || rec.description || 'Recommended for you'}
+                  </p>
+                  {rec.price && (
+                    <p className="text-sm font-bold text-foreground mt-1.5">₹{rec.price}</p>
+                  )}
+                </div>
+                <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                  <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-2.5 py-1 rounded-full">
+                    <span className="text-xs font-bold">{rec.matchScore}%</span>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className={cn("h-2.5 w-2.5", i < Math.round(rec.matchScore / 20) ? "text-amber-400 fill-amber-400" : "text-muted")} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {rec.productUrl && (
+                <a
+                  href={rec.productUrl}
+                  onClick={() => onProductClick?.(rec.productUrl!)}
+                  className="mt-2 flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
+                >
+                  <ShoppingCart className="h-3 w-3" />
+                  View Product
+                  <ChevronRight className="h-3 w-3" />
+                </a>
+              )}
+            </div>
+          </motion.div>
+        ))}
+      </motion.div>
+    );
+  }
 
   return null;
 }

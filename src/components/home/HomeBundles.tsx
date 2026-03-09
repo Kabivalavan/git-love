@@ -1,12 +1,37 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Shimmer } from '@/components/ui/shimmer';
 import { useBundles } from './useHomeProducts';
+
+function BundleShimmer() {
+  return (
+    <section className="container mx-auto px-4 py-6 md:py-10">
+      <div className="flex items-center justify-between mb-5">
+        <Shimmer className="h-7 w-36" />
+        <Shimmer className="h-5 w-20" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="rounded-xl border bg-card overflow-hidden">
+            <Shimmer className="aspect-[2/1] w-full rounded-none" />
+            <div className="p-4 space-y-2">
+              <Shimmer className="h-5 w-2/3" />
+              <Shimmer className="h-3 w-full" />
+              <Shimmer className="h-6 w-24" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export default function HomeBundles() {
   const { data: bundles = [], isLoading } = useBundles();
 
-  if (isLoading || bundles.length === 0) return null;
+  if (isLoading) return <BundleShimmer />;
+  if (bundles.length === 0) return null;
 
   return (
     <section className="container mx-auto px-4 py-6 md:py-10">

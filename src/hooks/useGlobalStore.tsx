@@ -1,7 +1,6 @@
 import { createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import type { Category, Offer, Product, Banner } from '@/types/database';
 
 interface StoreInfo {
@@ -50,18 +49,16 @@ const fetchGlobalData = async () => {
 };
 
 export function GlobalStoreProvider({ children }: { children: ReactNode }) {
-  const { isLoading: isAuthLoading } = useAuth();
-
+  // No auth-gating — fire immediately on mount for instant load
   const { data, isLoading } = useQuery({
     queryKey: ['global-store-data'],
     queryFn: fetchGlobalData,
-    staleTime: 10 * 60 * 1000, // 10 minutes - global data rarely changes
-    gcTime: 30 * 60 * 1000,    // 30 minutes cache
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
-    retry: 3,
-    enabled: !isAuthLoading,
+    retry: 2,
   });
 
   const categories = useMemo(() => (data?.categories || []) as Category[], [data?.categories]);
