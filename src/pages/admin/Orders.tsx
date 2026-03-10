@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import {
   ArrowLeft, Package, Truck, MapPin, CreditCard, Loader2, Download, Search, MessageCircle
 } from 'lucide-react';
@@ -61,6 +62,7 @@ export default function AdminOrders() {
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
   const [customerPhone, setCustomerPhone] = useState('');
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   const fetchOrdersFn = useCallback(async (from: number, to: number) => {
     const { data, error, count } = await supabase
@@ -253,6 +255,7 @@ export default function AdminOrders() {
       if (newStatus === 'cancelled' || newStatus === 'returned') {
         await supabase.rpc('release_stock_hold', { p_user_id: selectedOrder.user_id, p_order_id: selectedOrder.id });
       }
+      log({ action: 'status_change', entityType: 'order', entityId: selectedOrder.id, details: { order_number: selectedOrder.order_number, from: selectedOrder.status, to: newStatus } });
       toast({ title: 'Status updated' });
       setSelectedOrder({ ...selectedOrder, status: newStatus });
       fetchOrders();

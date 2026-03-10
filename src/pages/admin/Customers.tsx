@@ -5,6 +5,7 @@ import { DetailPanel, DetailField, DetailSection } from '@/components/admin/Deta
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -45,6 +46,7 @@ export default function AdminCustomers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   useEffect(() => {
     localStorage.setItem(VIEW_MODE_KEY, viewMode);
@@ -204,6 +206,7 @@ export default function AdminCustomers() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
+      log({ action: blocked ? 'block' : 'unblock', entityType: 'customer', entityId: selectedCustomer.id, details: { name: selectedCustomer.full_name } });
       toast({ 
         title: 'Success', 
         description: `Customer ${blocked ? 'blocked' : 'unblocked'} successfully` 

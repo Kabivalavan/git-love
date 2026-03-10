@@ -10,6 +10,7 @@ import { Plus, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Product, Category, ProductImage, ProductVariant } from '@/types/database';
 import { ShimmerTable } from '@/components/ui/shimmer';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import {
   Dialog,
   DialogContent,
@@ -67,6 +68,7 @@ export default function AdminProducts() {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [formParentCategoryId, setFormParentCategoryId] = useState<string>('');
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   useEffect(() => {
     fetchProducts();
@@ -184,6 +186,7 @@ export default function AdminProducts() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
+      log({ action: 'delete', entityType: 'product', entityId: selectedProduct.id, details: { name: selectedProduct.name } });
       toast({ title: 'Success', description: 'Product deleted successfully' });
       setIsDetailOpen(false);
       fetchProducts();
@@ -288,6 +291,7 @@ export default function AdminProducts() {
         }
       }
 
+      log({ action: selectedProduct ? 'update' : 'create', entityType: 'product', entityId: productId, details: { name: formData.name } });
       toast({ title: 'Success', description: `Product ${selectedProduct ? 'updated' : 'created'} successfully` });
       setIsFormOpen(false);
       fetchProducts();

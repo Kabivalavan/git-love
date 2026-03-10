@@ -25,6 +25,7 @@ import {
   Star,
   FolderOpen,
   Layers,
+  Activity,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -89,6 +90,7 @@ const sidebarEntries: SidebarEntry[] = [
   },
   { path: '/admin/reports', icon: BarChart3, label: 'Reports' },
   { path: '/admin/expenses', icon: Receipt, label: 'Expenses' },
+  { path: '/admin/activity-log', icon: Activity, label: 'Activity Log' },
   { path: '/admin/settings', icon: Settings, label: 'Settings' },
 ];
 

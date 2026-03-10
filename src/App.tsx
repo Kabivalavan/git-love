@@ -25,6 +25,7 @@ import AdminSettings from "./pages/admin/Settings";
 import AdminAnalytics from "./pages/admin/Analytics";
 import AdminBundles from "./pages/admin/Bundles";
 import AdminNotifications from "./pages/admin/Notifications";
+import AdminActivityLog from "./pages/admin/ActivityLog";
 
 // Public storefront pages
 import HomePage from "./pages/store/Home";
@@ -120,6 +121,7 @@ const AppRoutes = () => (
       <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
       <Route path="/admin/bundles" element={<AdminRoute><AdminBundles /></AdminRoute>} />
       <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
+      <Route path="/admin/activity-log" element={<AdminRoute><AdminActivityLog /></AdminRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   </>
