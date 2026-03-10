@@ -25,6 +25,7 @@ import AdminSettings from "./pages/admin/Settings";
 import AdminAnalytics from "./pages/admin/Analytics";
 import AdminBundles from "./pages/admin/Bundles";
 import AdminNotifications from "./pages/admin/Notifications";
+import AdminActivityLog from "./pages/admin/ActivityLog";
 
 // Public storefront pages
 import HomePage from "./pages/store/Home";
