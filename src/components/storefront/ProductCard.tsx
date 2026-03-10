@@ -54,7 +54,7 @@ function OfferTimer({ endDate }: { endDate: string }) {
   );
 }
 
-export function ProductCard({
+export const ProductCard = React.memo(function ProductCard({
   product,
   onAddToCart,
   onAddToWishlist,
