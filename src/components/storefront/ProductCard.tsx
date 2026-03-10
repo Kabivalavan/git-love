@@ -208,4 +208,4 @@ export const ProductCard = React.memo(function ProductCard({
       </div>
     </div>
   );
-}
+});
