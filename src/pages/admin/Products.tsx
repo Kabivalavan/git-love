@@ -186,6 +186,7 @@ export default function AdminProducts() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
+      log({ action: 'delete', entityType: 'product', entityId: selectedProduct.id, details: { name: selectedProduct.name } });
       toast({ title: 'Success', description: 'Product deleted successfully' });
       setIsDetailOpen(false);
       fetchProducts();
