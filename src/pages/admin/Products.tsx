@@ -10,6 +10,7 @@ import { Plus, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Product, Category, ProductImage, ProductVariant } from '@/types/database';
 import { ShimmerTable } from '@/components/ui/shimmer';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import {
   Dialog,
   DialogContent,
