@@ -121,6 +121,7 @@ const AppRoutes = () => (
       <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
       <Route path="/admin/bundles" element={<AdminRoute><AdminBundles /></AdminRoute>} />
       <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
+      <Route path="/admin/activity-log" element={<AdminRoute><AdminActivityLog /></AdminRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   </>
