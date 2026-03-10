@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, ShoppingCart, Star, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -54,7 +54,7 @@ function OfferTimer({ endDate }: { endDate: string }) {
   );
 }
 
-export function ProductCard({
+export const ProductCard = React.memo(function ProductCard({
   product,
   onAddToCart,
   onAddToWishlist,
@@ -208,4 +208,4 @@ export function ProductCard({
       </div>
     </div>
   );
-}
+});
