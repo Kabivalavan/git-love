@@ -62,6 +62,7 @@ export default function AdminOrders() {
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
   const [customerPhone, setCustomerPhone] = useState('');
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   const fetchOrdersFn = useCallback(async (from: number, to: number) => {
     const { data, error, count } = await supabase
