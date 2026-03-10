@@ -68,6 +68,7 @@ export default function AdminProducts() {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [formParentCategoryId, setFormParentCategoryId] = useState<string>('');
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   useEffect(() => {
     fetchProducts();
