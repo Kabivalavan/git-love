@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import {
   ArrowLeft, Package, Truck, MapPin, CreditCard, Loader2, Download, Search, MessageCircle
 } from 'lucide-react';
