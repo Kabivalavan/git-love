@@ -206,6 +206,7 @@ export default function AdminCustomers() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
+      log({ action: blocked ? 'block' : 'unblock', entityType: 'customer', entityId: selectedCustomer.id, details: { name: selectedCustomer.full_name } });
       toast({ 
         title: 'Success', 
         description: `Customer ${blocked ? 'blocked' : 'unblocked'} successfully` 

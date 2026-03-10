@@ -255,6 +255,7 @@ export default function AdminOrders() {
       if (newStatus === 'cancelled' || newStatus === 'returned') {
         await supabase.rpc('release_stock_hold', { p_user_id: selectedOrder.user_id, p_order_id: selectedOrder.id });
       }
+      log({ action: 'status_change', entityType: 'order', entityId: selectedOrder.id, details: { order_number: selectedOrder.order_number, from: selectedOrder.status, to: newStatus } });
       toast({ title: 'Status updated' });
       setSelectedOrder({ ...selectedOrder, status: newStatus });
       fetchOrders();

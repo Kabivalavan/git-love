@@ -291,6 +291,7 @@ export default function AdminProducts() {
         }
       }
 
+      log({ action: selectedProduct ? 'update' : 'create', entityType: 'product', entityId: productId, details: { name: formData.name } });
       toast({ title: 'Success', description: `Product ${selectedProduct ? 'updated' : 'created'} successfully` });
       setIsFormOpen(false);
       fetchProducts();
