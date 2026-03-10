@@ -46,6 +46,7 @@ export default function AdminCustomers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   useEffect(() => {
     localStorage.setItem(VIEW_MODE_KEY, viewMode);
