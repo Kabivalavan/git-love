@@ -29,7 +29,7 @@ import type { Product, ProductVariant, Review } from '@/types/database';
 function FAQAccordionItem({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
-    <div className="border border-border rounded-xl overflow-hidden">
+    <div className="border border-border rounded-2xl overflow-hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-between w-full px-4 py-3 text-left font-semibold text-foreground hover:bg-muted/50 transition-colors"
@@ -94,7 +94,6 @@ export default function ProductDetailPage() {
   const { getProductOffer } = useGlobalStore();
   const { addToCart } = useCartMutations();
 
-  // Deduplicated queries via react-query
   const { data: product, isLoading: isProductLoading, error: productError } = useProductBySlug(slug);
   const { data: variants = [] } = useProductVariants(product?.id);
   const { data: reviews = [] } = useProductReviews(product?.id);
@@ -104,14 +103,12 @@ export default function ProductDetailPage() {
   const isLoading = isProductLoading;
   const isAddingToCart = addToCart.isPending;
 
-  // Auto-select first variant
   useEffect(() => {
     if (variants.length > 0 && !selectedVariant) {
       setSelectedVariant(variants[0]);
     }
   }, [variants]);
 
-  // Reset state on slug change
   useEffect(() => {
     setCurrentImageIndex(0);
     setQuantity(1);
@@ -119,7 +116,6 @@ export default function ProductDetailPage() {
     setVisibleReviewCount(5);
   }, [slug]);
 
-  // Track product view
   useEffect(() => {
     if (product) {
       trackEvent('product_view', {
@@ -130,7 +126,6 @@ export default function ProductDetailPage() {
     }
   }, [product?.id]);
 
-  // Redirect if product not found
   useEffect(() => {
     if (productError) navigate('/products');
   }, [productError]);
@@ -208,7 +203,7 @@ export default function ProductDetailPage() {
       <StorefrontLayout>
         <div className="container mx-auto px-4 py-6">
           <div className="grid md:grid-cols-2 gap-8">
-            <Shimmer className="aspect-square rounded-xl" />
+            <Shimmer className="aspect-square rounded-2xl" />
             <div className="space-y-4">
               <Shimmer className="h-6 w-24" />
               <Shimmer className="h-8 w-3/4" />
@@ -241,6 +236,9 @@ export default function ProductDetailPage() {
   }));
   const contentSections: ContentSection[] = (product as any).content_sections || [];
 
+  const priceWhole = Math.floor(displayPrice);
+  const priceDecimal = Math.round((displayPrice - priceWhole) * 100);
+
   const productJsonLd = {
     '@type': 'Product', name: product.name, description: product.description || product.short_description || '',
     image: images.map(i => i.image_url), sku: product.sku || undefined,
@@ -257,16 +255,20 @@ export default function ProductDetailPage() {
         jsonLd={productJsonLd}
       />
       <div className="container mx-auto px-4 py-4 md:py-6 max-w-full overflow-hidden">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4 overflow-x-auto whitespace-nowrap">
-          <Link to="/" className="hover:text-primary flex-shrink-0">← Back</Link>
-          <span className="mx-1">·</span>
-          <span className="text-foreground truncate">{product.name}</span>
+        {/* Breadcrumb - mobile: back arrow + Product Details title */}
+        <nav className="flex items-center gap-3 mb-4">
+          <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center flex-shrink-0 hover:bg-muted transition-colors">
+            <ChevronLeft className="h-5 w-5 text-foreground" />
+          </button>
+          <span className="text-base font-semibold text-foreground lg:hidden">Product Details</span>
+          <span className="text-sm text-muted-foreground hidden lg:block">
+            <Link to="/" className="hover:text-primary">Home</Link> / <Link to="/products" className="hover:text-primary">Shop</Link> / <span className="text-foreground">{product.name}</span>
+          </span>
         </nav>
 
         {/* Product Hero */}
         <div className="grid md:grid-cols-2 gap-6 md:gap-10 mb-8">
-          {/* Images - Cartsy style with thumbnails below */}
+          {/* Images */}
           <div className="space-y-3 min-w-0 md:self-start md:sticky md:top-20" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
             <div className="relative aspect-square bg-muted rounded-2xl overflow-hidden w-full">
               <img src={currentImage} alt={product.name} className="w-full h-full object-contain" />
@@ -280,25 +282,10 @@ export default function ProductDetailPage() {
                   </Button>
                 </>
               )}
-              {/* Wishlist + Share floating buttons */}
-              <div className="absolute top-3 right-3 flex gap-2">
-                <button onClick={handleAddToWishlist} className="h-9 w-9 rounded-full bg-card/90 backdrop-blur-sm shadow flex items-center justify-center border border-border">
-                  <Heart className="h-4 w-4 text-primary" />
-                </button>
-                <button onClick={() => {
-                  navigator.share?.({ title: product.name, url: window.location.href }).catch(() => {
-                    navigator.clipboard.writeText(window.location.href);
-                    toast({ title: 'Link copied!' });
-                  });
-                }} className="h-9 w-9 rounded-full bg-card/90 backdrop-blur-sm shadow flex items-center justify-center border border-border">
-                  <Share2 className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </div>
               {discount > 0 && (
-                <Badge className="absolute top-3 left-3 bg-green-500 text-white border-0 rounded-md">{discount}% OFF</Badge>
+                <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground border-0 rounded-lg text-xs">{discount}% OFF</Badge>
               )}
             </div>
-            {/* Thumbnail strip */}
             {images.length > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
                 {images.map((img, index) => (
@@ -317,45 +304,50 @@ export default function ProductDetailPage() {
             )}
           </div>
 
-          {/* Product Info - Cartsy style right column */}
+          {/* Product Info */}
           <div className="space-y-4 min-w-0">
-            {/* Brand badge */}
-            {product.category && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-primary">{product.category.name}</span>
-              </div>
-            )}
-
-            <h1 className="text-xl md:text-2xl font-bold text-foreground leading-tight">{product.name}</h1>
-
-            {/* Rating + review count inline */}
-            {reviews.length > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} className={cn("h-4 w-4", star <= Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-muted')} />
-                  ))}
-                </div>
-                <span className="text-sm text-muted-foreground">({reviews.length.toLocaleString()} ratings)</span>
-              </div>
-            )}
-
-            {/* Availability + SKU */}
-            <div className="flex items-center gap-4 text-sm">
-              <span className="flex items-center gap-1">
-                <span className="text-muted-foreground">Availability:</span>
-                {currentStock > 0 ? (
-                  <span className="text-green-600 font-medium flex items-center gap-1"><Check className="h-3.5 w-3.5" /> In stock</span>
-                ) : (
-                  <span className="text-destructive font-medium">Out of stock</span>
+            {/* Name + Wishlist */}
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <h1 className="text-xl md:text-2xl font-bold text-foreground leading-tight">{product.name}</h1>
+                {product.short_description && (
+                  <p className="text-sm text-muted-foreground mt-1">{product.short_description}</p>
                 )}
+              </div>
+              <button onClick={handleAddToWishlist} className="h-10 w-10 rounded-full border border-border bg-card flex items-center justify-center flex-shrink-0 hover:bg-muted transition-colors">
+                <Heart className="h-5 w-5 text-muted-foreground" />
+              </button>
+            </div>
+
+            {/* Price - large with superscript */}
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <span className="text-3xl md:text-4xl font-bold text-foreground">
+                ₹{priceWhole}<span className="text-lg align-super font-semibold">.{String(priceDecimal).padStart(2, '0')}</span>
               </span>
-              {product.sku && (
-                <span className="text-muted-foreground">Code: <span className="text-foreground font-medium">{product.sku}</span></span>
+              {showOfferDiscount && (
+                <span className="text-lg text-muted-foreground line-through">₹{Number(currentPrice).toFixed(0)}</span>
               )}
             </div>
 
-            {/* Variants - chip/pill style like Cartsy */}
+            {/* Availability + Rating inline */}
+            <div className="flex items-center gap-4 flex-wrap">
+              {currentStock > 0 ? (
+                <span className="flex items-center gap-1.5 text-sm">
+                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  <span className="text-green-600 font-medium">Available on fast delivery</span>
+                </span>
+              ) : (
+                <span className="text-destructive text-sm font-medium">Out of stock</span>
+              )}
+              {reviews.length > 0 && (
+                <span className="flex items-center gap-1.5 text-sm">
+                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                  <span className="font-semibold">{avgRating.toFixed(1)} Rating</span>
+                </span>
+              )}
+            </div>
+
+            {/* Variants */}
             {variants.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -391,15 +383,6 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Price - large Cartsy style */}
-            <div className="flex items-baseline gap-3 flex-wrap pt-1">
-              <span className="text-3xl md:text-4xl font-bold text-foreground">₹{Number(displayPrice).toFixed(0)}</span>
-              {showOfferDiscount && (
-                <span className="text-lg text-muted-foreground line-through">₹{Number(currentPrice).toFixed(0)}</span>
-              )}
-              <span className="text-xs text-muted-foreground">(Tax Inclusive)</span>
-            </div>
-
             {/* Offer Timer */}
             {productOffer?.offer?.end_date && (productOffer.offer as any).show_timer && (
               <div className="flex items-center gap-2">
@@ -413,7 +396,7 @@ export default function ProductDetailPage() {
 
             {/* Offer info */}
             {productOffer && (
-              <div className="bg-accent border border-border rounded-xl p-3">
+              <div className="bg-accent border border-border rounded-2xl p-3">
                 <p className="text-sm font-medium text-accent-foreground">{productOffer.offer.name}</p>
                 {productOffer.offer.description && (
                   <p className="text-xs text-muted-foreground mt-0.5">{productOffer.offer.description}</p>
@@ -421,46 +404,61 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Quantity */}
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-muted-foreground">Qty:</span>
-              <div className="flex items-center border border-border rounded-full overflow-hidden">
-                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none" onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>
-                  <Minus className="h-4 w-4" />
+            {/* Guarantee text */}
+            <div className="bg-muted rounded-2xl p-3">
+              <p className="text-sm text-muted-foreground">
+                100% satisfaction guarantee. If you experience any issues, missing, poor item, late arrival, or unprofessional service, we'll make it right.
+              </p>
+            </div>
+
+            {/* Desktop quantity + action buttons */}
+            <div className="hidden lg:block space-y-4">
+              {/* Quantity */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-muted-foreground">Qty:</span>
+                <div className="flex items-center border border-border rounded-full overflow-hidden">
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none" onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="w-10 text-center font-semibold text-sm">{String(quantity).padStart(2, '0')}</span>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none" onClick={() => setQuantity(Math.min(currentStock, quantity + 1))} disabled={quantity >= currentStock}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {currentStock <= 5 && currentStock > 0 && (
+                  <span className="text-xs text-destructive font-medium">Only {currentStock} left!</span>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-3">
+                <Button
+                  className="flex-1 h-12 text-base font-semibold rounded-xl"
+                  variant="outline"
+                  onClick={handleAddToCart}
+                  disabled={isAddingToCart || currentStock === 0}
+                >
+                  {isAddingToCart ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <ShoppingCart className="h-5 w-5 mr-2" />}
+                  Add to Cart
                 </Button>
-                <span className="w-10 text-center font-semibold text-sm">{String(quantity).padStart(2, '0')}</span>
-                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none" onClick={() => setQuantity(Math.min(currentStock, quantity + 1))} disabled={quantity >= currentStock}>
-                  <Plus className="h-4 w-4" />
+                <Button
+                  ref={buyNowRef}
+                  className="flex-1 h-12 text-base font-semibold rounded-xl"
+                  onClick={handleBuyNow}
+                  disabled={currentStock === 0}
+                >
+                  Buy Now
                 </Button>
               </div>
-              {currentStock <= 5 && currentStock > 0 && (
-                <span className="text-xs text-destructive font-medium">Only {currentStock} left!</span>
-              )}
             </div>
 
-            {/* Action buttons - Cartsy style */}
-            <div className="flex gap-3 pt-1">
-              <Button
-                className="flex-1 h-12 text-base font-semibold rounded-xl"
-                variant="outline"
-                onClick={handleAddToCart}
-                disabled={isAddingToCart || currentStock === 0}
-              >
-                {isAddingToCart ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <ShoppingCart className="h-5 w-5 mr-2" />}
-                Add to Cart
-              </Button>
-              <Button
-                ref={buyNowRef}
-                className="flex-1 h-12 text-base font-semibold rounded-xl"
-                onClick={handleBuyNow}
-                disabled={currentStock === 0}
-              >
-                Buy Now
-              </Button>
+            {/* Mobile: buyNow ref for sticky bar trigger */}
+            <div className="lg:hidden">
+              <Button ref={buyNowRef} className="sr-only" tabIndex={-1}>trigger</Button>
             </div>
 
-            {/* Trust features - horizontal like Cartsy */}
-            <div className="flex items-center gap-4 pt-2 text-sm text-muted-foreground">
+            {/* Trust features */}
+            <div className="flex items-center gap-4 pt-2 text-sm text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-primary" /> Free Shipping</span>
               <span className="flex items-center gap-1.5"><RefreshCw className="h-4 w-4 text-primary" /> Easy Returns</span>
               <span className="flex items-center gap-1.5"><Shield className="h-4 w-4 text-primary" /> Secure</span>
@@ -468,14 +466,14 @@ export default function ProductDetailPage() {
 
             {/* Coupons */}
             {storeCoupons.length > 0 && (
-              <div className="border border-dashed border-border rounded-xl p-4">
+              <div className="border border-dashed border-border rounded-2xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Tag className="h-4 w-4 text-primary" />
                   <span className="text-sm font-semibold text-foreground">Available Coupons</span>
                 </div>
                 <div className="space-y-2">
                   {(couponsExpanded ? storeCoupons : storeCoupons.slice(0, 3)).map((coupon) => (
-                    <div key={coupon.id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2">
+                    <div key={coupon.id} className="flex items-center justify-between bg-muted rounded-xl px-3 py-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="font-mono font-bold text-primary text-sm bg-primary/10 px-2 py-0.5 rounded">{coupon.code}</span>
                         <span className="text-xs text-muted-foreground truncate">
@@ -500,7 +498,7 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Description accordion */}
+            {/* Description */}
             <div className="space-y-3 pt-2">
               {product.description && (
                 <FAQAccordionItem title="Description" defaultOpen>
@@ -517,7 +515,7 @@ export default function ProductDetailPage() {
           <h2 className="text-lg md:text-xl font-bold mb-4">Ratings and reviews</h2>
           {reviews.length > 0 && (
             <div className="grid md:grid-cols-3 gap-6 mb-6">
-              <div className="bg-card border border-border rounded-xl p-6 text-center">
+              <div className="bg-card border border-border rounded-2xl p-6 text-center">
                 <p className="text-5xl font-bold text-foreground">{avgRating.toFixed(1)}</p>
                 <div className="flex justify-center my-2">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -538,7 +536,7 @@ export default function ProductDetailPage() {
               </div>
               <div className="md:col-span-2 space-y-3">
                 {reviews.slice(0, visibleReviewCount).map((review) => (
-                  <div key={review.id} className="bg-card border border-border rounded-xl px-4 py-3">
+                  <div key={review.id} className="bg-card border border-border rounded-2xl px-4 py-3">
                     <div className="flex items-center gap-2 mb-1.5">
                       <div className="flex">
                         {[1, 2, 3, 4, 5].map((star) => (
@@ -563,7 +561,7 @@ export default function ProductDetailPage() {
           )}
 
           {user && (
-            <div className="bg-card border border-border rounded-xl px-4 py-4">
+            <div className="bg-card border border-border rounded-2xl px-4 py-4">
               <h3 className="font-semibold mb-3">Write a Review</h3>
               <div className="space-y-3">
                 <div>
@@ -603,7 +601,7 @@ export default function ProductDetailPage() {
         )}
       </div>
 
-      {/* Mobile Sticky Bottom Bar */}
+      {/* Mobile Sticky Bottom Bar - App style with quantity + Add to Cart */}
       <AnimatePresence>
         {showStickyBar && product && currentStock > 0 && (
           <motion.div
@@ -611,15 +609,31 @@ export default function ProductDetailPage() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="fixed bottom-14 left-0 right-0 z-40 bg-card border-t border-border px-4 py-3 lg:hidden shadow-lg"
+            className="fixed bottom-[60px] left-0 right-0 z-40 bg-card border-t border-border px-4 py-3 lg:hidden shadow-lg"
           >
             <div className="flex items-center gap-3">
-              <Link to="/" className="flex-shrink-0 p-2 rounded-xl border border-border bg-background">
-                <Home className="h-5 w-5 text-foreground" />
-              </Link>
-              <Button className="flex-1 h-12 text-base font-semibold rounded-xl" onClick={handleAddToCart} disabled={isAddingToCart}>
+              {/* Quantity controls */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  disabled={quantity <= 1}
+                  className="h-10 w-10 rounded-full border-2 border-primary text-primary flex items-center justify-center disabled:opacity-40"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <span className="w-8 text-center font-bold text-base">{quantity}</span>
+                <button
+                  onClick={() => setQuantity(Math.min(currentStock, quantity + 1))}
+                  disabled={quantity >= currentStock}
+                  className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+              {/* Add to cart */}
+              <Button className="flex-1 h-12 text-base font-semibold rounded-2xl" onClick={handleAddToCart} disabled={isAddingToCart}>
                 {isAddingToCart ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <ShoppingCart className="h-5 w-5 mr-2" />}
-                Add to Cart · ₹{Number(displayPrice).toFixed(0)}
+                Add to Cart
               </Button>
             </div>
           </motion.div>

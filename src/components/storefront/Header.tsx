@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, User, Menu, Heart, Search } from 'lucide-react';
+import { ShoppingCart, Menu, Heart, Search, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -16,6 +16,8 @@ export function Header() {
   const { categories, storeInfo, announcement } = useGlobalStore();
   const location = useLocation();
   const cartCount = useCartCount();
+  const isHome = location.pathname === '/';
+  const isProductDetail = location.pathname.startsWith('/product/');
 
   // Set dynamic favicon from store settings
   useEffect(() => {
@@ -33,11 +35,11 @@ export function Header() {
   }, [storeInfo?.favicon_url]);
 
   return (
-    <header className="sticky top-0 z-50 bg-card shadow-sm">
+    <header className="sticky top-0 z-50">
       {/* Top announcement bar */}
       {announcement?.is_active && announcement?.text && (
-        <div className="bg-primary text-primary-foreground">
-          <div className="container mx-auto px-4 py-1.5 text-center text-xs sm:text-sm">
+        <div className="bg-accent text-accent-foreground">
+          <div className="container mx-auto px-4 py-1.5 text-center text-xs sm:text-sm font-medium">
             {announcement.link ? (
               <Link to={announcement.link} className="hover:underline">{announcement.text}</Link>
             ) : (
@@ -47,84 +49,74 @@ export function Header() {
         </div>
       )}
 
-      {/* Main header row */}
-      <div className="container mx-auto px-4 py-2.5">
-        <div className="flex items-center gap-3">
-          {/* Mobile menu */}
-          <Sheet>
-            <SheetTrigger asChild className="lg:hidden">
-              <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-72">
-              <nav className="flex flex-col gap-4 mt-6">
-                <Link to="/" className="text-lg font-semibold">Home</Link>
-                <Link to="/products" className="text-lg font-semibold">Shop</Link>
-                {categories.map((cat) => (
-                  <Link key={cat.id} to={`/products?category=${cat.slug}`} className="text-muted-foreground pl-2">{cat.name}</Link>
-                ))}
-              </nav>
-            </SheetContent>
-          </Sheet>
+      {/* Curved dark header */}
+      <div className="bg-primary rounded-b-[28px] shadow-lg relative overflow-hidden">
+        {/* Main header row */}
+        <div className="container mx-auto px-4 pt-3 pb-5">
+          {/* Top row: Logo/back + actions */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              {/* Mobile menu */}
+              <Sheet>
+                <SheetTrigger asChild className="lg:hidden">
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-primary-foreground hover:bg-primary-foreground/10">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-72">
+                  <nav className="flex flex-col gap-4 mt-6">
+                    <Link to="/" className="text-lg font-semibold">Home</Link>
+                    <Link to="/products" className="text-lg font-semibold">Shop</Link>
+                    {categories.map((cat) => (
+                      <Link key={cat.id} to={`/products?category=${cat.slug}`} className="text-muted-foreground pl-2">{cat.name}</Link>
+                    ))}
+                  </nav>
+                </SheetContent>
+              </Sheet>
 
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-            {storeInfo?.logo_url ? (
-              <img src={storeInfo.logo_url} alt={storeInfo.name} className="h-8 sm:h-10 max-w-[140px] object-contain" />
-            ) : (
-              <span className="text-xl sm:text-2xl font-bold text-primary">{storeInfo?.name || 'Store'}</span>
-            )}
-          </Link>
-
-          {/* Desktop inline nav links */}
-          <nav className="hidden lg:flex items-center gap-5 ml-4">
-            <Link to="/" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Home</Link>
-            <Link to="/products" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Shop</Link>
-          </nav>
-
-          {/* Search bar */}
-          <div className="hidden lg:block flex-1 max-w-xl mx-4">
-            <GlobalSearch className="w-full" />
-          </div>
-
-          {/* Right actions */}
-          <div className="flex items-center gap-0.5 ml-auto">
-            <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9" onClick={() => setIsSearchOpen(!isSearchOpen)}>
-              <Search className="h-5 w-5" />
-            </Button>
-            {user && (
-              <Button variant="ghost" size="icon" className="h-9 w-9" asChild>
-                <Link to="/wishlist"><Heart className="h-5 w-5" /></Link>
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" className="relative h-9 w-9" asChild>
-              <Link to="/cart">
-                <ShoppingCart className="h-5 w-5" />
-                {cartCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px] rounded-full">{cartCount}</Badge>
+              {/* Logo */}
+              <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+                {storeInfo?.logo_url ? (
+                  <img src={storeInfo.logo_url} alt={storeInfo.name} className="h-7 sm:h-9 max-w-[120px] object-contain brightness-0 invert" />
+                ) : (
+                  <span className="text-lg sm:text-xl font-bold text-primary-foreground">{storeInfo?.name || 'Store'}</span>
                 )}
               </Link>
-            </Button>
-            {user ? (
-              <Button variant="ghost" size="icon" className="h-9 w-9" asChild>
-                <Link to="/account"><User className="h-5 w-5" /></Link>
+            </div>
+
+            {/* Desktop inline nav */}
+            <nav className="hidden lg:flex items-center gap-5 ml-6">
+              <Link to="/" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">Home</Link>
+              <Link to="/products" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">Shop</Link>
+            </nav>
+
+            {/* Right actions */}
+            <div className="flex items-center gap-1 ml-auto">
+              {user && (
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-primary-foreground hover:bg-primary-foreground/10" asChild>
+                  <Link to="/wishlist"><Heart className="h-5 w-5" /></Link>
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" className="relative h-9 w-9 text-primary-foreground hover:bg-primary-foreground/10" asChild>
+                <Link to="/cart">
+                  <ShoppingCart className="h-5 w-5" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">{cartCount}</span>
+                  )}
+                </Link>
               </Button>
-            ) : (
-              <Button asChild size="sm" className="h-8 text-xs ml-1"><Link to="/auth">Sign In</Link></Button>
-            )}
+            </div>
+          </div>
+
+          {/* Search bar - prominent centered */}
+          <div className="lg:max-w-xl lg:mx-auto">
+            <GlobalSearch className="w-full" variant="header" />
           </div>
         </div>
-
-        {isSearchOpen && (
-          <div className="lg:hidden mt-2 pb-1">
-            <GlobalSearch onClose={() => setIsSearchOpen(false)} autoFocus />
-          </div>
-        )}
       </div>
 
-      {/* Category navigation bar */}
-      <nav className="border-t border-border bg-card">
+      {/* Desktop category navigation bar */}
+      <nav className="hidden lg:block border-b border-border bg-card">
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-1 py-2 overflow-x-auto scrollbar-thin">
             <Link

@@ -9,9 +9,10 @@ interface GlobalSearchProps {
   className?: string;
   onClose?: () => void;
   autoFocus?: boolean;
+  variant?: 'default' | 'header';
 }
 
-export function GlobalSearch({ className, onClose, autoFocus }: GlobalSearchProps) {
+export function GlobalSearch({ className, onClose, autoFocus, variant = 'default' }: GlobalSearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -66,11 +67,13 @@ export function GlobalSearch({ className, onClose, autoFocus }: GlobalSearchProp
     onClose?.();
   };
 
+  const isHeader = variant === 'header';
+
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <form onSubmit={handleSubmit}>
         <div className="relative flex items-center">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 ${isHeader ? 'text-muted-foreground' : 'text-muted-foreground'}`} />
           <input
             ref={inputRef}
             placeholder="Search products..."
@@ -80,7 +83,11 @@ export function GlobalSearch({ className, onClose, autoFocus }: GlobalSearchProp
               setIsOpen(true);
             }}
             onFocus={() => setIsOpen(true)}
-            className="w-full h-10 pl-10 pr-10 rounded-full border border-border bg-secondary/50 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+            className={`w-full h-10 pl-10 pr-10 rounded-full text-sm transition-all focus:outline-none ${
+              isHeader
+                ? 'bg-primary-foreground text-foreground border-0 placeholder:text-muted-foreground shadow-inner focus:ring-2 focus:ring-primary-foreground/50'
+                : 'border border-border bg-secondary/50 text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30 focus:border-primary'
+            }`}
             autoFocus={autoFocus}
           />
           {query ? (
@@ -125,7 +132,7 @@ export function GlobalSearch({ className, onClose, autoFocus }: GlobalSearchProp
                     onClick={handleProductClick}
                     className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-b-0"
                   >
-                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-muted flex-shrink-0">
                       {product.images?.[0] ? (
                         <img src={product.images[0].image_url} alt={product.name} className="w-full h-full object-cover" />
                       ) : (
