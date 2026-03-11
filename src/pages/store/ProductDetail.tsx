@@ -333,8 +333,8 @@ export default function ProductDetailPage() {
             <div className="flex items-center gap-4 flex-wrap">
               {currentStock > 0 ? (
                 <span className="flex items-center gap-1.5 text-sm">
-                  <span className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-green-600 font-medium">Available on fast delivery</span>
+                  <span className="h-2 w-2 rounded-full bg-[hsl(var(--success))]" />
+                  <span className="text-[hsl(var(--success))] font-medium">Available on fast delivery</span>
                 </span>
               ) : (
                 <span className="text-destructive text-sm font-medium">Out of stock</span>
