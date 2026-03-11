@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, X, ChevronRight as ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, ChevronRight as ArrowRight, Info } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
@@ -23,17 +23,11 @@ function HeroBannerShimmer() {
 
 function CategoryShimmer() {
   return (
-    <section className="container mx-auto px-4 py-6 md:py-10">
-      <div className="flex items-center justify-between mb-5">
-        <Shimmer className="h-7 w-56" />
-        <Shimmer className="h-5 w-20" />
-      </div>
-      <div className="flex gap-5 md:gap-8 overflow-hidden pb-2">
+    <section className="container mx-auto px-4 py-6">
+      <Shimmer className="h-7 w-40 mb-5" />
+      <div className="grid grid-cols-2 gap-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="flex flex-col items-center gap-2 flex-shrink-0">
-            <Shimmer className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full" />
-            <Shimmer className="w-14 h-3" />
-          </div>
+          <Shimmer key={i} className="h-24 rounded-2xl" />
         ))}
       </div>
     </section>
@@ -43,7 +37,7 @@ function CategoryShimmer() {
 export default function HomePage() {
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showPopup, setShowPopup] = useState(false);
-  const { categories, banners, middleBanners, popupBanner, isLoading: isGlobalLoading } = useGlobalStore();
+  const { categories, banners, middleBanners, popupBanner, storeInfo, announcement, isLoading: isGlobalLoading } = useGlobalStore();
 
   useEffect(() => {
     if (banners.length > 1) {
@@ -64,22 +58,21 @@ export default function HomePage() {
     }
   }, [popupBanner]);
 
-  // Render the full page shell immediately — sections show their own shimmers
   return (
     <StorefrontLayout>
       <SEOHead
-        title="Decon Fashions - Premium Men's Clothing Store"
-        description="Shop premium men's shirts, pants & fashion at Decon Fashions. Free shipping on orders above ₹500."
+        title={`${storeInfo?.name || 'Store'} - Shop Online`}
+        description={storeInfo?.tagline || 'Shop premium products online. Free shipping available.'}
         jsonLd={{
           '@type': 'Store',
-          name: 'Decon Fashions',
-          description: 'Premium men\'s clothing store',
+          name: storeInfo?.name || 'Store',
+          description: storeInfo?.tagline || 'Online Store',
           url: window.location.origin,
           priceRange: '₹₹',
         }}
       />
 
-      {/* Hero Banner — shimmer while loading, instant swap when ready */}
+      {/* Hero Banner */}
       {isGlobalLoading ? (
         <HeroBannerShimmer />
       ) : banners.length > 0 ? (
@@ -131,37 +124,80 @@ export default function HomePage() {
         </section>
       ) : null}
 
-      {/* Categories — shimmer while loading */}
+      {/* Promo/Announcement inline banner */}
+      {announcement?.is_active && announcement?.text && (
+        <div className="container mx-auto px-4 mt-4">
+          <div className="bg-primary/10 border border-primary/20 rounded-2xl px-4 py-3">
+            <p className="text-sm font-semibold text-primary">{announcement.text}</p>
+            {announcement.link && (
+              <Link to={announcement.link} className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                <Info className="h-3 w-3" /> Learn more
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* All Categories - 2-column grid cards like reference */}
       {isGlobalLoading ? (
         <CategoryShimmer />
       ) : categories.length > 0 ? (
         <section className="container mx-auto px-4 py-6 md:py-10">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg md:text-2xl font-bold text-foreground">Explore Popular Categories</h2>
+            <h2 className="text-lg md:text-2xl font-bold text-foreground">All Categories</h2>
             <Link to="/products" className="text-sm font-medium text-primary flex items-center gap-1 hover:underline">
               View All <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          <div className="flex gap-5 md:gap-8 overflow-x-auto pb-2 scrollbar-thin">
-            {categories.map((category) => (
+
+          {/* Mobile: 2-column grid cards with image */}
+          <div className="grid grid-cols-2 gap-3 lg:hidden">
+            {categories.filter(c => !c.parent_id).map((category) => (
+              <Link
+                key={category.id}
+                to={`/products?category=${category.slug}`}
+                className="group flex items-center gap-3 p-3 bg-card rounded-2xl border border-border hover:shadow-md transition-all"
+              >
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors truncate">{category.name}</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                    {category.description || 'Shop now'}
+                  </p>
+                </div>
+                <div className="w-14 h-14 rounded-xl overflow-hidden bg-muted flex-shrink-0">
+                  {category.image_url ? (
+                    <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+                      <span className="text-lg font-bold text-primary">{category.name.charAt(0)}</span>
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          {/* Desktop: Horizontal scroll with circle icons */}
+          <div className="hidden lg:flex gap-8 overflow-x-auto pb-2 scrollbar-thin">
+            {categories.filter(c => !c.parent_id).map((category) => (
               <Link key={category.id} to={`/products?category=${category.slug}`} className="group text-center flex flex-col items-center flex-shrink-0">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all duration-300 group-hover:shadow-lg">
+                <div className="w-24 h-24 rounded-full overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all duration-300 group-hover:shadow-lg">
                   {category.image_url ? (
                     <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" loading="lazy" width={96} height={96} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-                      <span className="text-lg md:text-2xl font-bold text-primary">{category.name.charAt(0)}</span>
+                      <span className="text-2xl font-bold text-primary">{category.name.charAt(0)}</span>
                     </div>
                   )}
                 </div>
-                <p className="mt-2 text-[11px] md:text-sm font-medium text-foreground group-hover:text-primary transition-colors w-16 sm:w-20 md:w-24 truncate text-center">{category.name}</p>
+                <p className="mt-2 text-sm font-medium text-foreground group-hover:text-primary transition-colors w-24 truncate text-center">{category.name}</p>
               </Link>
             ))}
           </div>
         </section>
       ) : null}
 
-      {/* Product sections — each renders its own shimmer independently */}
+      {/* Product sections */}
       <HomeBestsellers />
       <HomeMiddleBanners middleBanners={middleBanners} />
       <HomeFeatured />
