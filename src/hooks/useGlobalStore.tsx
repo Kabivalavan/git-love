@@ -23,6 +23,10 @@ interface ProductOffer {
   discountLabel: string;
 }
 
+interface ReviewStats {
+  [productId: string]: { avg_rating: number; review_count: number };
+}
+
 interface GlobalStoreData {
   categories: Category[];
   offers: Offer[];
@@ -32,6 +36,11 @@ interface GlobalStoreData {
   storeInfo: StoreInfo | null;
   announcement: AnnouncementSettings | null;
   storefrontDisplay: any | null;
+  bestsellers: Product[];
+  featured: Product[];
+  newArrivals: Product[];
+  bundles: any[];
+  reviewStats: ReviewStats;
   isLoading: boolean;
   getProductOffer: (product: Product) => ProductOffer | null;
   calculateCartDiscount: (products: { product: Product; quantity: number }[]) => {
@@ -49,7 +58,6 @@ const fetchGlobalData = async () => {
 };
 
 export function GlobalStoreProvider({ children }: { children: ReactNode }) {
-  // No auth-gating — fire immediately on mount for instant load
   const { data, isLoading } = useQuery({
     queryKey: ['global-store-data'],
     queryFn: fetchGlobalData,
@@ -69,6 +77,11 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
   const storeInfo = (data?.store_info || null) as StoreInfo | null;
   const announcement = (data?.announcement || null) as AnnouncementSettings | null;
   const storefrontDisplay = data?.storefront_display || null;
+  const bestsellers = useMemo(() => (data?.bestsellers || []) as Product[], [data?.bestsellers]);
+  const featured = useMemo(() => (data?.featured || []) as Product[], [data?.featured]);
+  const newArrivals = useMemo(() => (data?.new_arrivals || []) as Product[], [data?.new_arrivals]);
+  const bundles = useMemo(() => (data?.bundles || []) as any[], [data?.bundles]);
+  const reviewStats = useMemo(() => (data?.review_stats || {}) as ReviewStats, [data?.review_stats]);
 
   const getProductOffer = useCallback((product: Product): ProductOffer | null => {
     if (!product || offers.length === 0) return null;
@@ -147,10 +160,15 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
     storeInfo,
     announcement,
     storefrontDisplay,
+    bestsellers,
+    featured,
+    newArrivals,
+    bundles,
+    reviewStats,
     isLoading,
     getProductOffer,
     calculateCartDiscount,
-  }), [categories, offers, banners, middleBanners, popupBanner, storeInfo, announcement, storefrontDisplay, isLoading, getProductOffer, calculateCartDiscount]);
+  }), [categories, offers, banners, middleBanners, popupBanner, storeInfo, announcement, storefrontDisplay, bestsellers, featured, newArrivals, bundles, reviewStats, isLoading, getProductOffer, calculateCartDiscount]);
 
   return (
     <GlobalStoreContext.Provider value={value}>
