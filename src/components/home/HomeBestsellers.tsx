@@ -4,7 +4,7 @@ import { ProductCard } from '@/components/storefront/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Shimmer } from '@/components/ui/shimmer';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
-import { useBestsellers, useReviewStats, useHomeAddToCart } from './useHomeProducts';
+import { useHomeAddToCart } from './useHomeProducts';
 
 function BestsellerShimmer() {
   return (
@@ -35,9 +35,7 @@ function BestsellerShimmer() {
 }
 
 export default function HomeBestsellers() {
-  const { data: products = [], isLoading } = useBestsellers();
-  const { data: reviewStats = {} } = useReviewStats(products.map(p => p.id));
-  const { storefrontDisplay, getProductOffer } = useGlobalStore();
+  const { bestsellers: products, reviewStats, storefrontDisplay, getProductOffer, isLoading } = useGlobalStore();
   const { handleAddToCart, handleAddToWishlist } = useHomeAddToCart();
 
   if (isLoading) return <BestsellerShimmer />;
@@ -56,9 +54,12 @@ export default function HomeBestsellers() {
           </Button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" lowStockSettings={storefrontDisplay} avgRating={reviewStats[product.id]?.avgRating || 0} reviewCount={reviewStats[product.id]?.reviewCount || 0} />
-          ))}
+          {products.map((product) => {
+            const stats = reviewStats[product.id];
+            return (
+              <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} variant="compact" lowStockSettings={storefrontDisplay} avgRating={stats?.avg_rating || 0} reviewCount={stats?.review_count || 0} />
+            );
+          })}
         </div>
       </div>
     </section>

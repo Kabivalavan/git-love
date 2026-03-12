@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, ShoppingCart, Star, Clock, Minus, Plus } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Clock } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 import type { Product, Offer } from '@/types/database';
 
 interface ProductOffer {
@@ -65,6 +67,7 @@ export const ProductCard = React.memo(function ProductCard({
   reviewCount = 0,
   lowStockSettings,
 }: ProductCardProps) {
+  const queryClient = useQueryClient();
   const isOutOfStock = product.stock_quantity <= 0;
   const isLowStock = lowStockSettings?.show_low_stock_badge && product.stock_quantity > 0 && product.stock_quantity <= lowStockSettings.low_stock_threshold;
   const displayPrice = productOffer?.discountedPrice ?? product.price;
@@ -87,6 +90,24 @@ export const ProductCard = React.memo(function ProductCard({
   const priceWhole = Math.floor(displayPrice);
   const priceDecimal = Math.round((displayPrice - priceWhole) * 100);
 
+  // Prefetch product data on hover for instant page transitions
+  const handleMouseEnter = useCallback(() => {
+    queryClient.prefetchQuery({
+      queryKey: ['product', product.slug],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*, category:categories(*), images:product_images(*)')
+          .eq('slug', product.slug)
+          .eq('is_active', true)
+          .single();
+        if (error || !data) throw new Error('Product not found');
+        return data;
+      },
+      staleTime: 5 * 60 * 1000,
+    });
+  }, [product.slug, queryClient]);
+
   if (variant === 'horizontal') {
     return (
       <Link
@@ -95,6 +116,7 @@ export const ProductCard = React.memo(function ProductCard({
           "flex gap-4 p-4 bg-card rounded-2xl border border-border md:hover:shadow-md transition-shadow group",
           isOutOfStock && "opacity-60"
         )}
+        onMouseEnter={handleMouseEnter}
       >
         <div className="w-20 h-20 rounded-2xl overflow-hidden bg-muted flex-shrink-0 relative">
           <img src={primaryImage} alt={product.name} className="w-full h-full object-cover md:group-hover:scale-105 transition-transform duration-300" />
@@ -122,15 +144,18 @@ export const ProductCard = React.memo(function ProductCard({
   }
 
   return (
-    <div className={cn(
-      "group bg-card rounded-2xl border border-border overflow-hidden transition-all duration-300",
-      "md:hover:shadow-lg",
-      variant === 'compact' && "text-sm",
-      isOutOfStock && "opacity-60"
-    )}>
+    <div
+      className={cn(
+        "group bg-card rounded-2xl border border-border overflow-hidden transition-all duration-300",
+        "md:hover:shadow-lg",
+        variant === 'compact' && "text-sm",
+        isOutOfStock && "opacity-60"
+      )}
+      onMouseEnter={handleMouseEnter}
+    >
       {/* Image */}
       <Link to={`/product/${product.slug}`} className="block relative aspect-square overflow-hidden bg-muted">
-        <img src={primaryImage} alt={product.name} className={cn("w-full h-full object-cover transition-transform duration-500", !isOutOfStock && "md:group-hover:scale-105")} />
+        <img src={primaryImage} alt={product.name} className={cn("w-full h-full object-cover transition-transform duration-500", !isOutOfStock && "md:group-hover:scale-105")} loading="lazy" />
 
         {/* Discount badge */}
         {hasDiscount && discountLabel && !isOutOfStock && (
