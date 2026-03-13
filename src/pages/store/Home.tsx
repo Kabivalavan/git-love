@@ -237,7 +237,14 @@ export default function HomePage() {
                 to={popupBanner.redirect_url || '/products'}
                 onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
               >
-                <img src={popupBanner.media_url} alt={popupBanner.title} className="w-full h-auto" loading="lazy" />
+                <ResponsiveImage
+                  src={popupBanner.media_url}
+                  alt={popupBanner.title}
+                  className="w-full h-auto"
+                  widths={[320, 480, 640, 960]}
+                  sizes="(max-width: 768px) 90vw, 32rem"
+                  loading="lazy"
+                />
               </Link>
             </motion.div>
           </motion.div>
