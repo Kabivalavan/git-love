@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ResponsiveImage } from '@/components/ui/responsive-image';
 import type { Banner } from '@/types/database';
 
 interface Props {
