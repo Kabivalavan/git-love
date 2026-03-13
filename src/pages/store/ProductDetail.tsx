@@ -305,9 +305,16 @@ export default function ProductDetailPage() {
                       "w-16 h-16 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all",
                       index === currentImageIndex ? 'border-primary shadow-md' : 'border-border opacity-70 hover:opacity-100'
                     )}
-                  >
-                    <img src={img.image_url} alt="" className="w-full h-full object-cover" />
-                  </button>
+                    >
+                      <ResponsiveImage
+                        src={img.image_url}
+                        alt={`${product.name} image ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        widths={[64, 96, 128]}
+                        sizes="64px"
+                        loading="lazy"
+                      />
+                    </button>
                 ))}
               </div>
             )}
