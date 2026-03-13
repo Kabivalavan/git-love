@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Shimmer } from '@/components/ui/shimmer';
+import { ResponsiveImage } from '@/components/ui/responsive-image';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { useLazySection } from '@/hooks/useLazySection';
 

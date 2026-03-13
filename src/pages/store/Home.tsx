@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
 import { Shimmer } from '@/components/ui/shimmer';
+import { ResponsiveImage } from '@/components/ui/responsive-image';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { SEOHead } from '@/components/seo/SEOHead';
 import HomeBestsellers from '@/components/home/HomeBestsellers';

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ResponsiveImage } from '@/components/ui/responsive-image';
 import { supabase } from '@/integrations/supabase/client';
 import type { Product } from '@/types/database';
 

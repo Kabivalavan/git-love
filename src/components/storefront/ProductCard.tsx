@@ -4,6 +4,7 @@ import { Heart, ShoppingCart, Star, Clock } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ResponsiveImage } from '@/components/ui/responsive-image';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { Product, Offer } from '@/types/database';
