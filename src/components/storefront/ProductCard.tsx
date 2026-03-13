@@ -163,7 +163,14 @@ export const ProductCard = React.memo(function ProductCard({
     >
       {/* Image */}
       <Link to={`/product/${product.slug}`} className="block relative aspect-square overflow-hidden bg-muted">
-        <img src={primaryImage} alt={product.name} className={cn("w-full h-full object-cover transition-transform duration-500", !isOutOfStock && "md:group-hover:scale-105")} loading="lazy" />
+        <ResponsiveImage
+          src={primaryImage}
+          alt={product.name}
+          className={cn("w-full h-full object-cover transition-transform duration-500", !isOutOfStock && "md:group-hover:scale-105")}
+          widths={[240, 320, 480, 640, 768]}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+          loading="lazy"
+        />
 
         {/* Discount badge */}
         {hasDiscount && discountLabel && !isOutOfStock && (
