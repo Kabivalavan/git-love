@@ -4,6 +4,7 @@ import { Heart, ShoppingCart, Star, Clock } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ResponsiveImage } from '@/components/ui/responsive-image';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { Product, Offer } from '@/types/database';
@@ -119,7 +120,14 @@ export const ProductCard = React.memo(function ProductCard({
         onMouseEnter={handleMouseEnter}
       >
         <div className="w-20 h-20 rounded-2xl overflow-hidden bg-muted flex-shrink-0 relative">
-          <img src={primaryImage} alt={product.name} className="w-full h-full object-cover md:group-hover:scale-105 transition-transform duration-300" />
+          <ResponsiveImage
+            src={primaryImage}
+            alt={product.name}
+            className="w-full h-full object-cover md:group-hover:scale-105 transition-transform duration-300"
+            widths={[96, 160, 240]}
+            sizes="80px"
+            loading="lazy"
+          />
           {isOutOfStock && (
             <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
               <Badge variant="secondary" className="text-[10px]">Sold Out</Badge>
@@ -155,7 +163,14 @@ export const ProductCard = React.memo(function ProductCard({
     >
       {/* Image */}
       <Link to={`/product/${product.slug}`} className="block relative aspect-square overflow-hidden bg-muted">
-        <img src={primaryImage} alt={product.name} className={cn("w-full h-full object-cover transition-transform duration-500", !isOutOfStock && "md:group-hover:scale-105")} loading="lazy" />
+        <ResponsiveImage
+          src={primaryImage}
+          alt={product.name}
+          className={cn("w-full h-full object-cover transition-transform duration-500", !isOutOfStock && "md:group-hover:scale-105")}
+          widths={[240, 320, 480, 640, 768]}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+          loading="lazy"
+        />
 
         {/* Discount badge */}
         {hasDiscount && discountLabel && !isOutOfStock && (

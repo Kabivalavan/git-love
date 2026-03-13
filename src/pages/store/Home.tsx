@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
 import { Shimmer } from '@/components/ui/shimmer';
+import { ResponsiveImage } from '@/components/ui/responsive-image';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { SEOHead } from '@/components/seo/SEOHead';
 import HomeBestsellers from '@/components/home/HomeBestsellers';
@@ -83,21 +84,25 @@ export default function HomePage() {
               return (
                 <div key={banner.id} className={`absolute inset-0 transition-all duration-700 ${index === currentBanner ? 'opacity-100 z-10 scale-100' : 'opacity-0 z-0 scale-105'}`}>
                   <Link to={banner.redirect_url || '/products'}>
-                    <img
+                    <ResponsiveImage
                       src={banner.media_url_mobile || banner.media_url}
                       alt={banner.title}
                       className="w-full h-full object-cover block sm:hidden"
+                      widths={[320, 480, 640, 800]}
+                      sizes="100vw"
                       loading={isFirst ? 'eager' : 'lazy'}
-                      {...(isFirst ? { fetchPriority: 'high' as any } : {})}
+                      {...(isFirst ? { fetchPriority: 'high' as const } : {})}
                       width={800}
                       height={400}
                     />
-                    <img
-                      src={banner.media_url}
+                    <ResponsiveImage
+                      src={banner.media_url_tablet || banner.media_url}
                       alt={banner.title}
                       className="w-full h-full object-cover hidden sm:block"
+                      widths={[768, 1024, 1280, 1600, 1920]}
+                      sizes="100vw"
                       loading={isFirst ? 'eager' : 'lazy'}
-                      {...(isFirst ? { fetchPriority: 'high' as any } : {})}
+                      {...(isFirst ? { fetchPriority: 'high' as const } : {})}
                       width={1920}
                       height={640}
                     />
@@ -232,7 +237,14 @@ export default function HomePage() {
                 to={popupBanner.redirect_url || '/products'}
                 onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
               >
-                <img src={popupBanner.media_url} alt={popupBanner.title} className="w-full h-auto" loading="lazy" />
+                <ResponsiveImage
+                  src={popupBanner.media_url}
+                  alt={popupBanner.title}
+                  className="w-full h-auto"
+                  widths={[320, 480, 640, 960]}
+                  sizes="(max-width: 768px) 90vw, 32rem"
+                  loading="lazy"
+                />
               </Link>
             </motion.div>
           </motion.div>

@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { Shimmer } from '@/components/ui/shimmer';
+import { ResponsiveImage } from '@/components/ui/responsive-image';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { ContentSections, type ContentSection } from '@/components/product/ContentSections';
 import { cn } from '@/lib/utils';
@@ -271,7 +272,15 @@ export default function ProductDetailPage() {
           {/* Images */}
           <div className="space-y-3 min-w-0 md:self-start md:sticky md:top-20" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
             <div className="relative aspect-square bg-muted rounded-2xl overflow-hidden w-full">
-              <img src={currentImage} alt={product.name} className="w-full h-full object-contain" />
+              <ResponsiveImage
+                src={currentImage}
+                alt={product.name}
+                className="w-full h-full object-contain"
+                widths={[480, 768, 960, 1280]}
+                sizes="(max-width: 768px) 100vw, 50vw"
+                loading="eager"
+                fetchPriority="high"
+              />
               {images.length > 1 && (
                 <>
                   <Button variant="secondary" size="icon" className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-card/80 backdrop-blur-sm" onClick={() => setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)}>
@@ -296,9 +305,16 @@ export default function ProductDetailPage() {
                       "w-16 h-16 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all",
                       index === currentImageIndex ? 'border-primary shadow-md' : 'border-border opacity-70 hover:opacity-100'
                     )}
-                  >
-                    <img src={img.image_url} alt="" className="w-full h-full object-cover" />
-                  </button>
+                    >
+                      <ResponsiveImage
+                        src={img.image_url}
+                        alt={`${product.name} image ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        widths={[64, 96, 128]}
+                        sizes="64px"
+                        loading="lazy"
+                      />
+                    </button>
                 ))}
               </div>
             )}

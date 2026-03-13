@@ -1,52 +1,55 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { ThemeProvider } from "@/hooks/useTheme";
-import { GlobalStoreProvider } from "@/hooks/useGlobalStore";
-import { ScrollToTop } from "@/components/ScrollToTop";
-import NotFound from "./pages/NotFound";
-import CustomerAuth from "./pages/auth/CustomerAuth";
-import AdminAuth from "./pages/auth/AdminAuth";
-import AdminDashboard from "./pages/admin/Dashboard";
-import AdminProducts from "./pages/admin/Products";
-import AdminCategories from "./pages/admin/Categories";
-import AdminOrders from "./pages/admin/Orders";
-import AdminBanners from "./pages/admin/Banners";
-import AdminOffersAndCoupons from "./pages/admin/OffersAndCoupons";
-import AdminDeliveries from "./pages/admin/Deliveries";
-import AdminPayments from "./pages/admin/Payments";
-import AdminExpenses from "./pages/admin/Expenses";
-import AdminCustomers from "./pages/admin/Customers";
-import AdminReports from "./pages/admin/Reports";
-import AdminSettings from "./pages/admin/Settings";
-import AdminAnalytics from "./pages/admin/Analytics";
-import AdminBundles from "./pages/admin/Bundles";
-import AdminNotifications from "./pages/admin/Notifications";
-import AdminActivityLog from "./pages/admin/ActivityLog";
+import { lazy, Suspense } from 'react';
+import { Toaster } from '@/components/ui/toaster';
+import { Toaster as Sonner } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from '@/hooks/useAuth';
+import { ThemeProvider } from '@/hooks/useTheme';
+import { GlobalStoreProvider } from '@/hooks/useGlobalStore';
+import { ScrollToTop } from '@/components/ScrollToTop';
 
-// Public storefront pages
-import HomePage from "./pages/store/Home";
-import ProductsPage from "./pages/store/Products";
-import ProductDetailPage from "./pages/store/ProductDetail";
-import CartPage from "./pages/store/Cart";
-import CheckoutPage from "./pages/store/Checkout";
-import OrderSuccessPage from "./pages/store/OrderSuccess";
-import AccountPage from "./pages/store/Account";
-import MyOrdersPage from "./pages/store/MyOrders";
-import OrderTrackingPage from "./pages/store/OrderTracking";
-import SavedAddressesPage from "./pages/store/SavedAddresses";
-import ProfileSettingsPage from "./pages/store/ProfileSettings";
-import ShippingPolicyPage from "./pages/store/ShippingPolicy";
-import ReturnPolicyPage from "./pages/store/ReturnPolicy";
-import PrivacyPolicyPage from "./pages/store/PrivacyPolicy";
-import TermsConditionsPage from "./pages/store/TermsConditions";
-import ContactUsPage from "./pages/store/ContactUs";
-import FAQPage from "./pages/store/FAQ";
-import WishlistPage from "./pages/store/Wishlist";
-import BundleDetailPage from "./pages/store/BundleDetail";
+import HomePage from './pages/store/Home';
+
+const NotFound = lazy(() => import('./pages/NotFound'));
+const CustomerAuth = lazy(() => import('./pages/auth/CustomerAuth'));
+const AdminAuth = lazy(() => import('./pages/auth/AdminAuth'));
+
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminProducts = lazy(() => import('./pages/admin/Products'));
+const AdminCategories = lazy(() => import('./pages/admin/Categories'));
+const AdminOrders = lazy(() => import('./pages/admin/Orders'));
+const AdminBanners = lazy(() => import('./pages/admin/Banners'));
+const AdminOffersAndCoupons = lazy(() => import('./pages/admin/OffersAndCoupons'));
+const AdminDeliveries = lazy(() => import('./pages/admin/Deliveries'));
+const AdminPayments = lazy(() => import('./pages/admin/Payments'));
+const AdminExpenses = lazy(() => import('./pages/admin/Expenses'));
+const AdminCustomers = lazy(() => import('./pages/admin/Customers'));
+const AdminReports = lazy(() => import('./pages/admin/Reports'));
+const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
+const AdminBundles = lazy(() => import('./pages/admin/Bundles'));
+const AdminNotifications = lazy(() => import('./pages/admin/Notifications'));
+const AdminActivityLog = lazy(() => import('./pages/admin/ActivityLog'));
+
+const ProductsPage = lazy(() => import('./pages/store/Products'));
+const ProductDetailPage = lazy(() => import('./pages/store/ProductDetail'));
+const CartPage = lazy(() => import('./pages/store/Cart'));
+const CheckoutPage = lazy(() => import('./pages/store/Checkout'));
+const OrderSuccessPage = lazy(() => import('./pages/store/OrderSuccess'));
+const AccountPage = lazy(() => import('./pages/store/Account'));
+const MyOrdersPage = lazy(() => import('./pages/store/MyOrders'));
+const OrderTrackingPage = lazy(() => import('./pages/store/OrderTracking'));
+const SavedAddressesPage = lazy(() => import('./pages/store/SavedAddresses'));
+const ProfileSettingsPage = lazy(() => import('./pages/store/ProfileSettings'));
+const ShippingPolicyPage = lazy(() => import('./pages/store/ShippingPolicy'));
+const ReturnPolicyPage = lazy(() => import('./pages/store/ReturnPolicy'));
+const PrivacyPolicyPage = lazy(() => import('./pages/store/PrivacyPolicy'));
+const TermsConditionsPage = lazy(() => import('./pages/store/TermsConditions'));
+const ContactUsPage = lazy(() => import('./pages/store/ContactUs'));
+const FAQPage = lazy(() => import('./pages/store/FAQ'));
+const WishlistPage = lazy(() => import('./pages/store/Wishlist'));
+const BundleDetailPage = lazy(() => import('./pages/store/BundleDetail'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,8 +60,6 @@ const queryClient = new QueryClient({
       refetchOnReconnect: true,
       retry: 2,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
-      // Deduplicate identical in-flight requests automatically (default behavior)
-      // structuralSharing keeps referential equality for unchanged data
       structuralSharing: true,
     },
     mutations: {
@@ -66,6 +67,10 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function RouteLoadingFallback() {
+  return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading...</div>;
+}
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, isLoading } = useAuth();
@@ -78,52 +83,54 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 const AppRoutes = () => (
   <>
     <ScrollToTop />
-    <Routes>
-      {/* Public Storefront */}
-      <Route path="/" element={<HomePage />} />
-      <Route path="/products" element={<ProductsPage />} />
-      <Route path="/product/:slug" element={<ProductDetailPage />} />
-      <Route path="/cart" element={<CartPage />} />
-      <Route path="/checkout" element={<CheckoutPage />} />
-      <Route path="/order-success" element={<OrderSuccessPage />} />
-      <Route path="/auth" element={<CustomerAuth />} />
-      <Route path="/shipping-policy" element={<ShippingPolicyPage />} />
-      <Route path="/return-policy" element={<ReturnPolicyPage />} />
-      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-      <Route path="/terms" element={<TermsConditionsPage />} />
-      <Route path="/contact" element={<ContactUsPage />} />
-      <Route path="/faq" element={<FAQPage />} />
-      <Route path="/wishlist" element={<WishlistPage />} />
-      <Route path="/bundles/:slug" element={<BundleDetailPage />} />
-      
-      {/* User Account */}
-      <Route path="/account" element={<AccountPage />}>
-        <Route index element={<MyOrdersPage />} />
-        <Route path="order/:orderId" element={<OrderTrackingPage />} />
-        <Route path="addresses" element={<SavedAddressesPage />} />
-        <Route path="profile" element={<ProfileSettingsPage />} />
-      </Route>
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <Routes>
+        {/* Public Storefront */}
+        <Route path="/" element={<HomePage />} />
+        <Route path="/products" element={<ProductsPage />} />
+        <Route path="/product/:slug" element={<ProductDetailPage />} />
+        <Route path="/cart" element={<CartPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/order-success" element={<OrderSuccessPage />} />
+        <Route path="/auth" element={<CustomerAuth />} />
+        <Route path="/shipping-policy" element={<ShippingPolicyPage />} />
+        <Route path="/return-policy" element={<ReturnPolicyPage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsConditionsPage />} />
+        <Route path="/contact" element={<ContactUsPage />} />
+        <Route path="/faq" element={<FAQPage />} />
+        <Route path="/wishlist" element={<WishlistPage />} />
+        <Route path="/bundles/:slug" element={<BundleDetailPage />} />
 
-      {/* Admin */}
-      <Route path="/admin/login" element={<AdminAuth />} />
-      <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-      <Route path="/admin/banners" element={<AdminRoute><AdminBanners /></AdminRoute>} />
-      <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
-      <Route path="/admin/categories" element={<AdminRoute><AdminCategories /></AdminRoute>} />
-      <Route path="/admin/offers" element={<AdminRoute><AdminOffersAndCoupons /></AdminRoute>} />
-      <Route path="/admin/orders" element={<AdminRoute><AdminOrders /></AdminRoute>} />
-      <Route path="/admin/deliveries" element={<AdminRoute><AdminDeliveries /></AdminRoute>} />
-      <Route path="/admin/payments" element={<AdminRoute><AdminPayments /></AdminRoute>} />
-      <Route path="/admin/expenses" element={<AdminRoute><AdminExpenses /></AdminRoute>} />
-      <Route path="/admin/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
-      <Route path="/admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} />
-      <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
-      <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
-      <Route path="/admin/bundles" element={<AdminRoute><AdminBundles /></AdminRoute>} />
-      <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
-      <Route path="/admin/activity-log" element={<AdminRoute><AdminActivityLog /></AdminRoute>} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        {/* User Account */}
+        <Route path="/account" element={<AccountPage />}>
+          <Route index element={<MyOrdersPage />} />
+          <Route path="order/:orderId" element={<OrderTrackingPage />} />
+          <Route path="addresses" element={<SavedAddressesPage />} />
+          <Route path="profile" element={<ProfileSettingsPage />} />
+        </Route>
+
+        {/* Admin */}
+        <Route path="/admin/login" element={<AdminAuth />} />
+        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin/banners" element={<AdminRoute><AdminBanners /></AdminRoute>} />
+        <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
+        <Route path="/admin/categories" element={<AdminRoute><AdminCategories /></AdminRoute>} />
+        <Route path="/admin/offers" element={<AdminRoute><AdminOffersAndCoupons /></AdminRoute>} />
+        <Route path="/admin/orders" element={<AdminRoute><AdminOrders /></AdminRoute>} />
+        <Route path="/admin/deliveries" element={<AdminRoute><AdminDeliveries /></AdminRoute>} />
+        <Route path="/admin/payments" element={<AdminRoute><AdminPayments /></AdminRoute>} />
+        <Route path="/admin/expenses" element={<AdminRoute><AdminExpenses /></AdminRoute>} />
+        <Route path="/admin/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
+        <Route path="/admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} />
+        <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
+        <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+        <Route path="/admin/bundles" element={<AdminRoute><AdminBundles /></AdminRoute>} />
+        <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
+        <Route path="/admin/activity-log" element={<AdminRoute><AdminActivityLog /></AdminRoute>} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   </>
 );
 

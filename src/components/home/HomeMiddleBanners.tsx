@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ResponsiveImage } from '@/components/ui/responsive-image';
 import type { Banner } from '@/types/database';
 
 interface Props {
@@ -19,7 +20,14 @@ export default function HomeMiddleBanners({ middleBanners }: Props) {
               <CardContent className="p-0">
                 <Link to={banner.redirect_url || '/products'}>
                   <div className="aspect-[2/1] overflow-hidden">
-                    <img src={banner.media_url} alt={banner.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                    <ResponsiveImage
+                      src={banner.media_url}
+                      alt={banner.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      widths={[480, 768, 1024, 1280]}
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      loading="lazy"
+                    />
                   </div>
                 </Link>
               </CardContent>

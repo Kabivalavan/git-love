@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Shimmer } from '@/components/ui/shimmer';
+import { ResponsiveImage } from '@/components/ui/responsive-image';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { useLazySection } from '@/hooks/useLazySection';
 
@@ -58,7 +59,14 @@ export default function HomeBundles() {
                 <Link key={bundle.id} to={`/bundles/${bundle.slug}`} className="block group">
                   <div className="overflow-hidden rounded-xl border border-border bg-card hover:shadow-lg transition-all duration-300">
                     <div className="aspect-[2/1] relative overflow-hidden bg-muted">
-                      <img src={bundleImage} alt={bundle.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                      <ResponsiveImage
+                        src={bundleImage}
+                        alt={bundle.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        widths={[480, 768, 1024]}
+                        sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                        loading="lazy"
+                      />
                       {discount > 0 && (
                         <Badge className="absolute top-3 left-3 bg-green-500 text-white text-xs border-0 rounded-md">{discount}% OFF</Badge>
                       )}
