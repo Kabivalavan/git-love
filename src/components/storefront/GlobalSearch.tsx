@@ -135,7 +135,14 @@ export function GlobalSearch({ className, onClose, autoFocus, variant = 'default
                   >
                     <div className="w-12 h-12 rounded-full overflow-hidden bg-muted flex-shrink-0">
                       {product.images?.[0] ? (
-                        <img src={product.images[0].image_url} alt={product.name} className="w-full h-full object-cover" />
+                        <ResponsiveImage
+                          src={product.images[0].image_url}
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                          widths={[64, 96, 128]}
+                          sizes="48px"
+                          loading="lazy"
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">No img</div>
                       )}
