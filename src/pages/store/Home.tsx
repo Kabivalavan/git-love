@@ -84,21 +84,25 @@ export default function HomePage() {
               return (
                 <div key={banner.id} className={`absolute inset-0 transition-all duration-700 ${index === currentBanner ? 'opacity-100 z-10 scale-100' : 'opacity-0 z-0 scale-105'}`}>
                   <Link to={banner.redirect_url || '/products'}>
-                    <img
+                    <ResponsiveImage
                       src={banner.media_url_mobile || banner.media_url}
                       alt={banner.title}
                       className="w-full h-full object-cover block sm:hidden"
+                      widths={[320, 480, 640, 800]}
+                      sizes="100vw"
                       loading={isFirst ? 'eager' : 'lazy'}
-                      {...(isFirst ? { fetchPriority: 'high' as any } : {})}
+                      {...(isFirst ? { fetchPriority: 'high' as const } : {})}
                       width={800}
                       height={400}
                     />
-                    <img
-                      src={banner.media_url}
+                    <ResponsiveImage
+                      src={banner.media_url_tablet || banner.media_url}
                       alt={banner.title}
                       className="w-full h-full object-cover hidden sm:block"
+                      widths={[768, 1024, 1280, 1600, 1920]}
+                      sizes="100vw"
                       loading={isFirst ? 'eager' : 'lazy'}
-                      {...(isFirst ? { fetchPriority: 'high' as any } : {})}
+                      {...(isFirst ? { fetchPriority: 'high' as const } : {})}
                       width={1920}
                       height={640}
                     />
