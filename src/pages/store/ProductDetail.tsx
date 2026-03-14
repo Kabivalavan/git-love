@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy, Home, Package, Check } from 'lucide-react';
+import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy, Home, Package, Check, MapPin, Undo2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
@@ -184,6 +184,18 @@ export default function ProductDetailPage() {
     navigate('/cart');
   };
 
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: product?.name, text: product?.short_description || '', url });
+      } catch { /* user cancelled */ }
+    } else {
+      navigator.clipboard.writeText(url);
+      toast({ title: 'Link copied!', description: 'Product link copied to clipboard' });
+    }
+  };
+
   const handleSubmitReview = async () => {
     if (!user || !product) { toast({ title: 'Please login', description: 'You need to login to submit a review' }); return; }
     setIsSubmittingReview(true);
@@ -236,6 +248,7 @@ export default function ProductDetailPage() {
     percent: reviews.length > 0 ? (reviews.filter(r => r.rating === star).length / reviews.length) * 100 : 0,
   }));
   const contentSections: ContentSection[] = (product as any).content_sections || [];
+  const hasMRP = product.mrp && product.mrp > currentPrice;
 
   const priceWhole = Math.floor(displayPrice);
   const priceDecimal = Math.round((displayPrice - priceWhole) * 100);
@@ -256,7 +269,7 @@ export default function ProductDetailPage() {
         jsonLd={productJsonLd}
       />
       <div className="container mx-auto px-4 py-4 md:py-6 max-w-full overflow-hidden">
-        {/* Breadcrumb - mobile: back arrow + Product Details title */}
+        {/* Breadcrumb */}
         <nav className="flex items-center gap-3 mb-4">
           <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center flex-shrink-0 hover:bg-muted transition-colors">
             <ChevronLeft className="h-5 w-5 text-foreground" />
@@ -265,6 +278,10 @@ export default function ProductDetailPage() {
           <span className="text-sm text-muted-foreground hidden lg:block">
             <Link to="/" className="hover:text-primary">Home</Link> / <Link to="/products" className="hover:text-primary">Shop</Link> / <span className="text-foreground">{product.name}</span>
           </span>
+          {/* Share button */}
+          <button onClick={handleShare} className="ml-auto h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center flex-shrink-0 hover:bg-muted transition-colors">
+            <Share2 className="h-4 w-4 text-muted-foreground" />
+          </button>
         </nav>
 
         {/* Product Hero */}
@@ -294,7 +311,11 @@ export default function ProductDetailPage() {
               {discount > 0 && (
                 <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground border-0 rounded-lg text-xs">{discount}% OFF</Badge>
               )}
+              {product.badge && (
+                <Badge className="absolute top-3 right-3 bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))] border-0 rounded-lg text-xs">{product.badge}</Badge>
+              )}
             </div>
+            {/* Thumbnail strip */}
             {images.length > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
                 {images.map((img, index) => (
@@ -305,16 +326,16 @@ export default function ProductDetailPage() {
                       "w-16 h-16 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all",
                       index === currentImageIndex ? 'border-primary shadow-md' : 'border-border opacity-70 hover:opacity-100'
                     )}
-                    >
-                      <ResponsiveImage
-                        src={img.image_url}
-                        alt={`${product.name} image ${index + 1}`}
-                        className="w-full h-full object-cover"
-                        widths={[64, 96, 128]}
-                        sizes="64px"
-                        loading="lazy"
-                      />
-                    </button>
+                  >
+                    <ResponsiveImage
+                      src={img.image_url}
+                      alt={`${product.name} image ${index + 1}`}
+                      className="w-full h-full object-cover"
+                      widths={[64, 96, 128]}
+                      sizes="64px"
+                      loading="lazy"
+                    />
+                  </button>
                 ))}
               </div>
             )}
@@ -335,31 +356,48 @@ export default function ProductDetailPage() {
               </button>
             </div>
 
-            {/* Price - large with superscript */}
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <span className="text-3xl md:text-4xl font-bold text-foreground">
-                ₹{priceWhole}<span className="text-lg align-super font-semibold">.{String(priceDecimal).padStart(2, '0')}</span>
-              </span>
-              {showOfferDiscount && (
-                <span className="text-lg text-muted-foreground line-through">₹{Number(currentPrice).toFixed(0)}</span>
-              )}
+            {/* Rating bar - prominent */}
+            {reviews.length > 0 && (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))] px-2.5 py-1 rounded-lg">
+                  <span className="text-sm font-bold">{avgRating.toFixed(1)}</span>
+                  <Star className="h-3.5 w-3.5 fill-current" />
+                </div>
+                <span className="text-sm text-muted-foreground">{reviews.length.toLocaleString()} Rating{reviews.length !== 1 ? 's' : ''} & Review{reviews.length !== 1 ? 's' : ''}</span>
+              </div>
+            )}
+
+            {/* Price block */}
+            <div className="bg-muted/50 rounded-2xl p-4">
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <span className="text-3xl md:text-4xl font-bold text-foreground">
+                  ₹{priceWhole}<span className="text-lg align-super font-semibold">.{String(priceDecimal).padStart(2, '0')}</span>
+                </span>
+                {hasMRP && (
+                  <span className="text-lg text-muted-foreground line-through">MRP ₹{Number(product.mrp).toFixed(0)}</span>
+                )}
+                {showOfferDiscount && !hasMRP && (
+                  <span className="text-lg text-muted-foreground line-through">₹{Number(currentPrice).toFixed(0)}</span>
+                )}
+                {discount > 0 && (
+                  <span className="text-sm font-bold text-[hsl(var(--success))]">{discount}% off</span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Inclusive of all taxes</p>
             </div>
 
-            {/* Availability + Rating inline */}
+            {/* Availability */}
             <div className="flex items-center gap-4 flex-wrap">
               {currentStock > 0 ? (
                 <span className="flex items-center gap-1.5 text-sm">
-                  <span className="h-2 w-2 rounded-full bg-[hsl(var(--success))]" />
-                  <span className="text-[hsl(var(--success))] font-medium">Available on fast delivery</span>
+                  <Check className="h-4 w-4 text-[hsl(var(--success))]" />
+                  <span className="text-[hsl(var(--success))] font-medium">In Stock</span>
+                  {currentStock <= 5 && (
+                    <span className="text-destructive text-xs font-medium ml-1">— Only {currentStock} left!</span>
+                  )}
                 </span>
               ) : (
                 <span className="text-destructive text-sm font-medium">Out of stock</span>
-              )}
-              {reviews.length > 0 && (
-                <span className="flex items-center gap-1.5 text-sm">
-                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  <span className="font-semibold">{avgRating.toFixed(1)} Rating</span>
-                </span>
               )}
             </div>
 
@@ -420,16 +458,40 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Guarantee text */}
-            <div className="bg-muted rounded-2xl p-3">
-              <p className="text-sm text-muted-foreground">
-                100% satisfaction guarantee. If you experience any issues, missing, poor item, late arrival, or unprofessional service, we'll make it right.
-              </p>
+            {/* Delivery & Trust Section — Amazon-style */}
+            <div className="border border-border rounded-2xl divide-y divide-border overflow-hidden">
+              <div className="flex items-start gap-3 p-3.5">
+                <Truck className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Free Delivery</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Estimated delivery in 3-7 business days</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3.5">
+                <Undo2 className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Easy Returns</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">7-day return & exchange policy. No questions asked.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3.5">
+                <Shield className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Secure Payment</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">100% secure checkout. Your data is protected.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3.5">
+                <Package className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Quality Guaranteed</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">100% original products. If any issue, we'll make it right.</p>
+                </div>
+              </div>
             </div>
 
             {/* Desktop quantity + action buttons */}
             <div className="hidden lg:block space-y-4">
-              {/* Quantity */}
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-muted-foreground">Qty:</span>
                 <div className="flex items-center border border-border rounded-full overflow-hidden">
@@ -441,12 +503,8 @@ export default function ProductDetailPage() {
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
-                {currentStock <= 5 && currentStock > 0 && (
-                  <span className="text-xs text-destructive font-medium">Only {currentStock} left!</span>
-                )}
               </div>
 
-              {/* Action buttons */}
               <div className="flex gap-3">
                 <Button
                   className="flex-1 h-12 text-base font-semibold rounded-xl"
@@ -471,13 +529,6 @@ export default function ProductDetailPage() {
             {/* Mobile: buyNow ref for sticky bar trigger */}
             <div className="lg:hidden">
               <Button ref={buyNowRef} className="sr-only" tabIndex={-1}>trigger</Button>
-            </div>
-
-            {/* Trust features */}
-            <div className="flex items-center gap-4 pt-2 text-sm text-muted-foreground flex-wrap">
-              <span className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-primary" /> Free Shipping</span>
-              <span className="flex items-center gap-1.5"><RefreshCw className="h-4 w-4 text-primary" /> Easy Returns</span>
-              <span className="flex items-center gap-1.5"><Shield className="h-4 w-4 text-primary" /> Secure</span>
             </div>
 
             {/* Coupons */}
@@ -514,7 +565,7 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Description */}
+            {/* Description & Content Sections */}
             <div className="space-y-3 pt-2">
               {product.description && (
                 <FAQAccordionItem title="Description" defaultOpen>
@@ -526,11 +577,12 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Reviews Section */}
+        {/* Reviews Section — prominent with star distribution */}
         <div className="mb-8">
-          <h2 className="text-lg md:text-xl font-bold mb-4">Ratings and reviews</h2>
-          {reviews.length > 0 && (
+          <h2 className="text-lg md:text-xl font-bold mb-4">Ratings & Reviews</h2>
+          {reviews.length > 0 ? (
             <div className="grid md:grid-cols-3 gap-6 mb-6">
+              {/* Rating summary card */}
               <div className="bg-card border border-border rounded-2xl p-6 text-center">
                 <p className="text-5xl font-bold text-foreground">{avgRating.toFixed(1)}</p>
                 <div className="flex justify-center my-2">
@@ -550,17 +602,16 @@ export default function ProductDetailPage() {
                   ))}
                 </div>
               </div>
+              {/* Individual reviews */}
               <div className="md:col-span-2 space-y-3">
                 {reviews.slice(0, visibleReviewCount).map((review) => (
                   <div key={review.id} className="bg-card border border-border rounded-2xl px-4 py-3">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <div className="flex">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star key={star} className={cn("h-3 w-3", star <= review.rating ? 'fill-amber-400 text-amber-400' : 'text-muted')} />
-                        ))}
+                      <div className="flex items-center gap-0.5 bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))] px-1.5 py-0.5 rounded text-xs font-bold">
+                        {review.rating} <Star className="h-2.5 w-2.5 fill-current" />
                       </div>
                       <span className="text-sm font-medium">{(review as any).profile?.full_name || 'Customer'}</span>
-                      {review.is_verified && <Badge variant="secondary" className="text-[10px]">Verified</Badge>}
+                      {review.is_verified && <Badge variant="secondary" className="text-[10px]">✓ Verified</Badge>}
                       <span className="text-xs text-muted-foreground ml-auto">{new Date(review.created_at).toLocaleDateString()}</span>
                     </div>
                     {review.title && <p className="font-medium text-sm">{review.title}</p>}
@@ -574,10 +625,15 @@ export default function ProductDetailPage() {
                 )}
               </div>
             </div>
+          ) : (
+            <div className="bg-card border border-border rounded-2xl p-6 text-center">
+              <Star className="h-10 w-10 text-muted mx-auto mb-2" />
+              <p className="text-muted-foreground text-sm">No reviews yet. Be the first to review this product!</p>
+            </div>
           )}
 
           {user && (
-            <div className="bg-card border border-border rounded-2xl px-4 py-4">
+            <div className="bg-card border border-border rounded-2xl px-4 py-4 mt-4">
               <h3 className="font-semibold mb-3">Write a Review</h3>
               <div className="space-y-3">
                 <div>
@@ -617,7 +673,7 @@ export default function ProductDetailPage() {
         )}
       </div>
 
-      {/* Mobile Sticky Bottom Bar - App style with quantity + Add to Cart */}
+      {/* Mobile Sticky Bottom Bar */}
       <AnimatePresence>
         {showStickyBar && product && currentStock > 0 && (
           <motion.div
@@ -628,7 +684,6 @@ export default function ProductDetailPage() {
             className="fixed bottom-[60px] left-0 right-0 z-40 bg-card border-t border-border px-4 py-3 lg:hidden shadow-lg"
           >
             <div className="flex items-center gap-3">
-              {/* Quantity controls */}
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -646,7 +701,6 @@ export default function ProductDetailPage() {
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
-              {/* Add to cart */}
               <Button className="flex-1 h-12 text-base font-semibold rounded-2xl" onClick={handleAddToCart} disabled={isAddingToCart}>
                 {isAddingToCart ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <ShoppingCart className="h-5 w-5 mr-2" />}
                 Add to Cart

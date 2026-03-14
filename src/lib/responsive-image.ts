@@ -19,7 +19,7 @@ export function isSupabasePublicImage(imageUrl: string): boolean {
 export function buildResponsiveImageSrc(
   imageUrl: string,
   width: number,
-  options?: { quality?: number; format?: 'webp' | 'origin' }
+  options?: { quality?: number; format?: 'webp' | 'avif' | 'origin' }
 ): string {
   const quality = options?.quality ?? 72;
   const format = options?.format ?? 'origin';
@@ -34,6 +34,11 @@ export function buildResponsiveImageSrc(
   if (format === 'webp') {
     transformed.searchParams.set('format', 'webp');
   }
+  // Note: Supabase Image Transformation doesn't natively support AVIF format parameter yet,
+  // but we include it for future-proofing when it does
+  if (format === 'avif') {
+    transformed.searchParams.set('format', 'avif');
+  }
 
   return transformed.toString();
 }
@@ -42,7 +47,7 @@ export function buildResponsiveImageSet(
   imageUrl: string,
   widths: number[],
   quality = 72
-): { src: string; srcSet?: string; webpSrcSet?: string } {
+): { src: string; srcSet?: string; webpSrcSet?: string; avifSrcSet?: string } {
   const sanitizedWidths = [...new Set(widths)].filter(Boolean).sort((a, b) => a - b);
   if (sanitizedWidths.length === 0) {
     return { src: imageUrl };
@@ -63,6 +68,10 @@ export function buildResponsiveImageSet(
     .map((w) => `${buildResponsiveImageSrc(imageUrl, w, { quality, format: 'webp' })} ${w}w`)
     .join(', ');
 
+  const avifSrcSet = sanitizedWidths
+    .map((w) => `${buildResponsiveImageSrc(imageUrl, w, { quality, format: 'avif' })} ${w}w`)
+    .join(', ');
+
   return {
     src: buildResponsiveImageSrc(imageUrl, sanitizedWidths[sanitizedWidths.length - 1], {
       quality,
@@ -70,5 +79,6 @@ export function buildResponsiveImageSet(
     }),
     srcSet,
     webpSrcSet,
+    avifSrcSet,
   };
 }

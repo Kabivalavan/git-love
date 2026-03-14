@@ -22,6 +22,7 @@ export function ResponsiveImage({
 
   return (
     <picture>
+      {sources.avifSrcSet && <source type="image/avif" srcSet={sources.avifSrcSet} sizes={sizes} />}
       {sources.webpSrcSet && <source type="image/webp" srcSet={sources.webpSrcSet} sizes={sizes} />}
       {sources.srcSet && <source srcSet={sources.srcSet} sizes={sizes} />}
       <img
