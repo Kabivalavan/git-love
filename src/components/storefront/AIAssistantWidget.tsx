@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Send, Sparkles, ChevronRight, Star, ShoppingCart, RotateCcw } from 'lucide-react';
+import { X, Send, Sparkles, ChevronRight, Star, ShoppingCart, RotateCcw, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,7 @@ interface AIConfig {
   api_base: string;
   secret_key?: string;
   button_text?: string;
+  assistant_name?: string;
 }
 
 interface Question {
@@ -83,6 +84,8 @@ export function AIAssistantWidget() {
     refetchOnWindowFocus: false,
   });
 
+  const assistantName = config?.assistant_name || config?.button_text || 'AI';
+
   const scrollToBottom = useCallback(() => {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
   }, []);
@@ -130,7 +133,7 @@ export function AIAssistantWidget() {
 
     setSessionStarted(true);
     setMessages([
-      { role: 'assistant', type: 'greeting', text: "Hi there! 👋 I'm your shopping assistant. Let me help you find the perfect product." },
+      { role: 'assistant', type: 'greeting', text: `Hi there! 👋 I'm ${assistantName}, your shopping assistant. Let me help you find the perfect product.` },
       { role: 'assistant', type: 'thinking', text: 'Loading questions...' },
     ]);
 
@@ -168,9 +171,8 @@ export function AIAssistantWidget() {
 
       updateSession({ questions: q });
 
-      // Remove thinking message and show first question
       setMessages(prev => [
-        prev[0], // greeting
+        prev[0],
         ...(q.length > 0
           ? [{ role: 'assistant' as const, type: 'question' as const, question: q[0], stepIndex: 0, totalSteps: q.length }]
           : [{ role: 'assistant' as const, type: 'error' as const, text: 'No questions available right now.' }]),
@@ -181,7 +183,7 @@ export function AIAssistantWidget() {
         { role: 'assistant', type: 'error', text: 'Failed to load. Please try again.' },
       ]);
     }
-  }, [config, user, saveSession, updateSession]);
+  }, [config, user, saveSession, updateSession, assistantName]);
 
   const handleOptionSelect = (option: string, inputType: string) => {
     if (inputType === 'single_select') {
@@ -200,7 +202,6 @@ export function AIAssistantWidget() {
     const newAnswers = { ...answers, [q.id]: selectedOptions };
     setAnswers(newAnswers);
 
-    // Add user answer as a message
     setMessages(prev => [
       ...prev,
       { role: 'user', type: 'answer', text: selectedOptions.join(', ') },
@@ -213,7 +214,6 @@ export function AIAssistantWidget() {
     setCurrentStep(nextStep);
 
     if (nextStep < questions.length) {
-      // Show next question
       setTimeout(() => {
         setMessages(prev => [
           ...prev,
@@ -221,7 +221,6 @@ export function AIAssistantWidget() {
         ]);
       }, 400);
     } else {
-      // Submit answers
       setMessages(prev => [
         ...prev,
         { role: 'assistant', type: 'thinking', text: 'Analyzing your preferences...' },
@@ -283,7 +282,7 @@ export function AIAssistantWidget() {
 
   return (
     <>
-      {/* Floating trigger button — Rufus style pill */}
+      {/* Small round floating button */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -295,21 +294,22 @@ export function AIAssistantWidget() {
               if (!sessionStarted) startSession();
             }}
             className={cn(
-              "fixed z-[9998] flex items-center gap-2 px-5 py-3 rounded-full",
-              "bg-gradient-to-r from-amber-500 to-orange-500 text-white",
-              "shadow-[0_8px_30px_rgba(245,158,11,0.4)] hover:shadow-[0_8px_40px_rgba(245,158,11,0.5)]",
-              "transition-all duration-300 hover:scale-105",
-              "font-semibold text-sm",
+              "fixed z-[9998] h-14 w-14 rounded-full",
+              "bg-gradient-to-br from-primary to-primary/80",
+              "text-primary-foreground shadow-lg",
+              "hover:shadow-xl hover:scale-110",
+              "transition-all duration-300",
+              "flex items-center justify-center",
               "bottom-20 right-4 lg:bottom-6 lg:right-6"
             )}
+            title={assistantName}
           >
-            <Sparkles className="h-4 w-4" />
-            <span>{config.button_text || 'Ask AI'}</span>
+            <Sparkles className="h-6 w-6" />
           </motion.button>
         )}
       </AnimatePresence>
 
-      {/* Chat panel — Rufus-style bottom-right */}
+      {/* Chat panel */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -324,22 +324,22 @@ export function AIAssistantWidget() {
               "w-[360px] max-w-[calc(100vw-32px)] h-[520px] max-h-[calc(100vh-120px)]"
             )}
           >
-            {/* Header — gradient like Rufus */}
-            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex-shrink-0">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground flex-shrink-0">
               <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+                <div className="h-8 w-8 rounded-full bg-primary-foreground/20 flex items-center justify-center">
                   <Sparkles className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm leading-tight">Shopping Assistant</h3>
-                  <p className="text-[10px] text-white/80">Powered by AI</p>
+                  <h3 className="font-bold text-sm leading-tight">{assistantName}</h3>
+                  <p className="text-[10px] opacity-80">Shopping Assistant</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
                 {sessionStarted && (
                   <button
                     onClick={handleRestart}
-                    className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
+                    className="h-8 w-8 rounded-full hover:bg-primary-foreground/20 flex items-center justify-center transition-colors"
                     title="Start over"
                   >
                     <RotateCcw className="h-4 w-4" />
@@ -347,7 +347,7 @@ export function AIAssistantWidget() {
                 )}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
+                  className="h-8 w-8 rounded-full hover:bg-primary-foreground/20 flex items-center justify-center transition-colors"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -422,9 +422,9 @@ function MessageBubble({ message, selectedOptions, onOptionSelect, onContinue, o
         <div className="bg-card border border-border px-4 py-3 rounded-2xl rounded-bl-md shadow-sm">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div className="flex gap-1">
-              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
             {message.text}
           </div>
@@ -455,17 +455,15 @@ function MessageBubble({ message, selectedOptions, onOptionSelect, onContinue, o
         animate={{ opacity: 1, x: 0 }}
         className="space-y-2"
       >
-        {/* Question bubble */}
         <div className="flex justify-start">
           <div className="bg-card border border-border px-4 py-2.5 rounded-2xl rounded-bl-md max-w-[90%] shadow-sm">
-            <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider mb-1">
+            <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-1">
               Step {message.stepIndex + 1} of {message.totalSteps}
             </p>
             <p className="text-sm font-medium text-foreground">{q.questionText}</p>
           </div>
         </div>
 
-        {/* Options as chips */}
         <div className="flex flex-wrap gap-1.5 pl-1">
           {q.options.map((opt) => {
             const isSelected = selectedOptions?.includes(opt);
@@ -476,8 +474,8 @@ function MessageBubble({ message, selectedOptions, onOptionSelect, onContinue, o
                 className={cn(
                   "px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-200",
                   isSelected
-                    ? "bg-amber-500 text-white border-amber-500 shadow-sm"
-                    : "bg-card text-foreground border-border hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-card text-foreground border-border hover:border-primary hover:bg-accent"
                 )}
               >
                 {opt}
@@ -486,7 +484,6 @@ function MessageBubble({ message, selectedOptions, onOptionSelect, onContinue, o
           })}
         </div>
 
-        {/* Continue button */}
         {onContinue && (
           <motion.button
             initial={{ opacity: 0 }}
@@ -494,13 +491,13 @@ function MessageBubble({ message, selectedOptions, onOptionSelect, onContinue, o
             onClick={onContinue}
             disabled={!selectedOptions || selectedOptions.length === 0}
             className={cn(
-              "w-full py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2",
+              "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all ml-1",
               selectedOptions && selectedOptions.length > 0
-                ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md hover:shadow-lg"
+                ? "bg-primary text-primary-foreground shadow-sm hover:opacity-90"
                 : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
           >
-            Continue <ChevronRight className="h-4 w-4" />
+            Continue <ChevronRight className="h-3.5 w-3.5" />
           </motion.button>
         )}
       </motion.div>
@@ -515,55 +512,45 @@ function MessageBubble({ message, selectedOptions, onOptionSelect, onContinue, o
         className="space-y-2"
       >
         <div className="flex justify-start">
-          <div className="bg-card border border-border px-4 py-2.5 rounded-2xl rounded-bl-md shadow-sm">
-            <p className="text-sm font-medium text-foreground">
-              ✨ Here are your best matches!
-            </p>
+          <div className="bg-card border border-border px-4 py-2.5 rounded-2xl rounded-bl-md shadow-sm text-sm text-foreground">
+            ✨ Here are my top picks for you!
           </div>
         </div>
-
-        {message.recs.map((rec, idx) => (
-          <motion.div
-            key={idx}
+        {message.recs.map((rec, ri) => (
+          <motion.a
+            key={ri}
+            href={rec.productUrl || '#'}
+            onClick={() => onProductClick?.(rec.productUrl || '')}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.15 }}
+            transition={{ delay: ri * 0.1 }}
+            className="block bg-card border border-border rounded-2xl p-3 hover:shadow-md transition-shadow"
           >
-            <div className="bg-card border border-border rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-foreground leading-tight">{rec.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                    {rec.explanation || rec.description || 'Recommended for you'}
-                  </p>
+            <div className="flex gap-3">
+              {rec.imageUrl && (
+                <div className="w-16 h-16 rounded-xl overflow-hidden bg-muted flex-shrink-0">
+                  <img src={rec.imageUrl} alt={rec.name} className="w-full h-full object-cover" loading="lazy" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-sm text-foreground line-clamp-1">{rec.name}</h4>
+                {rec.explanation && (
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{rec.explanation}</p>
+                )}
+                <div className="flex items-center gap-2 mt-1.5">
+                  {rec.matchScore > 0 && (
+                    <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                      {rec.matchScore}% Match
+                    </span>
+                  )}
                   {rec.price && (
-                    <p className="text-sm font-bold text-foreground mt-1.5">₹{rec.price}</p>
+                    <span className="text-sm font-bold text-foreground">₹{rec.price}</span>
                   )}
                 </div>
-                <div className="flex-shrink-0 flex flex-col items-center gap-1">
-                  <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-2.5 py-1 rounded-full">
-                    <span className="text-xs font-bold">{rec.matchScore}%</span>
-                  </div>
-                  <div className="flex items-center gap-0.5">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className={cn("h-2.5 w-2.5", i < Math.round(rec.matchScore / 20) ? "text-amber-400 fill-amber-400" : "text-muted")} />
-                    ))}
-                  </div>
-                </div>
               </div>
-              {rec.productUrl && (
-                <a
-                  href={rec.productUrl}
-                  onClick={() => onProductClick?.(rec.productUrl!)}
-                  className="mt-2 flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
-                >
-                  <ShoppingCart className="h-3 w-3" />
-                  View Product
-                  <ChevronRight className="h-3 w-3" />
-                </a>
-              )}
+              <ChevronRight className="h-4 w-4 text-muted-foreground self-center flex-shrink-0" />
             </div>
-          </motion.div>
+          </motion.a>
         ))}
       </motion.div>
     );
