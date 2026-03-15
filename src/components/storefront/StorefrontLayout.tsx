@@ -4,6 +4,7 @@ import { Home, LayoutGrid, Heart, ShoppingCart, User } from 'lucide-react';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { AIAssistantWidget } from './AIAssistantWidget';
+import { ExitIntentPopup } from './ExitIntentPopup';
 import { cn } from '@/lib/utils';
 import { useCartCount } from '@/hooks/useCartQuery';
 
