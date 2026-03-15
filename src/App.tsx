@@ -31,6 +31,7 @@ const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
 const AdminBundles = lazy(() => import('./pages/admin/Bundles'));
 const AdminNotifications = lazy(() => import('./pages/admin/Notifications'));
 const AdminActivityLog = lazy(() => import('./pages/admin/ActivityLog'));
+const AdminConversionOptimization = lazy(() => import('./pages/admin/ConversionOptimization'));
 
 const ProductsPage = lazy(() => import('./pages/store/Products'));
 const ProductDetailPage = lazy(() => import('./pages/store/ProductDetail'));
