@@ -89,6 +89,7 @@ const sidebarEntries: SidebarEntry[] = [
       { path: '/admin/customers', icon: Users, label: 'Customers' },
     ],
   },
+  { path: '/admin/sales-boost', icon: Zap, label: 'Sales Boost' },
   { path: '/admin/reports', icon: BarChart3, label: 'Reports' },
   { path: '/admin/expenses', icon: Receipt, label: 'Expenses' },
   { path: '/admin/activity-log', icon: Activity, label: 'Activity Log' },

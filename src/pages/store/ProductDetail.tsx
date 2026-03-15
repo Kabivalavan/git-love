@@ -22,6 +22,7 @@ import { Shimmer } from '@/components/ui/shimmer';
 import { ResponsiveImage } from '@/components/ui/responsive-image';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { ContentSections, type ContentSection } from '@/components/product/ContentSections';
+import { CrossSellUpsell } from '@/components/storefront/CrossSellUpsell';
 import { cn } from '@/lib/utils';
 import { useProductBySlug, useProductVariants, useProductReviews, useRelatedProducts, useStorefrontCoupons } from '@/hooks/useProductQuery';
 import { useCartMutations } from '@/hooks/useCartQuery';

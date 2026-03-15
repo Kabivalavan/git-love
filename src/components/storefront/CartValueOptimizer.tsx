@@ -60,7 +60,7 @@ export function CartValueOptimizer({ subtotal, cartProductIds }: CartValueOptimi
                 key={product.id}
                 onClick={() => trackConversionEvent('cart_optimizer_clicked', { product_id: product.id })}
               >
-                <ProductCard product={product} compact />
+                <ProductCard product={product} variant="compact" />
               </div>
             ))}
           </div>
