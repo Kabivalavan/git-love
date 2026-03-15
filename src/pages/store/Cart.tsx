@@ -270,8 +270,12 @@ export default function CartPage() {
             })}
           </div>
 
-          {/* Order Summary - Cartsy style */}
-          <div>
+          {/* Order Summary + Cart Optimizer */}
+          <div className="space-y-4">
+            <CartValueOptimizer
+              subtotal={subtotal}
+              cartProductIds={cartItems.map(i => i.product_id || i.product?.id).filter(Boolean)}
+            />
             <div className="bg-card rounded-xl border border-border p-5 sticky top-24 space-y-4">
               <h2 className="text-lg font-bold">Order Summary</h2>
 
