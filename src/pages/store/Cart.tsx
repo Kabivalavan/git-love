@@ -13,6 +13,7 @@ import { Shimmer } from '@/components/ui/shimmer';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { useCartQuery, useCartMutations, type CartItemWithProduct } from '@/hooks/useCartQuery';
 import { useCheckoutSettings } from '@/hooks/useProductQuery';
+import { CartValueOptimizer } from '@/components/storefront/CartValueOptimizer';
 import { cn } from '@/lib/utils';
 import type { Product, Coupon, ProductVariant } from '@/types/database';
 
