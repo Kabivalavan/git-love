@@ -346,7 +346,6 @@ export default function CartPage() {
                 <Link to="/products">Continue Shopping</Link>
               </Button>
             </div>
-            </div>
           </div>
         </div>
       </div>
