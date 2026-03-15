@@ -662,6 +662,9 @@ export default function ProductDetailPage() {
           )}
         </div>
 
+        {/* Cross-Sell & Upsell */}
+        <CrossSellUpsell product={product} />
+
         {/* Related Products */}
         {relatedProducts.length > 0 && (
           <div className="mb-8">
