@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Copy, Gift, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useConversionSettings, trackConversionEvent } from '@/hooks/useConversionOptimization';
@@ -7,29 +7,39 @@ import { cn } from '@/lib/utils';
 export function ExitIntentPopup() {
   const [show, setShow] = useState(false);
   const [copied, setCopied] = useState(false);
+  const triggeredRef = useRef(false);
   const { data: settings } = useConversionSettings();
 
-  const handleExit = useCallback((e: MouseEvent) => {
-    if (e.clientY <= 5 && !show) {
-      const key = 'exit_popup_shown';
-      if (settings?.exit_popup.show_once_per_session && sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, '1');
-      setShow(true);
-      trackConversionEvent('exit_popup_shown');
+  const openPopup = useCallback(() => {
+    if (!settings?.exit_popup.enabled || show || triggeredRef.current) return;
+
+    const key = 'exit_popup_shown';
+    if (settings.exit_popup.show_once_per_session && sessionStorage.getItem(key)) return;
+
+    triggeredRef.current = true;
+    sessionStorage.setItem(key, '1');
+    setShow(true);
+    trackConversionEvent('exit_popup_shown');
+  }, [settings, show]);
+
+  const handleMouseOut = useCallback((e: MouseEvent) => {
+    if (e.relatedTarget === null && e.clientY <= 10) {
+      openPopup();
     }
-  }, [show, settings]);
+  }, [openPopup]);
 
   useEffect(() => {
     if (!settings?.exit_popup.enabled) return;
-    // Delay adding listener to avoid triggering on page load
+
     const timer = setTimeout(() => {
-      document.addEventListener('mouseleave', handleExit);
-    }, 5000);
+      document.addEventListener('mouseout', handleMouseOut);
+    }, 1200);
+
     return () => {
       clearTimeout(timer);
-      document.removeEventListener('mouseleave', handleExit);
+      document.removeEventListener('mouseout', handleMouseOut);
     };
-  }, [handleExit, settings?.exit_popup.enabled]);
+  }, [handleMouseOut, settings?.exit_popup.enabled]);
 
   const handleCopy = () => {
     if (!settings) return;
@@ -45,7 +55,6 @@ export function ExitIntentPopup() {
     <AnimatePresence>
       {show && (
         <>
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -53,7 +62,6 @@ export function ExitIntentPopup() {
             className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm"
             onClick={() => setShow(false)}
           />
-          {/* Popup */}
           <motion.div
             initial={{ opacity: 0, scale: 0.85, y: 40 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -62,7 +70,6 @@ export function ExitIntentPopup() {
             className="fixed inset-0 z-[10001] flex items-center justify-center p-4 pointer-events-none"
           >
             <div className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-md overflow-hidden pointer-events-auto">
-              {/* Header gradient */}
               <div className="relative bg-gradient-to-br from-primary to-primary/70 px-6 py-8 text-center">
                 <button
                   onClick={() => setShow(false)}
@@ -81,7 +88,6 @@ export function ExitIntentPopup() {
                 </p>
               </div>
 
-              {/* Coupon code */}
               <div className="px-6 py-6">
                 <div className="text-center mb-4">
                   <span className="text-3xl font-black text-primary tracking-wider">
@@ -92,34 +98,27 @@ export function ExitIntentPopup() {
                 <button
                   onClick={handleCopy}
                   className={cn(
-                    "w-full flex items-center justify-center gap-3 border-2 border-dashed rounded-2xl px-4 py-4 transition-all",
-                    copied
-                      ? "border-[hsl(var(--success))] bg-[hsl(var(--success))]/5"
-                      : "border-primary/40 hover:border-primary bg-muted/50 hover:bg-primary/5"
+                    'w-full flex items-center justify-center gap-3 border-2 border-dashed rounded-2xl px-4 py-4 transition-all',
+                    copied ? 'border-primary bg-primary/10' : 'border-primary/40 hover:border-primary bg-muted/50 hover:bg-primary/5'
                   )}
                 >
                   <span className="font-mono text-lg font-bold text-foreground tracking-widest">
                     {settings.exit_popup.coupon_code}
                   </span>
-                  {copied ? (
-                    <CheckCircle className="h-5 w-5 text-[hsl(var(--success))]" />
-                  ) : (
-                    <Copy className="h-5 w-5 text-muted-foreground" />
-                  )}
+                  {copied ? <CheckCircle className="h-5 w-5 text-primary" /> : <Copy className="h-5 w-5 text-muted-foreground" />}
                 </button>
 
                 <p className="text-xs text-muted-foreground text-center mt-3">
-                  {copied ? '✅ Code copied! Use it at checkout.' : 'Click to copy the coupon code'}
+                  {copied ? 'Code copied! Use it at checkout.' : 'Click to copy the coupon code'}
                 </p>
               </div>
 
-              {/* Footer */}
               <div className="px-6 pb-5">
                 <button
                   onClick={() => setShow(false)}
                   className="w-full text-sm text-muted-foreground hover:text-foreground text-center py-2 transition-colors"
                 >
-                  No thanks, I'll pass
+                  No thanks, I&apos;ll pass
                 </button>
               </div>
             </div>
