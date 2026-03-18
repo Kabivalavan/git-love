@@ -2,7 +2,42 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Product, ProductVariant, Review } from '@/types/database';
 
-/** Single product by slug - cached and deduplicated */
+/** ─── AGGREGATED product page data (single RPC call) ─── */
+export interface ProductPageData {
+  product: Product;
+  variants: ProductVariant[];
+  reviews: Review[];
+  review_summary: { avg_rating: number; count: number };
+  related_products: Product[];
+  coupons: any[];
+}
+
+export function useProductPageData(slug: string | undefined) {
+  return useQuery({
+    queryKey: ['product-page', slug],
+    queryFn: async (): Promise<ProductPageData> => {
+      const { data, error } = await supabase.rpc('get_product_page_data', { p_slug: slug! });
+      if (error) throw new Error('Failed to load product');
+      const result = data as any;
+      if (result?.error) throw new Error(result.error);
+      return {
+        product: result.product as Product,
+        variants: (result.variants || []) as ProductVariant[],
+        reviews: (result.reviews || []) as Review[],
+        review_summary: result.review_summary || { avg_rating: 0, count: 0 },
+        related_products: (result.related_products || []) as Product[],
+        coupons: result.coupons || [],
+      };
+    },
+    enabled: !!slug,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/** ─── Individual hooks (kept for backward compat & other pages) ─── */
+
 export function useProductBySlug(slug: string | undefined) {
   return useQuery({
     queryKey: ['product', slug],
@@ -23,7 +58,6 @@ export function useProductBySlug(slug: string | undefined) {
   });
 }
 
-/** Product variants - fetched once per product */
 export function useProductVariants(productId: string | undefined) {
   return useQuery({
     queryKey: ['product-variants', productId],
@@ -42,7 +76,6 @@ export function useProductVariants(productId: string | undefined) {
   });
 }
 
-/** Product reviews - deduplicated */
 export function useProductReviews(productId: string | undefined) {
   return useQuery({
     queryKey: ['product-reviews', productId],
@@ -63,7 +96,6 @@ export function useProductReviews(productId: string | undefined) {
   });
 }
 
-/** Related products - cached per category */
 export function useRelatedProducts(categoryId: string | undefined, excludeProductId: string | undefined) {
   return useQuery({
     queryKey: ['related-products', categoryId, excludeProductId],
@@ -84,7 +116,6 @@ export function useRelatedProducts(categoryId: string | undefined, excludeProduc
   });
 }
 
-/** Storefront coupons - global cache */
 export function useStorefrontCoupons() {
   return useQuery({
     queryKey: ['storefront-coupons'],
@@ -103,7 +134,6 @@ export function useStorefrontCoupons() {
   });
 }
 
-/** Checkout settings - rarely changes */
 export function useCheckoutSettings() {
   return useQuery({
     queryKey: ['checkout-settings'],
