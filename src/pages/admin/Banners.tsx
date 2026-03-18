@@ -135,6 +135,7 @@ export default function AdminBanners() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Success', description: 'Banner deleted successfully' });
+      log({ action: 'delete', entityType: 'banner', entityId: selectedBanner.id, details: { name: selectedBanner.title } });
       setIsDetailOpen(false);
       fetchBanners();
     }
