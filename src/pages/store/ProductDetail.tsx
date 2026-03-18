@@ -549,7 +549,7 @@ export default function ProductDetailPage() {
         )}
 
         {/* Cross-Sell / Upsell */}
-        <CrossSellUpsell productId={product.id} categoryId={product.category_id || undefined} currentPrice={currentPrice} />
+        <CrossSellUpsell product={product} />
 
         {/* Reviews Section */}
         <section className="mt-10">
