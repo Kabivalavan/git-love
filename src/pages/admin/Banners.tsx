@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import { ImageUpload } from '@/components/ui/image-upload';
 import {
   Dialog,
@@ -59,6 +60,7 @@ export default function AdminBanners() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Banner>>({});
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   useEffect(() => {
     fetchBanners();
@@ -133,6 +135,7 @@ export default function AdminBanners() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Success', description: 'Banner deleted successfully' });
+      log({ action: 'delete', entityType: 'banner', entityId: selectedBanner.id, details: { name: selectedBanner.title } });
       setIsDetailOpen(false);
       fetchBanners();
     }
@@ -182,6 +185,7 @@ export default function AdminBanners() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Banner updated successfully' });
+        log({ action: 'update', entityType: 'banner', entityId: selectedBanner.id, details: { name: formData.title } });
         setIsFormOpen(false);
         fetchBanners();
       }
@@ -192,6 +196,7 @@ export default function AdminBanners() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Banner created successfully' });
+        log({ action: 'create', entityType: 'banner', details: { name: formData.title } });
         setIsFormOpen(false);
         fetchBanners();
       }

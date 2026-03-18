@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import type { Category } from '@/types/database';
 import {
   Dialog,
@@ -37,6 +38,7 @@ export default function AdminCategories() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Category>>({});
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   useEffect(() => {
     fetchCategories();
@@ -98,6 +100,7 @@ export default function AdminCategories() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Success', description: 'Category deleted successfully' });
+      log({ action: 'delete', entityType: 'category', entityId: selectedCategory.id, details: { name: selectedCategory.name } });
       setIsDetailOpen(false);
       fetchCategories();
     }
@@ -139,6 +142,7 @@ export default function AdminCategories() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Category updated successfully' });
+        log({ action: 'update', entityType: 'category', entityId: selectedCategory.id, details: { name: formData.name } });
         setIsFormOpen(false);
         fetchCategories();
       }
@@ -149,6 +153,7 @@ export default function AdminCategories() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Category created successfully' });
+        log({ action: 'create', entityType: 'category', details: { name: formData.name } });
         setIsFormOpen(false);
         fetchCategories();
       }

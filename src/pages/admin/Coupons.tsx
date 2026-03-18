@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,7 @@ export default function AdminCoupons() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Coupon>>({});
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   useEffect(() => {
     fetchCoupons();
@@ -113,6 +115,7 @@ export default function AdminCoupons() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Success', description: 'Coupon deleted successfully' });
+      log({ action: 'delete', entityType: 'coupon', entityId: selectedCoupon.id, details: { name: selectedCoupon.code } });
       setIsDetailOpen(false);
       fetchCoupons();
     }
@@ -148,6 +151,7 @@ export default function AdminCoupons() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Coupon updated successfully' });
+        log({ action: 'update', entityType: 'coupon', entityId: selectedCoupon.id, details: { name: formData.code } });
         setIsFormOpen(false);
         fetchCoupons();
       }
@@ -157,6 +161,7 @@ export default function AdminCoupons() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Coupon created successfully' });
+        log({ action: 'create', entityType: 'coupon', details: { name: formData.code } });
         setIsFormOpen(false);
         fetchCoupons();
       }

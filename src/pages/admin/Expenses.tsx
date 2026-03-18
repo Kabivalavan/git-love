@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Plus, LayoutGrid, List, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import { ImageUpload } from '@/components/ui/image-upload';
 import {
   Dialog,
@@ -87,9 +88,12 @@ export default function AdminExpenses() {
   });
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterDateRange, setFilterDateRange] = useState<string>('all');
+  const [customDateFrom, setCustomDateFrom] = useState<string>('');
+  const [customDateTo, setCustomDateTo] = useState<string>('');
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [receiptViewUrl, setReceiptViewUrl] = useState<string | null>(null);
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   useEffect(() => { fetchExpenses(); }, []);
   useEffect(() => { localStorage.setItem(VIEW_MODE_KEY, viewMode); }, [viewMode]);
@@ -108,7 +112,10 @@ export default function AdminExpenses() {
   const filteredExpenses = useMemo(() => {
     let result = expenses;
     if (filterCategory !== 'all') result = result.filter(e => e.category === filterCategory);
-    if (filterDateRange !== 'all') {
+    if (filterDateRange === 'custom') {
+      if (customDateFrom) result = result.filter(e => e.date >= customDateFrom);
+      if (customDateTo) result = result.filter(e => e.date <= customDateTo);
+    } else if (filterDateRange !== 'all') {
       const now = new Date();
       const daysAgo = parseInt(filterDateRange);
       const start = new Date(now);
@@ -116,7 +123,7 @@ export default function AdminExpenses() {
       result = result.filter(e => new Date(e.date) >= start);
     }
     return result;
-  }, [expenses, filterCategory, filterDateRange]);
+  }, [expenses, filterCategory, filterDateRange, customDateFrom, customDateTo]);
 
   const summary = useMemo(() => {
     const now = new Date();
@@ -152,7 +159,7 @@ export default function AdminExpenses() {
     setIsDeleting(true);
     const { error } = await supabase.from('expenses').delete().eq('id', selectedExpense.id);
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else { toast({ title: 'Success', description: 'Expense deleted' }); setIsDetailOpen(false); fetchExpenses(); }
+    else { toast({ title: 'Success', description: 'Expense deleted' }); log({ action: 'delete', entityType: 'expense', entityId: selectedExpense.id, details: { name: selectedExpense.description } }); setIsDetailOpen(false); fetchExpenses(); }
     setIsDeleting(false);
   };
 
@@ -173,11 +180,11 @@ export default function AdminExpenses() {
     if (selectedExpense) {
       const { error } = await supabase.from('expenses').update(expenseData).eq('id', selectedExpense.id);
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      else { toast({ title: 'Success', description: 'Expense updated' }); setIsFormOpen(false); fetchExpenses(); }
+      else { toast({ title: 'Success', description: 'Expense updated' }); log({ action: 'update', entityType: 'expense', entityId: selectedExpense.id, details: { name: formData.description } }); setIsFormOpen(false); fetchExpenses(); }
     } else {
       const { error } = await supabase.from('expenses').insert([expenseData]);
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      else { toast({ title: 'Success', description: 'Expense added' }); setIsFormOpen(false); fetchExpenses(); }
+      else { toast({ title: 'Success', description: 'Expense added' }); log({ action: 'create', entityType: 'expense', details: { name: formData.description } }); setIsFormOpen(false); fetchExpenses(); }
     }
     setIsSaving(false);
   };
@@ -231,64 +238,77 @@ export default function AdminExpenses() {
     >
       <div className="space-y-6">
         {/* Top 3 Category Breakdown */}
-        {summary.sortedCategories.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">This Month by Category</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {topCategories.map(([cat, amount]) => (
-                  <div key={cat} className="flex items-center gap-3">
-                    <span className={`w-3 h-3 rounded-full flex-shrink-0 ${getCatColor(cat)}`} />
-                    <span className="text-sm flex-1">{getCatLabel(cat)}</span>
-                    <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-semibold ${getAmountBadgeClass(amount)}`}>₹{amount.toLocaleString()}</span>
-                    <div className="w-24">
-                      <Progress value={summary.thisMonthTotal > 0 ? (amount / summary.thisMonthTotal) * 100 : 0} className="h-1.5" />
-                    </div>
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[1,2,3].map(i => (
+              <Card key={i}>
+                <CardHeader className="pb-2"><div className="animate-pulse rounded-md bg-muted h-3 w-20" /></CardHeader>
+                <CardContent><div className="animate-pulse rounded-md bg-muted h-8 w-24" /></CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <>
+            {summary.sortedCategories.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">This Month by Category</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {topCategories.map(([cat, amount]) => (
+                      <div key={cat} className="flex items-center gap-3">
+                        <span className={`w-3 h-3 rounded-full flex-shrink-0 ${getCatColor(cat)}`} />
+                        <span className="text-sm flex-1">{getCatLabel(cat)}</span>
+                        <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-semibold ${getAmountBadgeClass(amount)}`}>₹{amount.toLocaleString()}</span>
+                        <div className="w-24">
+                          <Progress value={summary.thisMonthTotal > 0 ? (amount / summary.thisMonthTotal) * 100 : 0} className="h-1.5" />
+                        </div>
+                      </div>
+                    ))}
+                    {summary.sortedCategories.length > 3 && (
+                      <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setShowAllCategories(!showAllCategories)}>
+                        {showAllCategories ? <><ChevronUp className="h-3 w-3 mr-1" />Show Less</> : <><ChevronDown className="h-3 w-3 mr-1" />Show {summary.sortedCategories.length - 3} More</>}
+                      </Button>
+                    )}
                   </div>
-                ))}
-                {summary.sortedCategories.length > 3 && (
-                  <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setShowAllCategories(!showAllCategories)}>
-                    {showAllCategories ? <><ChevronUp className="h-3 w-3 mr-1" />Show Less</> : <><ChevronDown className="h-3 w-3 mr-1" />Show {summary.sortedCategories.length - 3} More</>}
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                </CardContent>
+              </Card>
+            )}
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">This Month</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className={`text-2xl font-bold ${getAmountColor(summary.thisMonthTotal)}`}>₹{summary.thisMonthTotal.toLocaleString()}</p>
-              <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${summary.percentChange >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-                {summary.percentChange >= 0 ? '↑' : '↓'}
-                {Math.abs(summary.percentChange).toFixed(1)}% vs last month
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Expenses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className={`text-2xl font-bold ${getAmountColor(summary.total)}`}>₹{summary.total.toLocaleString()}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Records</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{summary.totalRecords}</p>
-            </CardContent>
-          </Card>
-        </div>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">This Month</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className={`text-2xl font-bold ${getAmountColor(summary.thisMonthTotal)}`}>₹{summary.thisMonthTotal.toLocaleString()}</p>
+                  <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${summary.percentChange >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                    {summary.percentChange >= 0 ? '↑' : '↓'}
+                    {Math.abs(summary.percentChange).toFixed(1)}% vs last month
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Expenses</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className={`text-2xl font-bold ${getAmountColor(summary.total)}`}>₹{summary.total.toLocaleString()}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Records</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{summary.totalRecords}</p>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
 
         {/* Filters */}
         <div className="flex flex-wrap gap-3">
@@ -306,7 +326,7 @@ export default function AdminExpenses() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={filterDateRange} onValueChange={setFilterDateRange}>
+          <Select value={filterDateRange} onValueChange={(v) => { setFilterDateRange(v); if (v !== 'custom') { setCustomDateFrom(''); setCustomDateTo(''); } }}>
             <SelectTrigger className="w-40"><SelectValue placeholder="Date Range" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Time</SelectItem>
@@ -314,8 +334,15 @@ export default function AdminExpenses() {
               <SelectItem value="30">Last 30 days</SelectItem>
               <SelectItem value="90">Last 90 days</SelectItem>
               <SelectItem value="365">Last year</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
             </SelectContent>
           </Select>
+          {filterDateRange === 'custom' && (
+            <>
+              <Input type="date" value={customDateFrom} onChange={(e) => setCustomDateFrom(e.target.value)} className="w-40" placeholder="From" />
+              <Input type="date" value={customDateTo} onChange={(e) => setCustomDateTo(e.target.value)} className="w-40" placeholder="To" />
+            </>
+          )}
         </div>
 
         {/* Amount Color Legend */}
