@@ -151,6 +151,7 @@ export default function AdminCoupons() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Coupon updated successfully' });
+        log({ action: 'update', entityType: 'coupon', entityId: selectedCoupon.id, details: { name: formData.code } });
         setIsFormOpen(false);
         fetchCoupons();
       }
