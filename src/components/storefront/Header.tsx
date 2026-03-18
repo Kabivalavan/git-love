@@ -77,7 +77,7 @@ export function Header() {
               {/* Logo */}
               <Link to="/" className="flex items-center gap-2 flex-shrink-0">
                 {storeInfo?.logo_url ? (
-                  <img src={storeInfo.logo_url} alt={storeInfo.name} className="h-7 sm:h-9 max-w-[120px] object-contain brightness-0 invert" />
+                  <img src={storeInfo.logo_url} alt={storeInfo.name} className="h-7 sm:h-9 max-w-[120px] object-contain" />
                 ) : (
                   <span className="text-lg sm:text-xl font-bold text-primary-foreground">{storeInfo?.name || 'Store'}</span>
                 )}
