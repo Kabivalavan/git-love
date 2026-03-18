@@ -115,6 +115,7 @@ export default function AdminCoupons() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Success', description: 'Coupon deleted successfully' });
+      log({ action: 'delete', entityType: 'coupon', entityId: selectedCoupon.id, details: { name: selectedCoupon.code } });
       setIsDetailOpen(false);
       fetchCoupons();
     }
