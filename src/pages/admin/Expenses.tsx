@@ -159,7 +159,7 @@ export default function AdminExpenses() {
     setIsDeleting(true);
     const { error } = await supabase.from('expenses').delete().eq('id', selectedExpense.id);
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else { toast({ title: 'Success', description: 'Expense deleted' }); setIsDetailOpen(false); fetchExpenses(); }
+    else { toast({ title: 'Success', description: 'Expense deleted' }); log({ action: 'delete', entityType: 'expense', entityId: selectedExpense.id, details: { name: selectedExpense.description } }); setIsDetailOpen(false); fetchExpenses(); }
     setIsDeleting(false);
   };
 
