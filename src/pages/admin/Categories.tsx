@@ -153,6 +153,7 @@ export default function AdminCategories() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Category created successfully' });
+        log({ action: 'create', entityType: 'category', details: { name: formData.name } });
         setIsFormOpen(false);
         fetchCategories();
       }

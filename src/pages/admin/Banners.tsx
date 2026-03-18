@@ -196,6 +196,7 @@ export default function AdminBanners() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Banner created successfully' });
+        log({ action: 'create', entityType: 'banner', details: { name: formData.title } });
         setIsFormOpen(false);
         fetchBanners();
       }

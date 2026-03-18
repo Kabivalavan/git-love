@@ -161,6 +161,7 @@ export default function AdminCoupons() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Coupon created successfully' });
+        log({ action: 'create', entityType: 'coupon', details: { name: formData.code } });
         setIsFormOpen(false);
         fetchCoupons();
       }
