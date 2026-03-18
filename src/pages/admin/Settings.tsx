@@ -1268,6 +1268,11 @@ export default function AdminSettings() {
           </div>
         </TabsContent>
 
+        {/* WhatsApp */}
+        <TabsContent value="whatsapp">
+          <WhatsAppSettings />
+        </TabsContent>
+
         {/* Social */}
         <TabsContent value="social">
           <Card>
