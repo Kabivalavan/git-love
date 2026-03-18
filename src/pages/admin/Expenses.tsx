@@ -324,7 +324,7 @@ export default function AdminExpenses() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={filterDateRange} onValueChange={setFilterDateRange}>
+          <Select value={filterDateRange} onValueChange={(v) => { setFilterDateRange(v); if (v !== 'custom') { setCustomDateFrom(''); setCustomDateTo(''); } }}>
             <SelectTrigger className="w-40"><SelectValue placeholder="Date Range" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Time</SelectItem>
@@ -332,8 +332,15 @@ export default function AdminExpenses() {
               <SelectItem value="30">Last 30 days</SelectItem>
               <SelectItem value="90">Last 90 days</SelectItem>
               <SelectItem value="365">Last year</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
             </SelectContent>
           </Select>
+          {filterDateRange === 'custom' && (
+            <>
+              <Input type="date" value={customDateFrom} onChange={(e) => setCustomDateFrom(e.target.value)} className="w-40" placeholder="From" />
+              <Input type="date" value={customDateTo} onChange={(e) => setCustomDateTo(e.target.value)} className="w-40" placeholder="To" />
+            </>
+          )}
         </div>
 
         {/* Amount Color Legend */}
