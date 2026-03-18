@@ -180,11 +180,11 @@ export default function AdminExpenses() {
     if (selectedExpense) {
       const { error } = await supabase.from('expenses').update(expenseData).eq('id', selectedExpense.id);
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      else { toast({ title: 'Success', description: 'Expense updated' }); setIsFormOpen(false); fetchExpenses(); }
+      else { toast({ title: 'Success', description: 'Expense updated' }); log({ action: 'update', entityType: 'expense', entityId: selectedExpense.id, details: { name: formData.description } }); setIsFormOpen(false); fetchExpenses(); }
     } else {
       const { error } = await supabase.from('expenses').insert([expenseData]);
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      else { toast({ title: 'Success', description: 'Expense added' }); setIsFormOpen(false); fetchExpenses(); }
+      else { toast({ title: 'Success', description: 'Expense added' }); log({ action: 'create', entityType: 'expense', details: { name: formData.description } }); setIsFormOpen(false); fetchExpenses(); }
     }
     setIsSaving(false);
   };
