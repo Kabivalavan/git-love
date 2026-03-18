@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Plus, LayoutGrid, List, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import { ImageUpload } from '@/components/ui/image-upload';
 import {
   Dialog,
