@@ -100,6 +100,7 @@ export default function AdminCategories() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Success', description: 'Category deleted successfully' });
+      log({ action: 'delete', entityType: 'category', entityId: selectedCategory.id, details: { name: selectedCategory.name } });
       setIsDetailOpen(false);
       fetchCategories();
     }
