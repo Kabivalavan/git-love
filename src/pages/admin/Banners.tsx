@@ -60,6 +60,7 @@ export default function AdminBanners() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Banner>>({});
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   useEffect(() => {
     fetchBanners();
