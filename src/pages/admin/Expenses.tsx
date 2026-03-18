@@ -93,6 +93,7 @@ export default function AdminExpenses() {
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [receiptViewUrl, setReceiptViewUrl] = useState<string | null>(null);
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   useEffect(() => { fetchExpenses(); }, []);
   useEffect(() => { localStorage.setItem(VIEW_MODE_KEY, viewMode); }, [viewMode]);
