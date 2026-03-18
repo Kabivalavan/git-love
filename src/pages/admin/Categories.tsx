@@ -142,6 +142,7 @@ export default function AdminCategories() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Category updated successfully' });
+        log({ action: 'update', entityType: 'category', entityId: selectedCategory.id, details: { name: formData.name } });
         setIsFormOpen(false);
         fetchCategories();
       }
