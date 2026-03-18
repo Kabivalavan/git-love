@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy, Home, Package, Check, MapPin, Undo2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,7 +24,7 @@ import { SEOHead } from '@/components/seo/SEOHead';
 import { ContentSections, type ContentSection } from '@/components/product/ContentSections';
 import { CrossSellUpsell } from '@/components/storefront/CrossSellUpsell';
 import { cn } from '@/lib/utils';
-import { useProductBySlug, useProductVariants, useProductReviews, useRelatedProducts, useStorefrontCoupons } from '@/hooks/useProductQuery';
+import { useProductPageData } from '@/hooks/useProductQuery';
 import { useCartMutations } from '@/hooks/useCartQuery';
 import type { Product, ProductVariant, Review } from '@/types/database';
 
@@ -96,13 +96,15 @@ export default function ProductDetailPage() {
   const { getProductOffer } = useGlobalStore();
   const { addToCart } = useCartMutations();
 
-  const { data: product, isLoading: isProductLoading, error: productError } = useProductBySlug(slug);
-  const { data: variants = [] } = useProductVariants(product?.id);
-  const { data: reviews = [] } = useProductReviews(product?.id);
-  const { data: relatedProducts = [] } = useRelatedProducts(product?.category_id || undefined, product?.id);
-  const { data: storeCoupons = [] } = useStorefrontCoupons();
+  // ⚡ SINGLE RPC CALL — replaces 5 separate queries
+  const { data: pageData, isLoading, error: pageError } = useProductPageData(slug);
 
-  const isLoading = isProductLoading;
+  const product = pageData?.product ?? null;
+  const variants = pageData?.variants ?? [];
+  const reviews = pageData?.reviews ?? [];
+  const relatedProducts = pageData?.related_products ?? [];
+  const storeCoupons = pageData?.coupons ?? [];
+
   const isAddingToCart = addToCart.isPending;
 
   useEffect(() => {
@@ -129,8 +131,8 @@ export default function ProductDetailPage() {
   }, [product?.id]);
 
   useEffect(() => {
-    if (productError) navigate('/products');
-  }, [productError]);
+    if (pageError) navigate('/products');
+  }, [pageError]);
 
   useEffect(() => {
     if (!buyNowRef.current) return;
@@ -207,7 +209,7 @@ export default function ProductDetailPage() {
     else {
       toast({ title: 'Review submitted', description: 'Thank you for your feedback!' });
       setReviewForm({ rating: 5, title: '', comment: '' });
-      queryClient.invalidateQueries({ queryKey: ['product-reviews', product.id] });
+      queryClient.invalidateQueries({ queryKey: ['product-page', slug] });
     }
     setIsSubmittingReview(false);
   };
@@ -279,7 +281,6 @@ export default function ProductDetailPage() {
           <span className="text-sm text-muted-foreground hidden lg:block">
             <Link to="/" className="hover:text-primary">Home</Link> / <Link to="/products" className="hover:text-primary">Shop</Link> / <span className="text-foreground">{product.name}</span>
           </span>
-          {/* Share button */}
           <button onClick={handleShare} className="ml-auto h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center flex-shrink-0 hover:bg-muted transition-colors">
             <Share2 className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -316,7 +317,6 @@ export default function ProductDetailPage() {
                 <Badge className="absolute top-3 right-3 bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))] border-0 rounded-lg text-xs">{product.badge}</Badge>
               )}
             </div>
-            {/* Thumbnail strip */}
             {images.length > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
                 {images.map((img, index) => (
@@ -344,7 +344,6 @@ export default function ProductDetailPage() {
 
           {/* Product Info */}
           <div className="space-y-4 min-w-0">
-            {/* Name + Wishlist */}
             <div className="flex items-start gap-3">
               <div className="flex-1">
                 <h1 className="text-xl md:text-2xl font-bold text-foreground leading-tight">{product.name}</h1>
@@ -357,7 +356,6 @@ export default function ProductDetailPage() {
               </button>
             </div>
 
-            {/* Rating bar - prominent */}
             {reviews.length > 0 && (
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1 bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))] px-2.5 py-1 rounded-lg">
@@ -459,7 +457,7 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Delivery & Trust Section — Amazon-style */}
+            {/* Delivery & Trust Section */}
             <div className="border border-border rounded-2xl divide-y divide-border overflow-hidden">
               <div className="flex items-start gap-3 p-3.5">
                 <Truck className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
@@ -499,217 +497,165 @@ export default function ProductDetailPage() {
                   <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none" onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>
                     <Minus className="h-4 w-4" />
                   </Button>
-                  <span className="w-10 text-center font-semibold text-sm">{String(quantity).padStart(2, '0')}</span>
+                  <span className="w-10 text-center font-medium">{quantity}</span>
                   <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none" onClick={() => setQuantity(Math.min(currentStock, quantity + 1))} disabled={quantity >= currentStock}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-
               <div className="flex gap-3">
-                <Button
-                  className="flex-1 h-12 text-base font-semibold rounded-xl"
-                  variant="outline"
-                  onClick={handleAddToCart}
-                  disabled={isAddingToCart || currentStock === 0}
-                >
-                  {isAddingToCart ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <ShoppingCart className="h-5 w-5 mr-2" />}
+                <Button className="flex-1 h-12 text-base rounded-xl gap-2" onClick={handleAddToCart} disabled={currentStock <= 0 || isAddingToCart}>
+                  {isAddingToCart ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShoppingCart className="h-5 w-5" />}
                   Add to Cart
                 </Button>
-                <Button
-                  ref={buyNowRef}
-                  className="flex-1 h-12 text-base font-semibold rounded-xl"
-                  onClick={handleBuyNow}
-                  disabled={currentStock === 0}
-                >
+                <Button ref={buyNowRef} variant="secondary" className="flex-1 h-12 text-base rounded-xl border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground" onClick={handleBuyNow} disabled={currentStock <= 0 || isAddingToCart}>
                   Buy Now
                 </Button>
               </div>
             </div>
 
-            {/* Mobile: buyNow ref for sticky bar trigger */}
-            <div className="lg:hidden">
-              <Button ref={buyNowRef} className="sr-only" tabIndex={-1}>trigger</Button>
-            </div>
-
-            {/* Coupons */}
+            {/* Available Coupons */}
             {storeCoupons.length > 0 && (
-              <div className="border border-dashed border-border rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Tag className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold text-foreground">Available Coupons</span>
-                </div>
+              <FAQAccordionItem title={`Available Coupons (${storeCoupons.length})`}>
                 <div className="space-y-2">
-                  {(couponsExpanded ? storeCoupons : storeCoupons.slice(0, 3)).map((coupon) => (
-                    <div key={coupon.id} className="flex items-center justify-between bg-muted rounded-xl px-3 py-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-mono font-bold text-primary text-sm bg-primary/10 px-2 py-0.5 rounded">{coupon.code}</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          {coupon.description || (coupon.type === 'percentage' ? `${coupon.value}% off` : `₹${coupon.value} off`)}
-                        </span>
+                  {storeCoupons.slice(0, couponsExpanded ? undefined : 2).map((coupon: any) => (
+                    <div key={coupon.id} className="flex items-center justify-between p-2.5 border border-dashed border-primary/40 rounded-xl bg-primary/5">
+                      <div className="flex items-center gap-2">
+                        <Tag className="h-4 w-4 text-primary" />
+                        <div>
+                          <p className="text-sm font-bold text-primary">{coupon.code}</p>
+                          <p className="text-xs text-muted-foreground">{coupon.description || `${coupon.type === 'percentage' ? `${coupon.value}% off` : `₹${coupon.value} off`}`}</p>
+                        </div>
                       </div>
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs flex-shrink-0" onClick={() => {
-                        navigator.clipboard.writeText(coupon.code);
-                        toast({ title: 'Copied!', description: `${coupon.code} copied to clipboard` });
-                      }}>
-                        <Copy className="h-3 w-3 mr-1" /> Copy
+                      <Button variant="outline" size="sm" className="rounded-full text-xs h-7 gap-1" onClick={() => { navigator.clipboard.writeText(coupon.code); toast({ title: 'Copied!', description: `Coupon ${coupon.code} copied` }); }}>
+                        <Copy className="h-3 w-3" /> Copy
                       </Button>
                     </div>
                   ))}
+                  {storeCoupons.length > 2 && (
+                    <button className="text-xs text-primary font-medium" onClick={() => setCouponsExpanded(!couponsExpanded)}>
+                      {couponsExpanded ? 'Show less' : `+ ${storeCoupons.length - 2} more coupons`}
+                    </button>
+                  )}
                 </div>
-                {storeCoupons.length > 3 && (
-                  <button onClick={() => setCouponsExpanded(!couponsExpanded)} className="flex items-center gap-1 text-xs text-primary mt-2 hover:underline">
-                    <motion.div animate={{ rotate: couponsExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}><ChevronDown className="h-3.5 w-3.5" /></motion.div>
-                    {couponsExpanded ? 'Show less' : `Show ${storeCoupons.length - 3} more`}
-                  </button>
-                )}
-              </div>
+              </FAQAccordionItem>
             )}
-
-            {/* Description & Content Sections */}
-            <div className="space-y-3 pt-2">
-              {product.description && (
-                <FAQAccordionItem title="Description" defaultOpen>
-                  <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">{product.description}</div>
-                </FAQAccordionItem>
-              )}
-              {contentSections.length > 0 && <ContentSections sections={contentSections} />}
-            </div>
           </div>
         </div>
 
-        {/* Reviews Section — prominent with star distribution */}
-        <div className="mb-8">
-          <h2 className="text-lg md:text-xl font-bold mb-4">Ratings & Reviews</h2>
-          {reviews.length > 0 ? (
+        {/* Content Sections */}
+        {contentSections.length > 0 && (
+          <ContentSections sections={contentSections} />
+        )}
+
+        {/* Cross-Sell / Upsell */}
+        <CrossSellUpsell product={product} />
+
+        {/* Reviews Section */}
+        <section className="mt-10">
+          <h2 className="text-lg md:text-xl font-bold text-foreground mb-4">Ratings & Reviews</h2>
+          {reviews.length > 0 && (
             <div className="grid md:grid-cols-3 gap-6 mb-6">
-              {/* Rating summary card */}
-              <div className="bg-card border border-border rounded-2xl p-6 text-center">
-                <p className="text-5xl font-bold text-foreground">{avgRating.toFixed(1)}</p>
-                <div className="flex justify-center my-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} className={cn("h-5 w-5", star <= Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-muted')} />
-                  ))}
-                </div>
-                <p className="text-sm text-muted-foreground">{reviews.length.toLocaleString()} rating{reviews.length !== 1 ? 's' : ''}</p>
-                <div className="mt-4 space-y-2">
-                  {ratingDist.map(rd => (
-                    <div key={rd.star} className="flex items-center gap-2">
-                      <span className="text-xs w-3">{rd.star}</span>
-                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                      <Progress value={rd.percent} className="flex-1 h-2" />
-                      <span className="text-xs text-muted-foreground w-6">{rd.count}</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex flex-col items-center gap-1 p-4 bg-muted/50 rounded-2xl">
+                <span className="text-4xl font-bold text-foreground">{avgRating.toFixed(1)}</span>
+                <div className="flex gap-0.5">{[1, 2, 3, 4, 5].map(s => <Star key={s} className={cn("h-4 w-4", s <= Math.round(avgRating) ? "fill-amber-400 text-amber-400" : "text-muted")} />)}</div>
+                <span className="text-sm text-muted-foreground">{reviews.length} reviews</span>
               </div>
-              {/* Individual reviews */}
-              <div className="md:col-span-2 space-y-3">
-                {reviews.slice(0, visibleReviewCount).map((review) => (
-                  <div key={review.id} className="bg-card border border-border rounded-2xl px-4 py-3">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <div className="flex items-center gap-0.5 bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))] px-1.5 py-0.5 rounded text-xs font-bold">
-                        {review.rating} <Star className="h-2.5 w-2.5 fill-current" />
-                      </div>
-                      <span className="text-sm font-medium">{(review as any).profile?.full_name || 'Customer'}</span>
-                      {review.is_verified && <Badge variant="secondary" className="text-[10px]">✓ Verified</Badge>}
-                      <span className="text-xs text-muted-foreground ml-auto">{new Date(review.created_at).toLocaleDateString()}</span>
-                    </div>
-                    {review.title && <p className="font-medium text-sm">{review.title}</p>}
-                    {review.comment && <p className="text-sm text-muted-foreground mt-0.5">{review.comment}</p>}
+              <div className="md:col-span-2 space-y-1.5">
+                {ratingDist.map(({ star, count, percent }) => (
+                  <div key={star} className="flex items-center gap-2">
+                    <span className="text-sm w-4 text-right">{star}</span>
+                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                    <Progress value={percent} className="flex-1 h-2.5" />
+                    <span className="text-xs text-muted-foreground w-8">{count}</span>
                   </div>
                 ))}
-                {reviews.length > visibleReviewCount && (
-                  <Button variant="outline" className="w-full rounded-xl" onClick={() => setVisibleReviewCount(prev => prev + 10)}>
-                    Show More Reviews ({reviews.length - visibleReviewCount} remaining)
-                  </Button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-card border border-border rounded-2xl p-6 text-center">
-              <Star className="h-10 w-10 text-muted mx-auto mb-2" />
-              <p className="text-muted-foreground text-sm">No reviews yet. Be the first to review this product!</p>
-            </div>
-          )}
-
-          {user && (
-            <div className="bg-card border border-border rounded-2xl px-4 py-4 mt-4">
-              <h3 className="font-semibold mb-3">Write a Review</h3>
-              <div className="space-y-3">
-                <div>
-                  <Label>Rating</Label>
-                  <div className="flex gap-1 mt-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button key={star} onClick={() => setReviewForm({ ...reviewForm, rating: star })}>
-                        <Star className={cn("h-6 w-6", star <= reviewForm.rating ? 'fill-amber-400 text-amber-400' : 'text-muted')} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Label>Title (optional)</Label>
-                  <Input value={reviewForm.title} onChange={(e) => setReviewForm({ ...reviewForm, title: e.target.value })} placeholder="Great product!" className="rounded-xl" />
-                </div>
-                <div>
-                  <Label>Comment (optional)</Label>
-                  <Textarea value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} placeholder="Share your experience..." rows={3} className="rounded-xl" />
-                </div>
-                <Button onClick={handleSubmitReview} disabled={isSubmittingReview} className="rounded-xl">
-                  {isSubmittingReview ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting...</> : 'Submit Review'}
-                </Button>
               </div>
             </div>
           )}
-        </div>
 
-        {/* Cross-Sell & Upsell */}
-        <CrossSellUpsell product={product} />
+          {/* Review Form */}
+          <div className="bg-card border border-border rounded-2xl p-4 mb-6">
+            <h3 className="font-semibold mb-3">Write a Review</h3>
+            <div className="space-y-3">
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map(s => (
+                  <button key={s} onClick={() => setReviewForm({ ...reviewForm, rating: s })}>
+                    <Star className={cn("h-6 w-6 transition-colors", s <= reviewForm.rating ? "fill-amber-400 text-amber-400" : "text-muted hover:text-amber-300")} />
+                  </button>
+                ))}
+              </div>
+              <Input placeholder="Review title (optional)" value={reviewForm.title} onChange={(e) => setReviewForm({ ...reviewForm, title: e.target.value })} />
+              <Textarea placeholder="Your review..." value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} rows={3} />
+              <Button onClick={handleSubmitReview} disabled={isSubmittingReview} className="rounded-xl">
+                {isSubmittingReview ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Submit Review
+              </Button>
+            </div>
+          </div>
+
+          {/* Reviews List */}
+          {reviews.slice(0, visibleReviewCount).map((review) => (
+            <div key={review.id} className="border-b border-border py-4 last:border-0">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="flex gap-0.5">{[1, 2, 3, 4, 5].map(s => <Star key={s} className={cn("h-3.5 w-3.5", s <= review.rating ? "fill-amber-400 text-amber-400" : "text-muted")} />)}</div>
+                {review.is_verified && <Badge variant="secondary" className="text-[10px]">Verified</Badge>}
+              </div>
+              {review.title && <p className="font-semibold text-sm text-foreground">{review.title}</p>}
+              {review.comment && <p className="text-sm text-muted-foreground mt-0.5">{review.comment}</p>}
+              <p className="text-xs text-muted-foreground mt-1">{new Date(review.created_at).toLocaleDateString()}</p>
+            </div>
+          ))}
+          {reviews.length > visibleReviewCount && (
+            <Button variant="ghost" className="w-full mt-2" onClick={() => setVisibleReviewCount(prev => prev + 10)}>
+              Show More Reviews ({reviews.length - visibleReviewCount} remaining)
+            </Button>
+          )}
+        </section>
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-lg md:text-xl font-bold mb-4">You May Also Like</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {relatedProducts.map((rp) => <ProductCard key={rp.id} product={rp} />)}
+          <section className="mt-10">
+            <h2 className="text-lg md:text-xl font-bold text-foreground mb-4">You May Also Like</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {relatedProducts.map((rp) => (
+                <ProductCard key={rp.id} product={rp} onAddToCart={async (p) => {
+                  if (!user) { toast({ title: 'Please login' }); return; }
+                  addToCart.mutate({ product: p, quantity: 1 });
+                }} productOffer={getProductOffer(rp)} />
+              ))}
             </div>
-          </div>
+          </section>
         )}
       </div>
 
       {/* Mobile Sticky Bottom Bar */}
       <AnimatePresence>
-        {showStickyBar && product && currentStock > 0 && (
+        {showStickyBar && (
           <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="fixed bottom-[60px] left-0 right-0 z-40 bg-card border-t border-border px-4 py-3 lg:hidden shadow-lg"
+            initial={{ y: 100 }}
+            animate={{ y: 0 }}
+            exit={{ y: 100 }}
+            transition={{ type: 'spring', damping: 25 }}
+            className="fixed bottom-[60px] left-0 right-0 z-40 bg-card border-t border-border px-4 py-3 flex items-center gap-3 lg:hidden shadow-lg"
           >
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  disabled={quantity <= 1}
-                  className="h-10 w-10 rounded-full border-2 border-primary text-primary flex items-center justify-center disabled:opacity-40"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <span className="w-8 text-center font-bold text-base">{quantity}</span>
-                <button
-                  onClick={() => setQuantity(Math.min(currentStock, quantity + 1))}
-                  disabled={quantity >= currentStock}
-                  className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-              <Button className="flex-1 h-12 text-base font-semibold rounded-2xl" onClick={handleAddToCart} disabled={isAddingToCart}>
-                {isAddingToCart ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <ShoppingCart className="h-5 w-5 mr-2" />}
-                Add to Cart
+            <div className="flex-1 min-w-0">
+              <p className="text-lg font-bold text-foreground">₹{displayPrice.toFixed(0)}</p>
+              {discount > 0 && <p className="text-xs text-[hsl(var(--success))] font-medium">{discount}% off</p>}
+            </div>
+            <div className="flex items-center border border-border rounded-full overflow-hidden mr-2">
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>
+                <Minus className="h-3 w-3" />
+              </Button>
+              <span className="w-6 text-center text-sm font-medium">{quantity}</span>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => setQuantity(Math.min(currentStock, quantity + 1))} disabled={quantity >= currentStock}>
+                <Plus className="h-3 w-3" />
               </Button>
             </div>
+            <Button className="h-10 px-6 rounded-xl gap-2" onClick={handleAddToCart} disabled={currentStock <= 0 || isAddingToCart}>
+              {isAddingToCart ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
+              Add
+            </Button>
           </motion.div>
         )}
       </AnimatePresence>

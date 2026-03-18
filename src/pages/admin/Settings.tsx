@@ -380,7 +380,7 @@ export default function AdminSettings() {
   return (
     <AdminLayout title="Settings" description="Configure your store settings">
       <Tabs defaultValue="store" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-9 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-10 lg:w-auto lg:inline-grid">
           <TabsTrigger value="store" className="gap-2">
             <Store className="h-4 w-4" />
             <span className="hidden sm:inline">Store</span>
@@ -404,6 +404,10 @@ export default function AdminSettings() {
           <TabsTrigger value="email" className="gap-2">
             <Mail className="h-4 w-4" />
             <span className="hidden sm:inline">Email</span>
+          </TabsTrigger>
+          <TabsTrigger value="whatsapp" className="gap-2">
+            <Send className="h-4 w-4" />
+            <span className="hidden sm:inline">WhatsApp</span>
           </TabsTrigger>
           <TabsTrigger value="social" className="gap-2">
             <LinkIcon className="h-4 w-4" />
@@ -1264,6 +1268,11 @@ export default function AdminSettings() {
           </div>
         </TabsContent>
 
+        {/* WhatsApp */}
+        <TabsContent value="whatsapp">
+          <WhatsAppSettings />
+        </TabsContent>
+
         {/* Social */}
         <TabsContent value="social">
           <Card>
@@ -1524,5 +1533,93 @@ export default function AdminSettings() {
         </TabsContent>
       </Tabs>
     </AdminLayout>
+  );
+}
+
+function WhatsAppSettings() {
+  const [waConfig, setWaConfig] = useState({ api_url: 'https://graph.facebook.com/v21.0', api_token: '', phone_number_id: '' });
+  const [waStatus, setWaStatus] = useState<{ connected: boolean; display_name?: string }>({ connected: false });
+  const [isConnecting, setIsConnecting] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    supabase.from('store_settings').select('value').eq('key', 'whatsapp').single().then(({ data }) => {
+      if (data?.value) {
+        const v = data.value as any;
+        setWaConfig({ api_url: v.api_url || 'https://graph.facebook.com/v21.0', api_token: v.api_token || '', phone_number_id: v.phone_number_id || '' });
+        setWaStatus({ connected: v.connected || false, display_name: v.display_name });
+      }
+    });
+  }, []);
+
+  const testConnection = async () => {
+    setIsConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-connect', {
+        body: { action: 'test_connection', api_url: waConfig.api_url, api_token: waConfig.api_token, phone_number_id: waConfig.phone_number_id },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setWaStatus({ connected: true, display_name: data.display_name });
+        toast({ title: 'Connected!', description: `WhatsApp connected as ${data.display_name}` });
+      } else {
+        toast({ title: 'Connection failed', description: data?.error || 'Check your credentials', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+    setIsConnecting(false);
+  };
+
+  const disconnect = async () => {
+    await supabase.functions.invoke('whatsapp-connect', { body: { action: 'disconnect' } });
+    setWaStatus({ connected: false });
+    toast({ title: 'Disconnected' });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Send className="h-5 w-5" /> WhatsApp Business API</CardTitle>
+        <CardDescription>Connect your WhatsApp Business API for cart abandonment recovery messages</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {waStatus.connected ? (
+          <div className="flex items-center justify-between p-4 border border-[hsl(var(--success))]/30 bg-[hsl(var(--success))]/5 rounded-lg">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-[hsl(var(--success))]" />
+              <div>
+                <p className="font-medium text-foreground">Connected</p>
+                <p className="text-sm text-muted-foreground">{waStatus.display_name || 'WhatsApp Business'}</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={disconnect}><Unplug className="h-4 w-4 mr-1" /> Disconnect</Button>
+          </div>
+        ) : (
+          <div className="p-4 border border-border rounded-lg bg-muted/30">
+            <p className="text-sm text-muted-foreground">Not connected. Enter your WhatsApp Cloud API credentials below.</p>
+          </div>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>API Base URL</Label>
+            <Input value={waConfig.api_url} onChange={(e) => setWaConfig({ ...waConfig, api_url: e.target.value })} placeholder="https://graph.facebook.com/v21.0" />
+          </div>
+          <div className="space-y-2">
+            <Label>Phone Number ID</Label>
+            <Input value={waConfig.phone_number_id} onChange={(e) => setWaConfig({ ...waConfig, phone_number_id: e.target.value })} placeholder="Your phone number ID" />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <Label>Access Token</Label>
+            <Input type="password" value={waConfig.api_token} onChange={(e) => setWaConfig({ ...waConfig, api_token: e.target.value })} placeholder="Your permanent access token" />
+            <p className="text-xs text-muted-foreground">Get this from Meta Business Suite → WhatsApp → API Setup</p>
+          </div>
+        </div>
+        <Button onClick={testConnection} disabled={isConnecting || !waConfig.api_token}>
+          {isConnecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+          {isConnecting ? 'Connecting...' : 'Connect & Test'}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
