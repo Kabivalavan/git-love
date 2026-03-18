@@ -110,7 +110,10 @@ export default function AdminExpenses() {
   const filteredExpenses = useMemo(() => {
     let result = expenses;
     if (filterCategory !== 'all') result = result.filter(e => e.category === filterCategory);
-    if (filterDateRange !== 'all') {
+    if (filterDateRange === 'custom') {
+      if (customDateFrom) result = result.filter(e => e.date >= customDateFrom);
+      if (customDateTo) result = result.filter(e => e.date <= customDateTo);
+    } else if (filterDateRange !== 'all') {
       const now = new Date();
       const daysAgo = parseInt(filterDateRange);
       const start = new Date(now);
@@ -118,7 +121,7 @@ export default function AdminExpenses() {
       result = result.filter(e => new Date(e.date) >= start);
     }
     return result;
-  }, [expenses, filterCategory, filterDateRange]);
+  }, [expenses, filterCategory, filterDateRange, customDateFrom, customDateTo]);
 
   const summary = useMemo(() => {
     const now = new Date();
