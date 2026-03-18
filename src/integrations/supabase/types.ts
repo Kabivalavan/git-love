@@ -1522,6 +1522,7 @@ export type Database = {
       finalize_order_stock: { Args: { p_order_id: string }; Returns: undefined }
       generate_order_number: { Args: never; Returns: string }
       get_homepage_data: { Args: never; Returns: Json }
+      get_product_page_data: { Args: { p_slug: string }; Returns: Json }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
