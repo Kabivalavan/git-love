@@ -396,7 +396,7 @@ export default function AdminAnalytics() {
               <Card>
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-5 w-5" /> Cart Abandonment</CardTitle></CardHeader>
                 <CardContent>
-                  {isLoading ? <p className="text-sm text-muted-foreground">Loading...</p> : (
+                  {isLoading ? <div className="space-y-3"><div className="animate-pulse rounded-md bg-muted h-4 w-3/4" /><div className="animate-pulse rounded-md bg-muted h-4 w-1/2" /><div className="animate-pulse rounded-md bg-muted h-3 w-2/3" /></div> : (
                     <div className="space-y-3">
                       <div className="text-center">
                         <p className="text-4xl font-bold text-destructive">{data?.cartAbandonment.abandonmentRate || 0}%</p>
@@ -423,7 +423,7 @@ export default function AdminAnalytics() {
               <Card>
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><ArrowDownToLine className="h-5 w-5" /> Scroll Depth</CardTitle></CardHeader>
                 <CardContent>
-                  {isLoading ? <p className="text-sm text-muted-foreground">Loading...</p> : (
+                  {isLoading ? <div className="space-y-3"><div className="animate-pulse rounded-md bg-muted h-4 w-3/4" /><div className="animate-pulse rounded-md bg-muted h-4 w-1/2" /><div className="animate-pulse rounded-md bg-muted h-3 w-2/3" /></div> : (
                     <div className="space-y-3">
                       {[
                         { label: '25%', value: data?.scrollDepth.depth25 || 0 },
@@ -447,7 +447,7 @@ export default function AdminAnalytics() {
               <Card>
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="h-5 w-5" /> Customer Acquisition</CardTitle></CardHeader>
                 <CardContent>
-                  {isLoading ? <p className="text-sm text-muted-foreground">Loading...</p> : (
+                  {isLoading ? <div className="space-y-3"><div className="animate-pulse rounded-md bg-muted h-4 w-3/4" /><div className="animate-pulse rounded-md bg-muted h-4 w-1/2" /><div className="animate-pulse rounded-md bg-muted h-3 w-2/3" /></div> : (
                     <div className="space-y-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">New Signups</span>
@@ -472,7 +472,7 @@ export default function AdminAnalytics() {
             <Card>
               <CardHeader><CardTitle className="text-base">Top Pages</CardTitle></CardHeader>
               <CardContent>
-                {isLoading ? <p className="text-sm text-muted-foreground">Loading...</p> : !data?.pageViews.length ? (
+                {isLoading ? <div className="space-y-3"><div className="animate-pulse rounded-md bg-muted h-4 w-3/4" /><div className="animate-pulse rounded-md bg-muted h-4 w-1/2" /><div className="animate-pulse rounded-md bg-muted h-3 w-2/3" /></div> : !data?.pageViews.length ? (
                   <p className="text-sm text-muted-foreground">No page views tracked yet.</p>
                 ) : (
                   <Table>
@@ -498,7 +498,7 @@ export default function AdminAnalytics() {
             <Card>
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Conversion Funnel</CardTitle></CardHeader>
               <CardContent>
-                {isLoading ? <p className="text-sm text-muted-foreground">Loading...</p> : !data ? null : (
+                {isLoading ? <div className="space-y-3"><div className="animate-pulse rounded-md bg-muted h-4 w-3/4" /><div className="animate-pulse rounded-md bg-muted h-4 w-1/2" /><div className="animate-pulse rounded-md bg-muted h-3 w-2/3" /></div> : !data ? null : (
                   <div className="space-y-3">
                     <FunnelBar label="Page Views" value={data.conversionFunnel.pageViews} maxValue={data.conversionFunnel.pageViews} color="bg-blue-500/70" />
                     <FunnelBar label="Product Views" value={data.conversionFunnel.productViews} maxValue={data.conversionFunnel.pageViews} color="bg-cyan-500/70" />
@@ -547,7 +547,7 @@ export default function AdminAnalytics() {
               <Card>
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><Eye className="h-5 w-5" /> Most Viewed Products</CardTitle></CardHeader>
                 <CardContent>
-                  {isLoading ? <p className="text-sm text-muted-foreground">Loading...</p> : !data?.productViews.length ? (
+                  {isLoading ? <div className="space-y-3"><div className="animate-pulse rounded-md bg-muted h-4 w-3/4" /><div className="animate-pulse rounded-md bg-muted h-4 w-1/2" /><div className="animate-pulse rounded-md bg-muted h-3 w-2/3" /></div> : !data?.productViews.length ? (
                     <p className="text-sm text-muted-foreground">No product views tracked yet.</p>
                   ) : (
                     <Table>
@@ -569,7 +569,7 @@ export default function AdminAnalytics() {
               <Card>
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><ShoppingCart className="h-5 w-5" /> Most Ordered Products</CardTitle></CardHeader>
                 <CardContent>
-                  {isLoading ? <p className="text-sm text-muted-foreground">Loading...</p> : !data?.mostOrdered.length ? (
+                  {isLoading ? <div className="space-y-3"><div className="animate-pulse rounded-md bg-muted h-4 w-3/4" /><div className="animate-pulse rounded-md bg-muted h-4 w-1/2" /><div className="animate-pulse rounded-md bg-muted h-3 w-2/3" /></div> : !data?.mostOrdered.length ? (
                     <p className="text-sm text-muted-foreground">No orders yet.</p>
                   ) : (
                     <Table>
@@ -595,7 +595,7 @@ export default function AdminAnalytics() {
             <Card>
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Product Engagement Funnel</CardTitle></CardHeader>
               <CardContent>
-                {isLoading ? <p className="text-sm text-muted-foreground">Loading...</p> : !data?.engagementByProduct.length ? (
+                {isLoading ? <div className="space-y-3"><div className="animate-pulse rounded-md bg-muted h-4 w-3/4" /><div className="animate-pulse rounded-md bg-muted h-4 w-1/2" /><div className="animate-pulse rounded-md bg-muted h-3 w-2/3" /></div> : !data?.engagementByProduct.length ? (
                   <p className="text-sm text-muted-foreground">No engagement data yet.</p>
                 ) : (
                   <Table>
@@ -687,7 +687,7 @@ export default function AdminAnalytics() {
               <Card>
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><Smartphone className="h-5 w-5" /> Device Breakdown</CardTitle></CardHeader>
                 <CardContent>
-                  {isLoading ? <p className="text-sm text-muted-foreground">Loading...</p> : !data ? null : (
+                  {isLoading ? <div className="space-y-3"><div className="animate-pulse rounded-md bg-muted h-4 w-3/4" /><div className="animate-pulse rounded-md bg-muted h-4 w-1/2" /><div className="animate-pulse rounded-md bg-muted h-3 w-2/3" /></div> : !data ? null : (
                     <div className="space-y-4">
                       {[
                         { icon: Monitor, label: 'Desktop', value: data.deviceBreakdown.desktop, color: 'bg-blue-500' },
@@ -716,7 +716,7 @@ export default function AdminAnalytics() {
               <Card>
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><Globe className="h-5 w-5" /> Top Referrers</CardTitle></CardHeader>
                 <CardContent>
-                  {isLoading ? <p className="text-sm text-muted-foreground">Loading...</p> : !data?.topReferrers.length ? (
+                  {isLoading ? <div className="space-y-3"><div className="animate-pulse rounded-md bg-muted h-4 w-3/4" /><div className="animate-pulse rounded-md bg-muted h-4 w-1/2" /><div className="animate-pulse rounded-md bg-muted h-3 w-2/3" /></div> : !data?.topReferrers.length ? (
                     <p className="text-sm text-muted-foreground">No referrer data yet. Most visitors are direct.</p>
                   ) : (
                     <Table>
