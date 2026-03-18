@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import { ImageUpload } from '@/components/ui/image-upload';
 import {
   Dialog,
