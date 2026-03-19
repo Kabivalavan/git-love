@@ -57,7 +57,7 @@ function OfferTimer({ endDate }: { endDate: string }) {
   );
 }
 
-export const ProductCard = React.memo(function ProductCard({
+export const ProductCard = React.memo(React.forwardRef<HTMLDivElement, ProductCardProps>(function ProductCard({
   product,
   onAddToCart,
   onAddToWishlist,
