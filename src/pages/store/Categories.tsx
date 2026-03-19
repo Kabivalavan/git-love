@@ -56,7 +56,7 @@ export default function CategoriesPage() {
               return (
                 <div key={cat.id}>
                   <Link
-                    to={`/products?category=${cat.slug}`}
+                    to={`/category/${cat.slug}`}
                     className="group block mb-4"
                   >
                     <div className="relative aspect-[3/1] md:aspect-[4/1] rounded-2xl overflow-hidden bg-muted">
