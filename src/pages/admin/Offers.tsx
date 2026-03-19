@@ -78,16 +78,22 @@ function formatIST(utcStr: string | null): string {
 
 function utcToISTLocal(utcStr: string | null): string {
   if (!utcStr) return '';
+  // Convert UTC to IST by formatting in Asia/Kolkata timezone
   const d = new Date(utcStr);
-  const ist = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
-  return ist.toISOString().slice(0, 16);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d);
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
 }
 
 function istLocalToUTC(localStr: string): string {
   if (!localStr) return '';
-  const d = new Date(localStr);
-  const utc = new Date(d.getTime() - (5.5 * 60 * 60 * 1000));
-  return utc.toISOString();
+  // Treat the datetime-local value as IST (+05:30) regardless of browser timezone
+  const d = new Date(localStr + ':00+05:30');
+  return d.toISOString();
 }
 
 type FormData = Partial<Offer> & {
@@ -322,13 +328,16 @@ export default function AdminOffers() {
   const [detailVariantNames, setDetailVariantNames] = useState<Record<string, string>>({});
   useEffect(() => {
     if (selectedOffer?.variant_ids && selectedOffer.variant_ids.length > 0 && selectedOffer.product_id) {
+      setDetailVariantNames({}); // reset while loading
       supabase.from('product_variants').select('id, name').eq('product_id', selectedOffer.product_id).then(({ data }) => {
         const map: Record<string, string> = {};
         (data || []).forEach((v: any) => { map[v.id] = v.name; });
         setDetailVariantNames(map);
       });
+    } else {
+      setDetailVariantNames({});
     }
-  }, [selectedOffer?.id]);
+  }, [selectedOffer?.id, selectedOffer?.product_id]);
 
   const columns: Column<Offer>[] = [
     { key: 'name', header: 'Name' },
@@ -401,7 +410,11 @@ export default function AdminOffers() {
               {selectedOffer.variant_ids && selectedOffer.variant_ids.length > 0 && (
                 <DetailField
                   label="Specific Variants"
-                  value={selectedOffer.variant_ids.map(id => detailVariantNames[id] || id).join(', ')}
+                  value={
+                    Object.keys(detailVariantNames).length > 0
+                      ? selectedOffer.variant_ids.map(id => detailVariantNames[id] || 'Unknown').join(', ')
+                      : 'Loading...'
+                  }
                 />
               )}
               {selectedOffer.product_id && (!selectedOffer.variant_ids || selectedOffer.variant_ids.length === 0) && (
