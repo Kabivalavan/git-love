@@ -77,7 +77,7 @@ export default function AdminOffers() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<Offer>>({});
+  const [formData, setFormData] = useState<Partial<Offer> & { start_date_local?: string; end_date_local?: string }>({});;
   const { toast } = useToast();
 
   useEffect(() => {
