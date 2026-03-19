@@ -301,24 +301,30 @@ export type Database = {
       }
       bundle_items: {
         Row: {
+          allow_variant_selection: boolean
           bundle_id: string
           created_at: string | null
+          default_variant_id: string | null
           id: string
           product_id: string
           quantity: number
           sort_order: number | null
         }
         Insert: {
+          allow_variant_selection?: boolean
           bundle_id: string
           created_at?: string | null
+          default_variant_id?: string | null
           id?: string
           product_id: string
           quantity?: number
           sort_order?: number | null
         }
         Update: {
+          allow_variant_selection?: boolean
           bundle_id?: string
           created_at?: string | null
+          default_variant_id?: string | null
           id?: string
           product_id?: string
           quantity?: number
@@ -330,6 +336,13 @@ export type Database = {
             columns: ["bundle_id"]
             isOneToOne: false
             referencedRelation: "bundles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bundle_items_default_variant_id_fkey"
+            columns: ["default_variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
           {
