@@ -131,11 +131,11 @@ export function Header() {
               All
             </Link>
             {categories.slice(0, 8).map((cat) => {
-              const isActive = location.search.includes(`category=${cat.slug}`);
+              const isActive = location.pathname === `/category/${cat.slug}`;
               return (
                 <Link
                   key={cat.id}
-                  to={`/products?category=${cat.slug}`}
+                  to={`/category/${cat.slug}`}
                   className={cn(
                     "px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0",
                     isActive
