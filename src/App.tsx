@@ -71,12 +71,31 @@ const queryClient = new QueryClient({
 });
 
 function RouteLoadingFallback() {
-  return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading...</div>;
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="w-full max-w-md px-8 space-y-6">
+        <div className="animate-pulse rounded-xl bg-muted h-8 w-3/4 mx-auto" />
+        <div className="animate-pulse rounded-xl bg-muted h-4 w-1/2 mx-auto" />
+        <div className="space-y-3">
+          <div className="animate-pulse rounded-xl bg-muted h-32 w-full" />
+          <div className="animate-pulse rounded-xl bg-muted h-4 w-full" />
+          <div className="animate-pulse rounded-xl bg-muted h-4 w-2/3" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, isLoading } = useAuth();
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (isLoading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="w-full max-w-md px-8 space-y-4">
+        <div className="animate-pulse rounded-xl bg-muted h-8 w-1/2 mx-auto" />
+        <div className="animate-pulse rounded-xl bg-muted h-4 w-1/3 mx-auto" />
+      </div>
+    </div>
+  );
   if (!user) return <Navigate to="/admin/login" replace />;
   if (!isAdmin) return <Navigate to="/" replace />;
   return <>{children}</>;
