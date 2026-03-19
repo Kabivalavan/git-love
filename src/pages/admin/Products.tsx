@@ -876,6 +876,78 @@ export default function AdminProducts() {
                 </p>
                 <p className="text-xs text-muted-foreground">Automatically calculated from variant quantities</p>
               </div>
+
+              {/* Variant Images */}
+              {variantForms.filter(v => v.name.trim()).length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-semibold">Variant Images</Label>
+                      <p className="text-xs text-muted-foreground">Assign unique images per variant or use the same image for all</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const firstImg = formData.imageUrls?.[0] || '';
+                        if (!firstImg) return;
+                        setVariantForms(variantForms.map(v => ({ ...v, image_url: firstImg })));
+                      }}
+                      disabled={!formData.imageUrls?.length}
+                    >
+                      Use same image for all
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {variantForms.filter(v => v.name.trim()).map((variant, index) => (
+                      <div key={index} className="border rounded-xl p-3 space-y-2 bg-muted/20">
+                        <p className="text-xs font-semibold text-foreground">{variant.name}</p>
+                        {variant.image_url ? (
+                          <div className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                            <img src={variant.image_url} alt={variant.name} className="w-full h-full object-cover" />
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-1 right-1 h-6 w-6"
+                              onClick={() => {
+                                const updated = [...variantForms];
+                                updated[index].image_url = '';
+                                setVariantForms(updated);
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Select
+                            value=""
+                            onValueChange={(url) => {
+                              const updated = [...variantForms];
+                              updated[index].image_url = url;
+                              setVariantForms(updated);
+                            }}
+                          >
+                            <SelectTrigger className="h-9 text-xs">
+                              <SelectValue placeholder="Select from product images" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(formData.imageUrls || []).map((url, imgIdx) => (
+                                <SelectItem key={imgIdx} value={url}>
+                                  <div className="flex items-center gap-2">
+                                    <img src={url} alt="" className="w-6 h-6 rounded object-cover" />
+                                    <span>Image {imgIdx + 1}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="low_stock_threshold">Low Stock Alert Threshold</Label>
                 <Input
