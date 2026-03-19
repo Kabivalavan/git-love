@@ -57,6 +57,21 @@ function detectSurface() {
   return { surface: 'home', slug: null };
 }
 
+function fireWidgetEvent(
+  apiBase: string,
+  siteId: string,
+  eventType: string,
+  sessionId: string | null,
+  payload: Record<string, any> = {}
+) {
+  if (!apiBase || !siteId) return;
+  fetch(`${apiBase}/widget-event`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-site-id': siteId },
+    body: JSON.stringify({ eventType, sessionId, payload }),
+  }).catch(() => {});
+}
+
 export function AIAssistantWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<MessageType[]>([]);
@@ -249,6 +264,12 @@ export function AIAssistantWidget() {
           completed_at: new Date().toISOString(),
         });
 
+        // Track recommendation_viewed on external API
+        fireWidgetEvent(config!.api_base, config!.site_id, 'recommendation_viewed', data.sessionId || null, {
+          count: recs.length,
+          productIds: recs.map((r: any) => r.externalId || r.name).filter(Boolean),
+        });
+
         setTimeout(() => {
           setMessages(prev => [
             ...prev.filter(m => m.type !== 'thinking'),
@@ -276,6 +297,13 @@ export function AIAssistantWidget() {
 
   const handleProductClick = (url: string) => {
     updateSession({ clicked_product_url: url });
+    // Track product_clicked on external API
+    if (config?.api_base && config?.site_id) {
+      fireWidgetEvent(config.api_base, config.site_id, 'product_clicked', null, {
+        productUrl: url,
+        visitorId: getVisitorId(),
+      });
+    }
   };
 
   if (!config?.enabled) return null;
