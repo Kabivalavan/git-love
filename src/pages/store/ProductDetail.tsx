@@ -255,6 +255,7 @@ export default function ProductDetailPage() {
 
   const priceWhole = Math.floor(displayPrice);
   const priceDecimal = Math.round((displayPrice - priceWhole) * 100);
+  const showDecimal = priceDecimal > 0;
 
   const productJsonLd = {
     '@type': 'Product', name: product.name, description: product.description || product.short_description || '',
