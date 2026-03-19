@@ -42,7 +42,7 @@ interface GlobalStoreData {
   bundles: any[];
   reviewStats: ReviewStats;
   isLoading: boolean;
-  getProductOffer: (product: Product) => ProductOffer | null;
+  getProductOffer: (product: Product, variantId?: string | null) => ProductOffer | null;
   calculateCartDiscount: (products: { product: Product; quantity: number }[]) => {
     totalDiscount: number;
     appliedOffers: { offer: Offer; discount: number }[];
