@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Loader2, Trash2, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import { ShimmerTable } from '@/components/ui/shimmer';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -42,12 +43,15 @@ interface BundleItem {
   product_id: string;
   quantity: number;
   sort_order: number;
+  allow_variant_selection: boolean;
+  default_variant_id: string | null;
   product?: Product;
 }
 
 interface BundleItemForm {
   product_id: string;
-  variant_id: string;
+  allow_variant_selection: boolean;
+  default_variant_id: string;
   quantity: string;
 }
 
@@ -67,6 +71,7 @@ export default function AdminBundles() {
   const [formData, setFormData] = useState<Partial<Bundle> & { imageUrls?: string[] }>({});
   const [itemForms, setItemForms] = useState<BundleItemForm[]>([]);
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   useEffect(() => {
     fetchBundles();
@@ -104,7 +109,7 @@ export default function AdminBundles() {
 
   const handleCreate = () => {
     setFormData({ is_active: true, sort_order: 0, imageUrls: [] });
-    setItemForms([{ product_id: '', variant_id: '', quantity: '1' }]);
+    setItemForms([{ product_id: '', allow_variant_selection: true, default_variant_id: '', quantity: '1' }]);
     setSelectedBundle(null);
     setIsFormOpen(true);
   };
@@ -115,9 +120,10 @@ export default function AdminBundles() {
     setItemForms(
       selectedBundle.items?.map(i => ({
         product_id: i.product_id,
-        variant_id: '',
+        allow_variant_selection: i.allow_variant_selection ?? true,
+        default_variant_id: i.default_variant_id || '',
         quantity: i.quantity.toString(),
-      })) || [{ product_id: '', variant_id: '', quantity: '1' }]
+      })) || [{ product_id: '', allow_variant_selection: true, default_variant_id: '', quantity: '1' }]
     );
     setIsDetailOpen(false);
     setIsFormOpen(true);
@@ -131,13 +137,14 @@ export default function AdminBundles() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Deleted', description: 'Bundle deleted' });
+      log({ action: 'delete', entityType: 'bundle', entityId: selectedBundle.id, details: { name: selectedBundle.name } });
       setIsDetailOpen(false);
       fetchBundles();
     }
     setIsDeleting(false);
   };
 
-  // Auto-calculate suggested prices from selected products/variants
+  // Auto-calculate suggested prices from selected products
   const suggestedPrices = useMemo(() => {
     let totalSP = 0;
     let totalCP = 0;
@@ -149,8 +156,8 @@ export default function AdminBundles() {
       const product = products.find(p => p.id === item.product_id);
       if (!product) { allFilled = false; continue; }
 
-      if (item.variant_id && product.variants) {
-        const variant = product.variants.find(v => v.id === item.variant_id);
+      if (item.default_variant_id && product.variants) {
+        const variant = product.variants.find(v => v.id === item.default_variant_id);
         if (variant) {
           totalSP += (variant.price || product.price || 0) * qty;
           totalCP += ((variant as any).cost_price || 0) * qty;
@@ -210,8 +217,17 @@ export default function AdminBundles() {
         product_id: item.product_id,
         quantity: parseInt(item.quantity) || 1,
         sort_order: idx,
+        allow_variant_selection: item.allow_variant_selection,
+        default_variant_id: item.default_variant_id || null,
       }));
       await supabase.from('bundle_items').insert(itemRecords);
+
+      log({
+        action: selectedBundle ? 'update' : 'create',
+        entityType: 'bundle',
+        entityId: bundleId,
+        details: { name: formData.name, bundle_price: formData.bundle_price, items: validItems.length },
+      });
 
       toast({ title: 'Success', description: `Bundle ${selectedBundle ? 'updated' : 'created'}` });
       setIsFormOpen(false);
@@ -309,12 +325,21 @@ export default function AdminBundles() {
               {selectedBundle.description && <DetailField label="Description" value={selectedBundle.description} />}
             </DetailSection>
             <DetailSection title="Products in Bundle">
-              {selectedBundle.items?.map((item, i) => (
-                <div key={i} className="border rounded-lg p-3 mb-2 bg-muted/30">
-                  <p className="font-medium text-sm">{(item.product as any)?.name || item.product_id.slice(0, 8)}</p>
-                  <p className="text-xs text-muted-foreground">Qty: {item.quantity} · ₹{Number((item.product as any)?.price || 0).toFixed(0)} each</p>
-                </div>
-              ))}
+              {selectedBundle.items?.map((item, i) => {
+                const product = products.find(p => p.id === item.product_id);
+                return (
+                  <div key={i} className="border rounded-lg p-3 mb-2 bg-muted/30 col-span-2">
+                    <p className="font-medium text-sm">{(item.product as any)?.name || product?.name || item.product_id.slice(0, 8)}</p>
+                    <p className="text-xs text-muted-foreground">Qty: {item.quantity} · ₹{Number((item.product as any)?.price || 0).toFixed(0)} each</p>
+                    <p className="text-xs mt-1">
+                      {item.allow_variant_selection
+                        ? <Badge variant="secondary" className="text-[10px]">🔄 Customer selects variant</Badge>
+                        : <Badge variant="outline" className="text-[10px]">📌 Fixed (no variant choice)</Badge>
+                      }
+                    </p>
+                  </div>
+                );
+              })}
             </DetailSection>
           </div>
         )}
@@ -357,13 +382,13 @@ export default function AdminBundles() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-base font-semibold">Products in Bundle *</Label>
-                <Button variant="outline" size="sm" onClick={() => setItemForms([...itemForms, { product_id: '', variant_id: '', quantity: '1' }])}>
+                <Button variant="outline" size="sm" onClick={() => setItemForms([...itemForms, { product_id: '', allow_variant_selection: true, default_variant_id: '', quantity: '1' }])}>
                   <Plus className="h-4 w-4 mr-1" /> Add Product
                 </Button>
               </div>
               {itemForms.map((item, idx) => {
                 const selectedProduct = products.find(p => p.id === item.product_id);
-                const variants = selectedProduct?.variants || [];
+                const variants = selectedProduct?.variants?.filter(v => v.is_active) || [];
                 return (
                   <div key={idx} className="border rounded-xl p-4 space-y-3 bg-muted/20">
                     <div className="flex items-center justify-between">
@@ -372,44 +397,64 @@ export default function AdminBundles() {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Product *</Label>
-                        <Select
-                          value={item.product_id}
-                          onValueChange={(v) => {
-                            const u = [...itemForms];
-                            u[idx].product_id = v;
-                            u[idx].variant_id = '';
-                            setItemForms(u);
-                          }}
-                        >
-                          <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
-                          <SelectContent>
-                            {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Variant {variants.length > 0 ? '*' : '(none)'}</Label>
-                        <Select
-                          value={item.variant_id}
-                          onValueChange={(v) => { const u = [...itemForms]; u[idx].variant_id = v; setItemForms(u); }}
-                          disabled={!item.product_id || variants.length === 0}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={variants.length > 0 ? "Select variant" : "No variants"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {variants.map(v => (
-                              <SelectItem key={v.id} value={v.id}>
-                                {v.name} {v.price ? `— ₹${Number(v.price).toFixed(0)}` : ''}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Product *</Label>
+                      <Select
+                        value={item.product_id}
+                        onValueChange={(v) => {
+                          const u = [...itemForms];
+                          u[idx].product_id = v;
+                          u[idx].default_variant_id = '';
+                          setItemForms(u);
+                        }}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+                        <SelectContent>
+                          {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
+
+                    {/* Variant selection mode */}
+                    {variants.length > 0 && (
+                      <div className="space-y-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <Label className="text-xs font-semibold">Let customer choose variant?</Label>
+                            <p className="text-[10px] text-muted-foreground">Enable for clothing/size selection. Disable for fixed combos.</p>
+                          </div>
+                          <Switch
+                            checked={item.allow_variant_selection}
+                            onCheckedChange={(c) => {
+                              const u = [...itemForms];
+                              u[idx].allow_variant_selection = c;
+                              setItemForms(u);
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">
+                            {item.allow_variant_selection ? 'Default Variant (auto-selected, user can change)' : 'Fixed Variant *'}
+                          </Label>
+                          <Select
+                            value={item.default_variant_id}
+                            onValueChange={(v) => { const u = [...itemForms]; u[idx].default_variant_id = v; setItemForms(u); }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select variant" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {variants.map(v => (
+                                <SelectItem key={v.id} value={v.id}>
+                                  {v.name} {v.price ? `— ₹${Number(v.price).toFixed(0)}` : ''}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="w-28 space-y-1.5">
                       <Label className="text-xs">Quantity</Label>
                       <Input

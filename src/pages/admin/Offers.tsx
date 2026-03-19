@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import {
   Dialog,
   DialogContent,
@@ -120,6 +121,7 @@ export default function AdminOffers() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<FormData>({});
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   useEffect(() => {
     fetchOffers();
@@ -243,6 +245,7 @@ export default function AdminOffers() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Success', description: 'Offer deleted successfully' });
+      log({ action: 'delete', entityType: 'offer', entityId: selectedOffer.id, details: { name: selectedOffer.name, type: selectedOffer.type, value: selectedOffer.value } });
       setIsDetailOpen(false);
       fetchOffers();
     }
@@ -294,6 +297,7 @@ export default function AdminOffers() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Offer updated successfully' });
+        log({ action: 'update', entityType: 'offer', entityId: selectedOffer.id, details: { name: formData.name, type: formData.type, value: formData.value } });
         setIsFormOpen(false);
         fetchOffers();
       }
@@ -303,6 +307,7 @@ export default function AdminOffers() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Offer created successfully' });
+        log({ action: 'create', entityType: 'offer', details: { name: formData.name, type: formData.type, value: formData.value } });
         setIsFormOpen(false);
         fetchOffers();
       }

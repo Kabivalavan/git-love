@@ -1,11 +1,13 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Activity, User, Package, ShoppingCart, Users, Receipt, Image, Percent, Truck, Layers, Settings, Filter } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
+import { Activity, User, Package, ShoppingCart, Users, Receipt, Image, Percent, Truck, Layers, Settings, Filter, Clock, Hash, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ActivityLog {
@@ -16,6 +18,7 @@ interface ActivityLog {
   entity_id: string | null;
   details: Record<string, any>;
   created_at: string;
+  ip_address: string | null;
   profile?: { full_name: string | null; email: string | null };
 }
 
@@ -53,6 +56,7 @@ export default function AdminActivityLog() {
   const [filterEntity, setFilterEntity] = useState('all');
   const [filterAction, setFilterAction] = useState('all');
   const [filterDate, setFilterDate] = useState('all');
+  const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
 
   useEffect(() => { fetchLogs(); }, []);
 
@@ -65,7 +69,6 @@ export default function AdminActivityLog() {
       .limit(500);
 
     if (!error && data) {
-      // Fetch profiles for user names
       const userIds = [...new Set(data.map((l: any) => l.user_id))];
       const { data: profiles } = await supabase
         .from('profiles')
@@ -106,7 +109,7 @@ export default function AdminActivityLog() {
   }, [logs]);
 
   const getDescription = (log: ActivityLog) => {
-    const name = log.details?.name || log.details?.order_number || log.entity_id || '';
+    const name = log.details?.name || log.details?.order_number || log.details?.code || log.entity_id || '';
     const entityLabel = log.entity_type.charAt(0).toUpperCase() + log.entity_type.slice(1);
 
     switch (log.action) {
@@ -117,6 +120,8 @@ export default function AdminActivityLog() {
         return `Changed ${entityLabel} status: ${log.details?.from || '?'} → ${log.details?.to || '?'}`;
       case 'block': return `Blocked customer: ${name}`;
       case 'unblock': return `Unblocked customer: ${name}`;
+      case 'refund': return `Refunded: ${name}`;
+      case 'export': return `Exported ${entityLabel}`;
       default: return `${log.action} on ${entityLabel}`;
     }
   };
@@ -177,6 +182,14 @@ export default function AdminActivityLog() {
       ),
     },
   ];
+
+  // Render detail key-value pairs from log.details
+  const renderDetailValue = (key: string, value: any): string => {
+    if (value === null || value === undefined) return '-';
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  };
 
   return (
     <AdminLayout
@@ -251,6 +264,7 @@ export default function AdminActivityLog() {
           columns={columns}
           data={filteredLogs}
           isLoading={isLoading}
+          onRowClick={(log) => setSelectedLog(log)}
           searchable
           searchPlaceholder="Search activity..."
           searchKeys={['action', 'entity_type'] as any}
@@ -258,6 +272,107 @@ export default function AdminActivityLog() {
           emptyMessage="No activity logged yet. Admin actions will appear here automatically."
         />
       </div>
+
+      {/* Detail Dialog */}
+      <Dialog open={!!selectedLog} onOpenChange={(open) => { if (!open) setSelectedLog(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedLog && (() => {
+                const Icon = ENTITY_ICONS[selectedLog.entity_type] || Activity;
+                return <Icon className="h-5 w-5 text-primary" />;
+              })()}
+              Activity Detail
+            </DialogTitle>
+          </DialogHeader>
+          {selectedLog && (
+            <div className="space-y-4 mt-2">
+              {/* Summary banner */}
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <p className="text-sm font-semibold text-foreground">{getDescription(selectedLog)}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {format(new Date(selectedLog.created_at), 'dd MMMM yyyy, hh:mm:ss a')}
+                </p>
+              </div>
+
+              <Separator />
+
+              {/* Key info grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <User className="h-3 w-3" /> Performed By
+                  </div>
+                  <p className="text-sm font-medium text-foreground">
+                    {selectedLog.profile?.full_name || selectedLog.profile?.email || 'Unknown User'}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Activity className="h-3 w-3" /> Action
+                  </div>
+                  <Badge className={`text-[10px] border-0 ${ACTION_COLORS[selectedLog.action] || 'bg-muted text-muted-foreground'}`}>
+                    {selectedLog.action.replace('_', ' ').toUpperCase()}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Package className="h-3 w-3" /> Entity Type
+                  </div>
+                  <p className="text-sm font-medium text-foreground capitalize">{selectedLog.entity_type}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Hash className="h-3 w-3" /> Entity ID
+                  </div>
+                  <p className="text-xs font-mono text-foreground break-all">{selectedLog.entity_id || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" /> Timestamp
+                  </div>
+                  <p className="text-sm text-foreground">
+                    {format(new Date(selectedLog.created_at), 'dd MMM yyyy, hh:mm:ss a')}
+                  </p>
+                </div>
+                {selectedLog.ip_address && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      IP Address
+                    </div>
+                    <p className="text-sm font-mono text-foreground">{selectedLog.ip_address}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Details section */}
+              {selectedLog.details && Object.keys(selectedLog.details).length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Change Details</p>
+                    </div>
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                      {Object.entries(selectedLog.details).map(([key, value]) => (
+                        <div key={key} className="flex items-start justify-between gap-4 py-1.5 border-b border-border/50 last:border-0">
+                          <span className="text-xs font-medium text-muted-foreground capitalize min-w-[100px]">
+                            {key.replace(/_/g, ' ')}
+                          </span>
+                          <span className="text-sm text-foreground text-right break-all">
+                            {renderDetailValue(key, value)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
