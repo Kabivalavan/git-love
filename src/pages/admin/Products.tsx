@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
@@ -70,58 +70,80 @@ export default function AdminProducts() {
   const { toast } = useToast();
   const { log } = useActivityLog();
 
-  useEffect(() => {
-    fetchProducts();
-    fetchCategories();
-  }, []);
+  const fetchProducts = useCallback(async (showLoader = true) => {
+    if (showLoader) setIsLoading(true);
 
-  const fetchProducts = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('products')
-      .select('*, category:categories(*), images:product_images(*), variants:product_variants(*)')
-      .order('created_at', { ascending: false });
+    const [{ data, error }, { data: processingOrders }] = await Promise.all([
+      supabase
+        .from('products')
+        .select('*, category:categories(*), images:product_images(*), variants:product_variants(*)')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('orders')
+        .select('id')
+        .in('status', ['new', 'confirmed', 'packed']),
+    ]);
 
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      setIsLoading(false);
+      if (showLoader) setIsLoading(false);
       return;
     }
 
     const productsList = (data || []) as unknown as Product[];
+    const processingMap: Record<string, number> = {};
 
-    // Fetch processing quantities (items in orders with status new/confirmed/packed)
-
-    // Fallback: query orders separately then match
-    const { data: processingOrders } = await supabase
-      .from('orders')
-      .select('id')
-      .in('status', ['new', 'confirmed', 'packed']);
-
-    let processingMap: Record<string, number> = {};
     if (processingOrders && processingOrders.length > 0) {
-      const orderIds = processingOrders.map(o => o.id);
+      const orderIds = processingOrders.map((order) => order.id);
       const { data: items } = await supabase
         .from('order_items')
         .select('product_id, quantity')
         .in('order_id', orderIds);
-      if (items) {
-        items.forEach((item: any) => {
-          if (item.product_id) {
-            processingMap[item.product_id] = (processingMap[item.product_id] || 0) + item.quantity;
-          }
-        });
-      }
+
+      (items || []).forEach((item: any) => {
+        if (!item.product_id) return;
+        processingMap[item.product_id] = (processingMap[item.product_id] || 0) + Number(item.quantity || 0);
+      });
     }
 
-    setProducts(productsList.map(p => ({ ...p, processing_qty: processingMap[p.id] || 0 })));
-    setIsLoading(false);
-  };
+    setProducts(productsList.map((product) => ({ ...product, processing_qty: processingMap[product.id] || 0 })));
+    if (showLoader) setIsLoading(false);
+  }, [toast]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     const { data } = await supabase.from('categories').select('*').eq('is_active', true);
     setCategories((data || []) as unknown as Category[]);
-  };
+  }, []);
+
+  useEffect(() => {
+    void fetchProducts();
+    void fetchCategories();
+  }, [fetchProducts, fetchCategories]);
+
+  useEffect(() => {
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        void fetchProducts(false);
+      }, 120);
+    };
+
+    const channel = supabase
+      .channel('admin-products-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_variants' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_holds' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, scheduleRefresh)
+      .subscribe();
+
+    return () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
+    };
+  }, [fetchProducts]);
 
   const handleRowClick = async (product: Product) => {
     // Fetch variants for detail panel
