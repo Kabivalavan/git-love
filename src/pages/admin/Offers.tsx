@@ -102,6 +102,7 @@ type FormData = Partial<Offer> & {
   apply_scope?: 'all' | 'category' | 'product';
   selected_variant_ids?: string[];
   apply_all_variants?: boolean;
+  parent_category_id?: string | null;
 };
 
 export default function AdminOffers() {
