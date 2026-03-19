@@ -79,19 +79,44 @@ export default function ConversionOptimization() {
     },
   });
 
-  // Fetch conversion analytics
+  // Fetch conversion analytics with product details
   const { data: analytics } = useQuery({
     queryKey: ['conversion-analytics'],
     queryFn: async () => {
       const { data } = await supabase
         .from('conversion_events')
-        .select('event_type')
+        .select('event_type, product_id, created_at')
         .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString());
       const counts: Record<string, number> = {};
-      (data || []).forEach((e: any) => { counts[e.event_type] = (counts[e.event_type] || 0) + 1; });
-      return counts;
+      const productClicks: Record<string, number> = {};
+      (data || []).forEach((e: any) => {
+        counts[e.event_type] = (counts[e.event_type] || 0) + 1;
+        if ((e.event_type === 'upsell_clicked' || e.event_type === 'cross_sell_clicked') && e.product_id) {
+          productClicks[e.product_id] = (productClicks[e.product_id] || 0) + 1;
+        }
+      });
+      return { counts, productClicks };
     },
     staleTime: 60000,
+  });
+
+  // Fetch top clicked products for insights
+  const topClickedProductIds = Object.entries(analytics?.productClicks || {})
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5)
+    .map(([id]) => id);
+
+  const { data: topProducts = [] } = useQuery({
+    queryKey: ['top-conversion-products', topClickedProductIds],
+    queryFn: async () => {
+      if (topClickedProductIds.length === 0) return [];
+      const { data } = await supabase
+        .from('products')
+        .select('id, name, price, slug, images:product_images(image_url, is_primary)')
+        .in('id', topClickedProductIds);
+      return (data || []) as any[];
+    },
+    enabled: topClickedProductIds.length > 0,
   });
 
   useEffect(() => {
