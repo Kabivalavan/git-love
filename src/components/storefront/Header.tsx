@@ -68,7 +68,7 @@ export function Header() {
                     <Link to="/" className="text-lg font-semibold">Home</Link>
                     <Link to="/products" className="text-lg font-semibold">Shop</Link>
                     {categories.map((cat) => (
-                      <Link key={cat.id} to={`/products?category=${cat.slug}`} className="text-muted-foreground pl-2">{cat.name}</Link>
+                      <Link key={cat.id} to={`/category/${cat.slug}`} className="text-muted-foreground pl-2">{cat.name}</Link>
                     ))}
                   </nav>
                 </SheetContent>
