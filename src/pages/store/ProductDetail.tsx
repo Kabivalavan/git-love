@@ -238,9 +238,17 @@ export default function ProductDetailPage() {
   const images = product.images || [];
   const currentImage = images[currentImageIndex]?.image_url || '/placeholder.svg';
   const currentPrice = selectedVariant?.price || product.price;
-  const inHold = selectedVariant ? ((selectedVariant as any).in_hold || 0) : ((product as any).in_hold || 0);
-  const currentStock = (selectedVariant?.stock_quantity ?? product.stock_quantity) - inHold;
-  const availableStock = Math.max(0, currentStock);
+  // Stock: when variant_required, use variant stock or aggregate from all variants
+  const computeAvailableStock = () => {
+    if (selectedVariant) {
+      return Math.max(0, (selectedVariant.stock_quantity ?? 0) - ((selectedVariant as any).in_hold || 0));
+    }
+    if ((product as any).variant_required && variants.length > 0) {
+      return variants.reduce((sum, v) => sum + Math.max(0, (v.stock_quantity ?? 0) - ((v as any).in_hold || 0)), 0);
+    }
+    return Math.max(0, (product.stock_quantity ?? 0) - ((product as any).in_hold || 0));
+  };
+  const availableStock = computeAvailableStock();
   const productOffer = getProductOffer(product);
   const offerPrice = productOffer?.discountedPrice;
   const displayPrice = offerPrice ?? currentPrice;
