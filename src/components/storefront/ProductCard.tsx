@@ -90,6 +90,7 @@ export const ProductCard = React.memo(function ProductCard({
 
   const priceWhole = Math.floor(displayPrice);
   const priceDecimal = Math.round((displayPrice - priceWhole) * 100);
+  const showDecimal = priceDecimal > 0;
 
   // Prefetch product data on hover for instant page transitions
   const handleMouseEnter = useCallback(() => {
