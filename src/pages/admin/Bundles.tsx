@@ -117,7 +117,7 @@ export default function AdminBundles() {
 
   const handleEdit = () => {
     if (!selectedBundle) return;
-    setFormData({ ...selectedBundle, imageUrls: selectedBundle.image_url ? [selectedBundle.image_url] : [] });
+    setFormData({ ...selectedBundle, imageUrls: (selectedBundle.images && Array.isArray(selectedBundle.images) && selectedBundle.images.length > 0) ? selectedBundle.images as string[] : selectedBundle.image_url ? [selectedBundle.image_url] : [] });
     setItemForms(
       selectedBundle.items?.map(i => ({
         product_id: i.product_id,
