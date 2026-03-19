@@ -531,8 +531,11 @@ export default function AdminOffers() {
                 <div className="space-y-2">
                   <Label>Parent Category *</Label>
                   <Select
-                    value={formData.category_id || 'none'}
-                    onValueChange={(value) => setFormData({ ...formData, category_id: value === 'none' ? null : value, product_id: null })}
+                    value={formData.parent_category_id || formData.category_id || 'none'}
+                    onValueChange={(value) => {
+                      const pid = value === 'none' ? null : value;
+                      setFormData({ ...formData, parent_category_id: pid, category_id: pid, product_id: null });
+                    }}
                   >
                     <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                     <SelectContent>
@@ -547,9 +550,17 @@ export default function AdminOffers() {
                   <div className="space-y-2">
                     <Label>Sub-Category (optional)</Label>
                     <Select
-                      value={formData.category_id || 'none'}
+                      value={
+                        formData.category_id && formData.category_id !== formData.parent_category_id
+                          ? formData.category_id
+                          : 'none'
+                      }
                       onValueChange={(value) => {
-                        if (value !== 'none') setFormData({ ...formData, category_id: value });
+                        if (value === 'none') {
+                          setFormData({ ...formData, category_id: formData.parent_category_id || null });
+                        } else {
+                          setFormData({ ...formData, category_id: value });
+                        }
                       }}
                     >
                       <SelectTrigger><SelectValue placeholder="All in parent" /></SelectTrigger>
