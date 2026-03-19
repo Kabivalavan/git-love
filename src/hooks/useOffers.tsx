@@ -3,18 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Offer, Product } from '@/types/database';
 
 interface ProductOffer {
-  offer: Offer;
+  offer: Offer & { variant_ids?: string[] | null };
   discountedPrice: number;
   discountAmount: number;
   discountLabel: string;
 }
 
 export function useOffers() {
-  const [offers, setOffers] = useState<Offer[]>([]);
+  const [offers, setOffers] = useState<(Offer & { variant_ids?: string[] | null })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Defer offers fetch to avoid competing with critical page-load requests
     const timer = setTimeout(() => fetchOffers(), 800);
     return () => clearTimeout(timer);
   }, []);
@@ -30,15 +29,14 @@ export function useOffers() {
       .or(`start_date.is.null,start_date.lte.${now}`)
       .or(`end_date.is.null,end_date.gte.${now}`);
     
-    setOffers((data || []) as unknown as Offer[]);
+    setOffers((data || []) as unknown as (Offer & { variant_ids?: string[] | null })[]);
     setIsLoading(false);
   };
 
-  const getProductOffer = useCallback((product: Product): ProductOffer | null => {
+  const getProductOffer = useCallback((product: Product, variantId?: string | null): ProductOffer | null => {
     if (!product || offers.length === 0) return null;
 
     const now = new Date();
-    // Filter out expired offers client-side as well
     const activeOffers = offers.filter(o => {
       if (o.end_date && new Date(o.end_date) < now) return false;
       if (o.start_date && new Date(o.start_date) > now) return false;
@@ -46,7 +44,18 @@ export function useOffers() {
     });
 
     // Find applicable offers (product-specific first, then category-specific)
-    const productOffer = activeOffers.find(o => o.product_id === product.id);
+    let productOffer = activeOffers.find(o => {
+      if (o.product_id !== product.id) return false;
+      // Check variant-specific targeting
+      if (o.variant_ids && o.variant_ids.length > 0 && variantId) {
+        return o.variant_ids.includes(variantId);
+      }
+      if (o.variant_ids && o.variant_ids.length > 0 && !variantId) {
+        return false; // variant-specific offer but no variant provided
+      }
+      return true;
+    });
+
     const categoryOffer = product.category_id 
       ? activeOffers.find(o => o.category_id === product.category_id && !o.product_id)
       : null;
@@ -61,7 +70,6 @@ export function useOffers() {
 
     if (applicableOffer.type === 'percentage') {
       discountAmount = (basePrice * applicableOffer.value) / 100;
-      // Apply max_discount cap if set
       if (applicableOffer.max_discount && discountAmount > applicableOffer.max_discount) {
         discountAmount = applicableOffer.max_discount;
       }
@@ -70,9 +78,8 @@ export function useOffers() {
     } else if (applicableOffer.type === 'flat') {
       discountAmount = applicableOffer.value;
       discountedPrice = Math.max(0, basePrice - discountAmount);
-      discountLabel = `₹${applicableOffer.value} OFF`;
+      discountLabel = `₹${Math.round(applicableOffer.value)} OFF`;
     } else if (applicableOffer.type === 'buy_x_get_y') {
-      // For buy X get Y, show as a badge but don't change price display
       discountLabel = `Buy ${applicableOffer.buy_quantity} Get ${applicableOffer.get_quantity}`;
       discountedPrice = basePrice;
       discountAmount = 0;
@@ -80,11 +87,24 @@ export function useOffers() {
 
     return {
       offer: applicableOffer,
-      discountedPrice: Math.round(discountedPrice * 100) / 100,
-      discountAmount: Math.round(discountAmount * 100) / 100,
+      discountedPrice: Math.round(discountedPrice),
+      discountAmount: Math.round(discountAmount),
       discountLabel,
     };
   }, [offers]);
+
+  const getVariantOffer = useCallback((product: Product, variantId: string): ProductOffer | null => {
+    return getProductOffer(product, variantId);
+  }, [getProductOffer]);
+
+  // Check if any variant of a product has an offer (for default variant selection)
+  const getFirstVariantWithOffer = useCallback((product: Product, variantIds: string[]): string | null => {
+    for (const vid of variantIds) {
+      const offer = getProductOffer(product, vid);
+      if (offer && offer.discountAmount > 0) return vid;
+    }
+    return null;
+  }, [getProductOffer]);
 
   const calculateCartDiscount = useCallback((
     products: { product: Product; quantity: number }[]
@@ -114,6 +134,8 @@ export function useOffers() {
     offers,
     isLoading,
     getProductOffer,
+    getVariantOffer,
+    getFirstVariantWithOffer,
     calculateCartDiscount,
     refetch: fetchOffers,
   };

@@ -38,10 +38,12 @@ interface Offer {
   max_discount: number | null;
   category_id: string | null;
   product_id: string | null;
+  variant_ids: string[] | null;
   start_date: string | null;
   end_date: string | null;
   is_active: boolean;
   auto_apply: boolean;
+  show_timer: boolean;
   created_at: string;
 }
 
@@ -69,6 +71,11 @@ const OFFER_TYPES = [
   { value: 'flat', label: 'Flat Discount' },
 ];
 
+function formatIST(utcStr: string | null): string {
+  if (!utcStr) return 'Not set';
+  return new Date(utcStr).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+}
+
 function utcToISTLocal(utcStr: string | null): string {
   if (!utcStr) return '';
   const d = new Date(utcStr);
@@ -83,15 +90,9 @@ function istLocalToUTC(localStr: string): string {
   return utc.toISOString();
 }
 
-function formatIST(utcStr: string | null): string {
-  if (!utcStr) return 'Not set';
-  return new Date(utcStr).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
-}
-
 type FormData = Partial<Offer> & {
   start_date_local?: string;
   end_date_local?: string;
-  show_timer?: boolean;
   apply_scope?: 'all' | 'category' | 'product';
   selected_variant_ids?: string[];
   apply_all_variants?: boolean;
@@ -130,7 +131,7 @@ export default function AdminOffers() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       const now = new Date().toISOString();
-      const allOffers = (data || []) as Offer[];
+      const allOffers = (data || []) as unknown as Offer[];
       const expired = allOffers.filter(o => o.is_active && o.end_date && o.end_date < now);
       if (expired.length > 0) {
         await Promise.all(expired.map(o =>
@@ -149,7 +150,6 @@ export default function AdminOffers() {
     const { data } = await supabase.from('categories').select('id, name, parent_id').eq('is_active', true).order('sort_order');
     const all = (data || []) as CategoryItem[];
     setAllCategories(all);
-    // Parent categories (no parent_id)
     setCategories(all.filter(c => !c.parent_id));
   };
 
@@ -163,10 +163,8 @@ export default function AdminOffers() {
     setVariants((data || []) as VariantItem[]);
   };
 
-  // When category changes in form, filter products
   useEffect(() => {
     if (formData.apply_scope === 'category' && formData.category_id) {
-      // Include products from this category and its children
       const childCatIds = allCategories.filter(c => c.parent_id === formData.category_id).map(c => c.id);
       const catIds = [formData.category_id, ...childCatIds];
       setFilteredProducts(products.filter(p => p.category_id && catIds.includes(p.category_id)));
@@ -177,7 +175,6 @@ export default function AdminOffers() {
     }
   }, [formData.category_id, formData.apply_scope, products, allCategories]);
 
-  // When product changes, load variants
   useEffect(() => {
     if (formData.product_id) {
       fetchVariantsForProduct(formData.product_id);
@@ -194,13 +191,14 @@ export default function AdminOffers() {
   const handleEdit = () => {
     if (selectedOffer) {
       const scope = selectedOffer.product_id ? 'product' : selectedOffer.category_id ? 'category' : 'all';
+      const hasVariantIds = selectedOffer.variant_ids && selectedOffer.variant_ids.length > 0;
       setFormData({
         ...selectedOffer,
         start_date_local: utcToISTLocal(selectedOffer.start_date),
         end_date_local: utcToISTLocal(selectedOffer.end_date),
         apply_scope: scope,
-        apply_all_variants: true,
-        selected_variant_ids: [],
+        apply_all_variants: !hasVariantIds,
+        selected_variant_ids: hasVariantIds ? selectedOffer.variant_ids! : [],
       });
       setIsDetailOpen(false);
       setIsFormOpen(true);
@@ -249,6 +247,14 @@ export default function AdminOffers() {
 
     setIsSaving(true);
 
+    // Determine variant_ids to save
+    let variantIdsToSave: string[] | null = null;
+    if (formData.apply_scope === 'product' && formData.product_id && !formData.apply_all_variants) {
+      variantIdsToSave = formData.selected_variant_ids && formData.selected_variant_ids.length > 0
+        ? formData.selected_variant_ids
+        : null;
+    }
+
     const offerData = {
       name: formData.name,
       description: formData.description,
@@ -257,9 +263,10 @@ export default function AdminOffers() {
       buy_quantity: null,
       get_quantity: null,
       min_order_value: formData.min_order_value || null,
-      max_discount: formData.max_discount || null,
+      max_discount: formData.type === 'percentage' ? (formData.max_discount || null) : null,
       category_id: formData.apply_scope === 'category' ? (formData.category_id || null) : null,
       product_id: formData.apply_scope === 'product' ? (formData.product_id || null) : null,
+      variant_ids: variantIdsToSave as unknown as import('@/integrations/supabase/types').Json,
       start_date: formData.start_date_local ? istLocalToUTC(formData.start_date_local) : null,
       end_date: formData.end_date_local ? istLocalToUTC(formData.end_date_local) : null,
       is_active: formData.is_active ?? true,
@@ -291,14 +298,18 @@ export default function AdminOffers() {
 
   const formatValue = (offer: Offer) => {
     if (offer.type === 'percentage') return `${offer.value}%`;
-    if (offer.type === 'flat') return `₹${offer.value}`;
+    if (offer.type === 'flat') return `₹${Math.round(offer.value)}`;
     return `Buy ${offer.buy_quantity} Get ${offer.get_quantity}`;
   };
 
   const getTargetLabel = (offer: Offer) => {
     if (offer.product_id) {
       const p = products.find(pr => pr.id === offer.product_id);
-      return p ? p.name : 'Specific Product';
+      const label = p ? p.name : 'Specific Product';
+      if (offer.variant_ids && offer.variant_ids.length > 0) {
+        return `${label} (${offer.variant_ids.length} variant${offer.variant_ids.length > 1 ? 's' : ''})`;
+      }
+      return label;
     }
     if (offer.category_id) {
       const c = allCategories.find(ca => ca.id === offer.category_id);
@@ -306,6 +317,18 @@ export default function AdminOffers() {
     }
     return 'All Products';
   };
+
+  // For detail panel - get variant names
+  const [detailVariantNames, setDetailVariantNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (selectedOffer?.variant_ids && selectedOffer.variant_ids.length > 0 && selectedOffer.product_id) {
+      supabase.from('product_variants').select('id, name').eq('product_id', selectedOffer.product_id).then(({ data }) => {
+        const map: Record<string, string> = {};
+        (data || []).forEach((v: any) => { map[v.id] = v.name; });
+        setDetailVariantNames(map);
+      });
+    }
+  }, [selectedOffer?.id]);
 
   const columns: Column<Offer>[] = [
     { key: 'name', header: 'Name' },
@@ -328,7 +351,6 @@ export default function AdminOffers() {
     },
   ];
 
-  // Get sub-categories for a parent
   const subCategoriesForParent = formData.category_id
     ? allCategories.filter(c => c.parent_id === formData.category_id)
     : [];
@@ -368,22 +390,32 @@ export default function AdminOffers() {
           <div className="space-y-6">
             <DetailSection title="Offer Info">
               <DetailField label="Name" value={selectedOffer.name} />
-              <DetailField label="Type" value={OFFER_TYPES.find(t => t.value === selectedOffer.type)?.label} />
+              <DetailField label="Description" value={selectedOffer.description || '-'} />
+              <DetailField label="Type" value={OFFER_TYPES.find(t => t.value === selectedOffer.type)?.label || selectedOffer.type} />
               <DetailField label="Value" value={formatValue(selectedOffer)} />
-              <DetailField label="Applied To" value={getTargetLabel(selectedOffer)} />
-              <DetailField label="Auto Apply" value="Always (auto-applied)" />
+              <DetailField label="Status" value={selectedOffer.is_active ? 'Active ✓' : 'Inactive'} />
+              <DetailField label="Show Timer" value={selectedOffer.show_timer ? 'Yes ✓' : 'No'} />
+            </DetailSection>
+            <DetailSection title="Applied To">
+              <DetailField label="Target" value={getTargetLabel(selectedOffer)} />
+              {selectedOffer.variant_ids && selectedOffer.variant_ids.length > 0 && (
+                <DetailField
+                  label="Specific Variants"
+                  value={selectedOffer.variant_ids.map(id => detailVariantNames[id] || id).join(', ')}
+                />
+              )}
+              {selectedOffer.product_id && (!selectedOffer.variant_ids || selectedOffer.variant_ids.length === 0) && (
+                <DetailField label="Variants" value="All variants" />
+              )}
             </DetailSection>
             <DetailSection title="Conditions">
-              <DetailField label="Min Order Value" value={selectedOffer.min_order_value ? `₹${selectedOffer.min_order_value}` : '-'} />
-              <DetailField label="Max Discount" value={selectedOffer.max_discount ? `₹${selectedOffer.max_discount}` : '-'} />
+              <DetailField label="Min Order Value" value={selectedOffer.min_order_value ? `₹${Math.round(selectedOffer.min_order_value)}` : '-'} />
+              <DetailField label="Max Discount" value={selectedOffer.max_discount ? `₹${Math.round(selectedOffer.max_discount)}` : '-'} />
             </DetailSection>
             <DetailSection title="Schedule (IST)">
               <DetailField label="Start Date" value={formatIST(selectedOffer.start_date)} />
               <DetailField label="End Date" value={formatIST(selectedOffer.end_date)} />
             </DetailSection>
-            <div className="col-span-2">
-              <DetailField label="Description" value={selectedOffer.description} />
-            </div>
           </div>
         )}
       </DetailPanel>
@@ -431,7 +463,7 @@ export default function AdminOffers() {
                 <Input
                   id="value"
                   type="number"
-                  step="0.01"
+                  step="1"
                   value={formData.value || ''}
                   onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) })}
                 />
@@ -442,7 +474,7 @@ export default function AdminOffers() {
                   <Input
                     id="max_discount_inline"
                     type="number"
-                    step="0.01"
+                    step="1"
                     value={formData.max_discount || ''}
                     onChange={(e) => setFormData({ ...formData, max_discount: parseFloat(e.target.value) })}
                     placeholder="Optional"
@@ -464,6 +496,8 @@ export default function AdminOffers() {
                   apply_scope: value as 'all' | 'category' | 'product',
                   category_id: value === 'all' ? null : formData.category_id,
                   product_id: value === 'product' ? formData.product_id : null,
+                  apply_all_variants: true,
+                  selected_variant_ids: [],
                 })}
               >
                 <SelectTrigger>
@@ -587,21 +621,23 @@ export default function AdminOffers() {
                 <Input
                   id="min_order_value"
                   type="number"
-                  step="0.01"
+                  step="1"
                   value={formData.min_order_value || ''}
                   onChange={(e) => setFormData({ ...formData, min_order_value: parseFloat(e.target.value) })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="max_discount">Max Discount</Label>
-                <Input
-                  id="max_discount"
-                  type="number"
-                  step="0.01"
-                  value={formData.max_discount || ''}
-                  onChange={(e) => setFormData({ ...formData, max_discount: parseFloat(e.target.value) })}
-                />
-              </div>
+              {formData.type !== 'percentage' && (
+                <div className="space-y-2">
+                  <Label htmlFor="max_discount">Max Discount</Label>
+                  <Input
+                    id="max_discount"
+                    type="number"
+                    step="1"
+                    value={formData.max_discount || ''}
+                    onChange={(e) => setFormData({ ...formData, max_discount: parseFloat(e.target.value) })}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">

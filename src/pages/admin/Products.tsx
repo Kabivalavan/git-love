@@ -332,6 +332,8 @@ export default function AdminProducts() {
             name: v.name,
             sku: v.sku || null,
             price: v.price ? parseFloat(v.price) : null,
+            cost_price: v.cost_price ? parseFloat(v.cost_price) : null,
+            tax_rate: v.tax_rate ? parseFloat(v.tax_rate) : 0,
             mrp: null,
             stock_quantity: parseInt(v.stock_quantity) || 0,
             is_active: true,
