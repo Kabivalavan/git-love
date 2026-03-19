@@ -127,7 +127,7 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
     } else if (applicableOffer.type === 'flat') {
       discountAmount = applicableOffer.value;
       discountedPrice = Math.max(0, basePrice - discountAmount);
-      discountLabel = `₹${applicableOffer.value} OFF`;
+      discountLabel = `₹${Math.round(applicableOffer.value)} OFF`;
     } else if (applicableOffer.type === 'buy_x_get_y') {
       discountLabel = `Buy ${applicableOffer.buy_quantity} Get ${applicableOffer.get_quantity}`;
       discountedPrice = basePrice;
