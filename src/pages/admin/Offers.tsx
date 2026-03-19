@@ -307,6 +307,7 @@ export default function AdminOffers() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Offer created successfully' });
+        log({ action: 'create', entityType: 'offer', details: { name: formData.name, type: formData.type, value: formData.value } });
         setIsFormOpen(false);
         fetchOffers();
       }
