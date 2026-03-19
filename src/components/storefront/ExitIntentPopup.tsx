@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation, useNavigationType } from 'react-router-dom';
 import { X, Copy, Gift, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useConversionSettings, trackConversionEvent } from '@/hooks/useConversionOptimization';
@@ -9,6 +10,7 @@ export function ExitIntentPopup() {
   const [copied, setCopied] = useState(false);
   const triggeredRef = useRef(false);
   const { data: settings } = useConversionSettings();
+  const location = useLocation();
 
   const openPopup = useCallback(() => {
     if (!settings?.exit_popup.enabled || show || triggeredRef.current) return;
@@ -22,12 +24,56 @@ export function ExitIntentPopup() {
     trackConversionEvent('exit_popup_shown');
   }, [settings, show]);
 
+  // 1. Desktop mouse-out detection
   const handleMouseOut = useCallback((e: MouseEvent) => {
     if (e.relatedTarget === null && e.clientY <= 10) {
       openPopup();
     }
   }, [openPopup]);
 
+  // 2. Browser back button / history popstate (works for phone back & browser back)
+  useEffect(() => {
+    if (!settings?.exit_popup.enabled) return;
+
+    const handlePopState = () => {
+      // Only trigger on cart page
+      if (window.location.pathname === '/cart') {
+        // Push state back so user doesn't actually leave
+        window.history.pushState(null, '', window.location.href);
+        openPopup();
+      }
+    };
+
+    // Push a dummy state so we can detect back
+    if (location.pathname === '/cart') {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handlePopState);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [settings?.exit_popup.enabled, openPopup, location.pathname]);
+
+  // 3. Tab visibility change (user switching tabs)
+  useEffect(() => {
+    if (!settings?.exit_popup.enabled) return;
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        // Set a flag, show popup when they come back
+        sessionStorage.setItem('exit_tab_switch', '1');
+      } else if (document.visibilityState === 'visible' && sessionStorage.getItem('exit_tab_switch')) {
+        sessionStorage.removeItem('exit_tab_switch');
+        openPopup();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [settings?.exit_popup.enabled, openPopup]);
+
+  // Desktop mouse-out
   useEffect(() => {
     if (!settings?.exit_popup.enabled) return;
 
