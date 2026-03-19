@@ -245,6 +245,7 @@ export default function AdminOffers() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Success', description: 'Offer deleted successfully' });
+      log({ action: 'delete', entityType: 'offer', entityId: selectedOffer.id, details: { name: selectedOffer.name, type: selectedOffer.type, value: selectedOffer.value } });
       setIsDetailOpen(false);
       fetchOffers();
     }
