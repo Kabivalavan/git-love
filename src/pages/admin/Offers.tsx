@@ -113,7 +113,11 @@ export default function AdminOffers() {
 
   const handleEdit = () => {
     if (selectedOffer) {
-      setFormData(selectedOffer);
+      setFormData({
+        ...selectedOffer,
+        start_date_local: utcToISTLocal(selectedOffer.start_date),
+        end_date_local: utcToISTLocal(selectedOffer.end_date),
+      } as any);
       setIsDetailOpen(false);
       setIsFormOpen(true);
     }
