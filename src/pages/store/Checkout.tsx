@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CreditCard, Truck, MapPin, Plus, Loader2 } from 'lucide-react';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
@@ -25,6 +25,8 @@ interface CartItemWithProduct extends CartItem {
   bundle_name?: string | null;
 }
 
+const CHECKOUT_HOLD_WINDOW_MS = 2 * 60 * 1000;
+
 export default function CheckoutPage() {
   const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -41,6 +43,8 @@ export default function CheckoutPage() {
   });
   const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
+  const holdExpiryHandledRef = useRef(false);
   const [newAddress, setNewAddress] = useState({
     full_name: '',
     mobile_number: '',
@@ -59,6 +63,26 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
 
   const isBlocked = profile?.is_blocked === true;
+
+  const holdItems = useMemo(
+    () =>
+      cartItems.map((item) => ({
+        product_id: item.product_id,
+        variant_id: item.variant_id || null,
+        quantity: item.quantity,
+      })),
+    [cartItems],
+  );
+
+  const holdSignature = useMemo(
+    () => holdItems.map((item) => `${item.product_id}:${item.variant_id ?? 'none'}:${item.quantity}`).sort().join('|'),
+    [holdItems],
+  );
+
+  const releaseActiveCheckoutHold = useCallback(async () => {
+    if (!user) return;
+    await supabase.rpc('release_stock_hold', { p_user_id: user.id });
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -93,44 +117,81 @@ export default function CheckoutPage() {
                 }
               });
           }
-        } catch { localStorage.removeItem('applied_coupon'); }
+        } catch {
+          localStorage.removeItem('applied_coupon');
+        }
       }
     } else {
       navigate('/auth');
     }
-  }, [user]);
+  }, [user, navigate]);
 
-  // Place stock hold when cart items load (3-min window)
+  // Place stock hold when cart items load and release it when user leaves checkout
   useEffect(() => {
-    if (!user || cartItems.length === 0) return;
-    const items = cartItems.map(item => ({
-      product_id: item.product_id,
-      variant_id: item.variant_id || null,
-      quantity: item.quantity,
-    }));
-    supabase.rpc('place_stock_hold', {
-      p_user_id: user.id,
-      p_items: items as any,
-    }).then(({ data, error }) => {
-      if (!error && data && !(data as any).success) {
+    if (!user || holdItems.length === 0) return;
+
+    let isCancelled = false;
+    holdExpiryHandledRef.current = false;
+
+    const reserveStockForCheckout = async () => {
+      const { data, error } = await supabase.rpc('place_stock_hold', {
+        p_user_id: user.id,
+        p_items: holdItems as any,
+      });
+
+      if (isCancelled) return;
+
+      if (error || (data && !(data as any).success)) {
         toast({
           title: 'Stock unavailable',
           description: 'Some items are out of stock. Please update your cart.',
           variant: 'destructive',
         });
         navigate('/cart');
+        return;
       }
-    });
-    // Release hold on unmount (if order wasn't placed)
-    return () => {
-      // Cleanup handled server-side by expiry
+
+      setHoldExpiresAt(Date.now() + CHECKOUT_HOLD_WINDOW_MS);
     };
-  }, [user, cartItems.length]);
+
+    void reserveStockForCheckout();
+
+    return () => {
+      isCancelled = true;
+      setHoldExpiresAt(null);
+      void releaseActiveCheckoutHold();
+    };
+  }, [user, holdItems, holdSignature, navigate, releaseActiveCheckoutHold, toast]);
+
+  // Expire checkout strictly after 2 minutes and send user back to cart
+  useEffect(() => {
+    if (!user || !holdExpiresAt) return;
+
+    const interval = window.setInterval(() => {
+      if (isPlacingOrder || holdExpiryHandledRef.current) return;
+      if (Date.now() < holdExpiresAt) return;
+
+      holdExpiryHandledRef.current = true;
+      setHoldExpiresAt(null);
+
+      void (async () => {
+        await releaseActiveCheckoutHold();
+        toast({
+          title: 'Checkout expired',
+          description: 'Your checkout has expired after 2 minutes. Please review your cart again.',
+          variant: 'destructive',
+        });
+        navigate('/cart');
+      })();
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [user, holdExpiresAt, isPlacingOrder, navigate, releaseActiveCheckoutHold, toast]);
 
   // Track checkout_started when cart items load
   useEffect(() => {
     if (cartItems.length > 0) {
-      const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+      const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
       trackEvent('checkout_started', {
         metadata: {
           cart_value: subtotal,
@@ -138,7 +199,7 @@ export default function CheckoutPage() {
         },
       });
     }
-  }, [cartItems.length > 0]);
+  }, [cartItems.length > 0, trackEvent]);
 
   const fetchData = async () => {
     if (!user) return;
