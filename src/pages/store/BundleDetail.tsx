@@ -49,6 +49,7 @@ interface Bundle {
   compare_price: number | null;
   is_active: boolean;
   image_url: string | null;
+  images: string[] | null;
   items: BundleItem[];
 }
 

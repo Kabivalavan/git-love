@@ -31,6 +31,7 @@ interface Bundle {
   compare_price: number | null;
   is_active: boolean;
   image_url: string | null;
+  images: string[] | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
