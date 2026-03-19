@@ -1,15 +1,26 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ShoppingCart, Package, ChevronLeft, Tag } from 'lucide-react';
+import { ShoppingCart, Package, Tag, AlertCircle } from 'lucide-react';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { SEOHead } from '@/components/seo/SEOHead';
+
+interface ProductVariant {
+  id: string;
+  name: string;
+  price: number | null;
+  stock_quantity: number | null;
+  in_hold: number;
+  is_active: boolean;
+  image_url: string | null;
+}
 
 interface BundleProduct {
   id: string;
@@ -17,12 +28,15 @@ interface BundleProduct {
   price: number;
   images: { image_url: string; is_primary: boolean }[];
   slug: string;
+  variants: ProductVariant[];
 }
 
 interface BundleItem {
   id: string;
   quantity: number;
   sort_order: number;
+  allow_variant_selection: boolean;
+  default_variant_id: string | null;
   product: BundleProduct;
 }
 
@@ -46,6 +60,8 @@ export default function BundleDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  // Track user's variant selections: { bundleItemId: variantId }
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (slug) fetchBundle(slug);
@@ -58,8 +74,8 @@ export default function BundleDetailPage() {
       .select(`
         *,
         items:bundle_items(
-          id, quantity, sort_order,
-          product:products(id, name, price, slug, images:product_images(image_url, is_primary))
+          id, quantity, sort_order, allow_variant_selection, default_variant_id,
+          product:products(id, name, price, slug, images:product_images(image_url, is_primary), variants:product_variants(id, name, price, stock_quantity, in_hold, is_active, image_url))
         )
       `)
       .eq('slug', slug)
@@ -69,17 +85,56 @@ export default function BundleDetailPage() {
       setBundle(null);
     } else {
       const sorted = { ...data, items: [...(data.items || [])].sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) };
-      setBundle(sorted as unknown as Bundle);
+      const b = sorted as unknown as Bundle;
+      setBundle(b);
+
+      // Initialize variant selections with defaults
+      const defaults: Record<string, string> = {};
+      b.items?.forEach(item => {
+        if (item.allow_variant_selection) {
+          const activeVariants = item.product?.variants?.filter(v => v.is_active) || [];
+          if (item.default_variant_id && activeVariants.find(v => v.id === item.default_variant_id)) {
+            defaults[item.id] = item.default_variant_id;
+          } else if (activeVariants.length > 0) {
+            defaults[item.id] = activeVariants[0].id;
+          }
+        } else if (item.default_variant_id) {
+          defaults[item.id] = item.default_variant_id;
+        }
+      });
+      setSelectedVariants(defaults);
     }
     setIsLoading(false);
   };
 
-  // Collect all bundle images: bundle image + product images
+  // Collect all bundle images
   const allImages: string[] = [];
   if (bundle?.image_url) allImages.push(bundle.image_url);
   bundle?.items?.forEach(item => {
     const primary = item.product?.images?.find(i => i.is_primary)?.image_url || item.product?.images?.[0]?.image_url;
     if (primary && !allImages.includes(primary)) allImages.push(primary);
+  });
+
+  // Check if all required variant selections are made
+  const allVariantsSelected = bundle?.items?.every(item => {
+    const activeVariants = item.product?.variants?.filter(v => v.is_active) || [];
+    if (activeVariants.length === 0) return true; // no variants needed
+    return !!selectedVariants[item.id];
+  }) ?? true;
+
+  // Check stock availability for selected variants
+  const stockIssues: string[] = [];
+  bundle?.items?.forEach(item => {
+    const variantId = selectedVariants[item.id];
+    if (variantId) {
+      const variant = item.product?.variants?.find(v => v.id === variantId);
+      if (variant) {
+        const available = Math.max(0, (variant.stock_quantity || 0) - variant.in_hold);
+        if (available < item.quantity) {
+          stockIssues.push(`${item.product?.name} (${variant.name}) — out of stock`);
+        }
+      }
+    }
   });
 
   const handleAddToCart = async () => {
@@ -88,10 +143,17 @@ export default function BundleDetailPage() {
       return;
     }
     if (!bundle) return;
+    if (!allVariantsSelected) {
+      toast({ title: 'Select variants', description: 'Please select size/variant for all products', variant: 'destructive' });
+      return;
+    }
+    if (stockIssues.length > 0) {
+      toast({ title: 'Stock unavailable', description: stockIssues[0], variant: 'destructive' });
+      return;
+    }
 
     setIsAddingToCart(true);
     try {
-      // Get or create cart
       let cartId: string;
       const { data: existingCart } = await supabase
         .from('cart')
@@ -111,16 +173,23 @@ export default function BundleDetailPage() {
         cartId = newCart.id;
       }
 
-      // Add each bundle product to cart, tagged with bundle_id and bundle_name
       for (const item of bundle.items) {
-        const { data: existing } = await supabase
+        const variantId = selectedVariants[item.id] || null;
+
+        const matchQuery = supabase
           .from('cart_items')
           .select('id, quantity')
           .eq('cart_id', cartId)
           .eq('product_id', item.product.id)
-          .eq('bundle_id', bundle.id)
-          .is('variant_id', null)
-          .single();
+          .eq('bundle_id', bundle.id);
+
+        if (variantId) {
+          matchQuery.eq('variant_id', variantId);
+        } else {
+          matchQuery.is('variant_id', null);
+        }
+
+        const { data: existing } = await matchQuery.single();
 
         if (existing) {
           await supabase
@@ -133,6 +202,7 @@ export default function BundleDetailPage() {
             .insert({
               cart_id: cartId,
               product_id: item.product.id,
+              variant_id: variantId,
               quantity: item.quantity,
               bundle_id: bundle.id,
               bundle_name: bundle.name,
@@ -265,25 +335,82 @@ export default function BundleDetailPage() {
               <p className="text-xs text-muted-foreground">(Tax Inclusive)</p>
             </div>
 
-            {/* What's included summary */}
-            <div className="bg-muted/50 rounded-lg p-4">
-              <p className="text-sm font-semibold mb-2 text-foreground">{bundle.items.length} Products Included:</p>
-              <ul className="space-y-1">
-                {bundle.items.map((item) => (
-                  <li key={item.id} className="flex items-center justify-between text-sm">
-                    <span className="text-foreground">{item.product?.name}</span>
-                    <span className="text-muted-foreground">×{item.quantity}</span>
-                  </li>
-                ))}
-              </ul>
+            {/* Variant Selection for each product */}
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-foreground">{bundle.items.length} Products — Select Your Options:</p>
+              {bundle.items.map((item) => {
+                const activeVariants = item.product?.variants?.filter(v => v.is_active) || [];
+                const selectedVariantId = selectedVariants[item.id];
+                const selectedVariant = activeVariants.find(v => v.id === selectedVariantId);
+                const img = selectedVariant?.image_url ||
+                  item.product?.images?.find(i => i.is_primary)?.image_url ||
+                  item.product?.images?.[0]?.image_url;
+
+                return (
+                  <div key={item.id} className="border rounded-xl p-3 bg-card space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                        {img ? (
+                          <img src={img} alt={item.product?.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xl">📦</div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-foreground truncate">{item.product?.name}</p>
+                        <p className="text-xs text-muted-foreground">×{item.quantity}</p>
+                      </div>
+                    </div>
+
+                    {/* Variant selector */}
+                    {activeVariants.length > 0 && item.allow_variant_selection && (
+                      <Select
+                        value={selectedVariantId || ''}
+                        onValueChange={(v) => setSelectedVariants(prev => ({ ...prev, [item.id]: v }))}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select size/variant" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {activeVariants.map(v => {
+                            const available = Math.max(0, (v.stock_quantity || 0) - v.in_hold);
+                            const outOfStock = available < item.quantity;
+                            return (
+                              <SelectItem key={v.id} value={v.id} disabled={outOfStock}>
+                                {v.name} {outOfStock ? '— Out of stock' : ''}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    )}
+
+                    {/* Fixed variant display */}
+                    {activeVariants.length > 0 && !item.allow_variant_selection && selectedVariant && (
+                      <p className="text-xs text-muted-foreground">Variant: {selectedVariant.name}</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+
+            {/* Stock warning */}
+            {stockIssues.length > 0 && (
+              <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">Stock unavailable:</p>
+                  {stockIssues.map((issue, i) => <p key={i}>{issue}</p>)}
+                </div>
+              </div>
+            )}
 
             {/* CTA */}
             <Button
               size="lg"
               className="w-full h-14 text-lg font-semibold"
               onClick={handleAddToCart}
-              disabled={isAddingToCart}
+              disabled={isAddingToCart || !allVariantsSelected || stockIssues.length > 0}
             >
               <ShoppingCart className="h-5 w-5 mr-2" />
               {isAddingToCart ? 'Adding to Cart...' : 'Add Bundle to Cart'}
