@@ -455,14 +455,8 @@ export default function AdminOffers() {
                 <Input
                   id="start_date"
                   type="datetime-local"
-                  value={formData.start_date?.slice(0, 16) || ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (!val) { setFormData({ ...formData, start_date: null }); return; }
-                    const d = new Date(val);
-                    const utc = new Date(d.getTime() - (5.5 * 60 * 60 * 1000));
-                    setFormData({ ...formData, start_date: utc.toISOString() });
-                  }}
+                  value={(formData as any).start_date_local || ''}
+                  onChange={(e) => setFormData({ ...formData, start_date_local: e.target.value } as any)}
                 />
               </div>
               <div className="space-y-2">
@@ -470,14 +464,8 @@ export default function AdminOffers() {
                 <Input
                   id="end_date"
                   type="datetime-local"
-                  value={formData.end_date?.slice(0, 16) || ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (!val) { setFormData({ ...formData, end_date: null }); return; }
-                    const d = new Date(val);
-                    const utc = new Date(d.getTime() - (5.5 * 60 * 60 * 1000));
-                    setFormData({ ...formData, end_date: utc.toISOString() });
-                  }}
+                  value={(formData as any).end_date_local || ''}
+                  onChange={(e) => setFormData({ ...formData, end_date_local: e.target.value } as any)}
                 />
               </div>
             </div>
@@ -492,7 +480,8 @@ export default function AdminOffers() {
               />
             </div>
 
-            <div className="flex flex-wrap gap-6">
+            <div className="space-y-3 border border-border rounded-xl p-4">
+              <p className="text-sm font-semibold text-foreground">Settings</p>
               <div className="flex items-center gap-2">
                 <Switch
                   id="is_active"
@@ -501,13 +490,12 @@ export default function AdminOffers() {
                 />
                 <Label htmlFor="is_active">Active</Label>
               </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="auto_apply"
-                  checked={formData.auto_apply}
-                  onCheckedChange={(checked) => setFormData({ ...formData, auto_apply: checked })}
-                />
-                <Label htmlFor="auto_apply">Auto Apply</Label>
+              <div className="flex items-center gap-2 opacity-60">
+                <Switch id="auto_apply" checked={true} disabled />
+                <div>
+                  <Label htmlFor="auto_apply">Auto Apply</Label>
+                  <p className="text-xs text-muted-foreground">Offers are always auto-applied to matching products</p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Switch
