@@ -91,10 +91,6 @@ export default function AdminProducts() {
     const productsList = (data || []) as unknown as Product[];
 
     // Fetch processing quantities (items in orders with status new/confirmed/packed)
-    const { data: processingData } = await supabase
-      .from('order_items')
-      .select('product_id, quantity, order:orders!inner(status)')
-      .in('order:orders.status' as any, ['new', 'confirmed', 'packed'] as any);
 
     // Fallback: query orders separately then match
     const { data: processingOrders } = await supabase
