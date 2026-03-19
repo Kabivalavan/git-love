@@ -42,12 +42,15 @@ interface BundleItem {
   product_id: string;
   quantity: number;
   sort_order: number;
+  allow_variant_selection: boolean;
+  default_variant_id: string | null;
   product?: Product;
 }
 
 interface BundleItemForm {
   product_id: string;
-  variant_id: string;
+  allow_variant_selection: boolean;
+  default_variant_id: string;
   quantity: string;
 }
 
