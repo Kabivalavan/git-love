@@ -57,7 +57,7 @@ function OfferTimer({ endDate }: { endDate: string }) {
   );
 }
 
-export const ProductCard = React.memo(function ProductCard({
+export const ProductCard = React.memo(React.forwardRef<HTMLDivElement, ProductCardProps>(function ProductCard({
   product,
   onAddToCart,
   onAddToWishlist,
@@ -67,7 +67,7 @@ export const ProductCard = React.memo(function ProductCard({
   avgRating = 0,
   reviewCount = 0,
   lowStockSettings,
-}: ProductCardProps) {
+}: ProductCardProps, ref) {
   const queryClient = useQueryClient();
   const isOutOfStock = product.stock_quantity <= 0;
   const isLowStock = lowStockSettings?.show_low_stock_badge && product.stock_quantity > 0 && product.stock_quantity <= lowStockSettings.low_stock_threshold;
@@ -253,4 +253,4 @@ export const ProductCard = React.memo(function ProductCard({
       </div>
     </div>
   );
-});
+}));
