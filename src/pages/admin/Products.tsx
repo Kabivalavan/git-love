@@ -52,6 +52,7 @@ interface VariantForm {
   cost_price: string;
   tax_rate: string;
   stock_quantity: string;
+  image_url: string;
 }
 
 export default function AdminProducts() {
