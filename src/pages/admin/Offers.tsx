@@ -301,15 +301,15 @@ export default function AdminOffers() {
               <DetailField label="Name" value={selectedOffer.name} />
               <DetailField label="Type" value={OFFER_TYPES.find(t => t.value === selectedOffer.type)?.label} />
               <DetailField label="Value" value={formatValue(selectedOffer)} />
-              <DetailField label="Auto Apply" value={selectedOffer.auto_apply ? 'Yes' : 'No'} />
+              <DetailField label="Auto Apply" value="Always (auto-applied)" />
             </DetailSection>
             <DetailSection title="Conditions">
               <DetailField label="Min Order Value" value={selectedOffer.min_order_value ? `₹${selectedOffer.min_order_value}` : '-'} />
               <DetailField label="Max Discount" value={selectedOffer.max_discount ? `₹${selectedOffer.max_discount}` : '-'} />
             </DetailSection>
-            <DetailSection title="Schedule">
-              <DetailField label="Start Date" value={selectedOffer.start_date ? new Date(selectedOffer.start_date).toLocaleDateString() : 'Not set'} />
-              <DetailField label="End Date" value={selectedOffer.end_date ? new Date(selectedOffer.end_date).toLocaleDateString() : 'Not set'} />
+            <DetailSection title="Schedule (IST)">
+              <DetailField label="Start Date" value={formatIST(selectedOffer.start_date)} />
+              <DetailField label="End Date" value={formatIST(selectedOffer.end_date)} />
             </DetailSection>
             <div className="col-span-2">
               <DetailField label="Description" value={selectedOffer.description} />
