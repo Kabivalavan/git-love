@@ -91,6 +91,35 @@ export default function CartPage() {
 
   const removeCoupon = () => { setAppliedCoupon(null); setCouponCode(''); localStorage.removeItem('applied_coupon'); };
 
+  // Fetch coupons with show_on_cart enabled
+  const [cartCoupons, setCartCoupons] = useState<Coupon[]>([]);
+  const [copiedCouponId, setCopiedCouponId] = useState<string | null>(null);
+  useEffect(() => {
+    supabase
+      .from('coupons')
+      .select('*')
+      .eq('is_active', true)
+      .eq('show_on_cart', true)
+      .then(({ data }) => {
+        if (data) {
+          const now = new Date();
+          const valid = (data as unknown as Coupon[]).filter(c => {
+            if (c.start_date && new Date(c.start_date) > now) return false;
+            if (c.end_date && new Date(c.end_date) < now) return false;
+            if (c.usage_limit && (c.used_count ?? 0) >= c.usage_limit) return false;
+            return true;
+          });
+          setCartCoupons(valid);
+        }
+      });
+  }, []);
+
+  const handleCopyCoupon = (coupon: Coupon) => {
+    setCouponCode(coupon.code);
+    setCopiedCouponId(coupon.id);
+    setTimeout(() => setCopiedCouponId(null), 1500);
+  };
+
   const subtotal = cartItems.reduce((sum, item) => {
     const price = item.variant?.price || item.product.price;
     return sum + (price * item.quantity);
