@@ -83,7 +83,7 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
   const bundles = useMemo(() => (data?.bundles || []) as any[], [data?.bundles]);
   const reviewStats = useMemo(() => (data?.review_stats || {}) as ReviewStats, [data?.review_stats]);
 
-  const getProductOffer = useCallback((product: Product): ProductOffer | null => {
+  const getProductOffer = useCallback((product: Product, variantId?: string | null): ProductOffer | null => {
     if (!product || offers.length === 0) return null;
 
     const now = new Date();
@@ -93,7 +93,18 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
       return true;
     });
 
-    const productOffer = activeOffers.find(o => o.product_id === product.id);
+    // Find product-specific offer, checking variant_ids if applicable
+    const productOffer = activeOffers.find(o => {
+      if (o.product_id !== product.id) return false;
+      const vids = (o as any).variant_ids as string[] | null;
+      if (vids && vids.length > 0 && variantId) {
+        return vids.includes(variantId);
+      }
+      if (vids && vids.length > 0 && !variantId) {
+        return false; // variant-specific offer but no variant provided
+      }
+      return true;
+    });
     const categoryOffer = product.category_id
       ? activeOffers.find(o => o.category_id === product.category_id && !o.product_id)
       : null;

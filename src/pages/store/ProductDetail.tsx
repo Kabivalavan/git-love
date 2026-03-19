@@ -404,7 +404,7 @@ export default function ProductDetailPage() {
             <div className="bg-muted/50 rounded-2xl p-4">
               <div className="flex items-baseline gap-3 flex-wrap">
                 <span className="text-3xl md:text-4xl font-bold text-foreground">
-                  ₹{priceWhole}{showDecimal && <span className="text-lg align-super font-semibold">.{String(priceDecimal).padStart(2, '0')}</span>}
+                  ₹{priceWhole}
                 </span>
                 {hasMRP && (
                   <span className="text-lg text-muted-foreground line-through">MRP ₹{Number(product.mrp).toFixed(0)}</span>
