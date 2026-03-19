@@ -121,10 +121,12 @@ export default function AdminOffers() {
 
   const handleCreate = () => {
     setFormData({
-      type: 'percentage',
+      type: 'flat',
       is_active: true,
-      auto_apply: false,
+      auto_apply: true,
       value: 0,
+      start_date_local: '',
+      end_date_local: '',
     });
     setSelectedOffer(null);
     setIsFormOpen(true);
