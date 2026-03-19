@@ -41,6 +41,7 @@ interface Coupon {
   end_date: string | null;
   is_active: boolean;
   show_on_storefront: boolean;
+  show_on_cart: boolean;
   created_at: string;
 }
 
@@ -48,6 +49,25 @@ const COUPON_TYPES = [
   { value: 'percentage', label: 'Percentage Off' },
   { value: 'flat', label: 'Flat Discount' },
 ];
+
+function utcToISTLocal(utcStr: string | null): string {
+  if (!utcStr) return '';
+  const d = new Date(utcStr);
+  const ist = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+  return ist.toISOString().slice(0, 16);
+}
+
+function istLocalToUTC(localStr: string): string {
+  if (!localStr) return '';
+  const d = new Date(localStr);
+  const utc = new Date(d.getTime() - (5.5 * 60 * 60 * 1000));
+  return utc.toISOString();
+}
+
+function formatIST(utcStr: string | null): string {
+  if (!utcStr) return 'Not set';
+  return new Date(utcStr).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+}
 
 export default function AdminCoupons() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -57,7 +77,7 @@ export default function AdminCoupons() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<Coupon>>({});
+  const [formData, setFormData] = useState<Partial<Coupon> & { start_date_local?: string; end_date_local?: string }>({});
   const { toast } = useToast();
   const { log } = useActivityLog();
 
@@ -75,7 +95,22 @@ export default function AdminCoupons() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      setCoupons((data || []) as Coupon[]);
+      const now = new Date().toISOString();
+      const allCoupons = (data || []) as Coupon[];
+      
+      // Auto-deactivate expired or usage-exhausted coupons
+      const toDeactivate = allCoupons.filter(c => c.is_active && (
+        (c.end_date && c.end_date < now) ||
+        (c.usage_limit !== null && c.used_count >= c.usage_limit)
+      ));
+      if (toDeactivate.length > 0) {
+        await Promise.all(toDeactivate.map(c =>
+          supabase.from('coupons').update({ is_active: false }).eq('id', c.id)
+        ));
+        toDeactivate.forEach(c => { c.is_active = false; });
+      }
+      
+      setCoupons(allCoupons);
     }
     setIsLoading(false);
   };
@@ -87,7 +122,11 @@ export default function AdminCoupons() {
 
   const handleEdit = () => {
     if (selectedCoupon) {
-      setFormData(selectedCoupon);
+      setFormData({
+        ...selectedCoupon,
+        start_date_local: utcToISTLocal(selectedCoupon.start_date),
+        end_date_local: utcToISTLocal(selectedCoupon.end_date),
+      });
       setIsDetailOpen(false);
       setIsFormOpen(true);
     }
@@ -100,6 +139,10 @@ export default function AdminCoupons() {
       value: 0,
       per_user_limit: 1,
       used_count: 0,
+      show_on_storefront: false,
+      show_on_cart: false,
+      start_date_local: '',
+      end_date_local: '',
     });
     setSelectedCoupon(null);
     setIsFormOpen(true);
@@ -139,10 +182,11 @@ export default function AdminCoupons() {
       max_discount: formData.max_discount,
       usage_limit: formData.usage_limit,
       per_user_limit: formData.per_user_limit ?? 1,
-      start_date: formData.start_date,
-      end_date: formData.end_date,
+      start_date: formData.start_date_local ? istLocalToUTC(formData.start_date_local) : null,
+      end_date: formData.end_date_local ? istLocalToUTC(formData.end_date_local) : null,
       is_active: formData.is_active ?? true,
       show_on_storefront: formData.show_on_storefront ?? false,
+      show_on_cart: (formData as any).show_on_cart ?? false,
     };
 
     if (selectedCoupon) {
@@ -208,11 +252,13 @@ export default function AdminCoupons() {
     },
     {
       key: 'show_on_storefront',
-      header: 'Show on Page',
+      header: 'Display',
       render: (c) => (
-        <Badge variant={c.show_on_storefront ? 'default' : 'outline'}>
-          {c.show_on_storefront ? 'Visible' : 'Hidden'}
-        </Badge>
+        <div className="flex gap-1 flex-wrap">
+          {c.show_on_storefront && <Badge variant="outline" className="text-[10px]">Products</Badge>}
+          {c.show_on_cart && <Badge variant="outline" className="text-[10px]">Cart</Badge>}
+          {!c.show_on_storefront && !c.show_on_cart && <span className="text-muted-foreground text-xs">Hidden</span>}
+        </div>
       ),
     },
     {
@@ -264,7 +310,10 @@ export default function AdminCoupons() {
               <DetailField label="Type" value={COUPON_TYPES.find(t => t.value === selectedCoupon.type)?.label} />
               <DetailField label="Value" value={formatValue(selectedCoupon)} />
               <DetailField label="Status" value={selectedCoupon.is_active ? 'Active' : 'Inactive'} />
+            </DetailSection>
+            <DetailSection title="Display Settings">
               <DetailField label="Show on Product Pages" value={selectedCoupon.show_on_storefront ? 'Yes ✓' : 'No'} />
+              <DetailField label="Show on Cart Page" value={selectedCoupon.show_on_cart ? 'Yes ✓' : 'No'} />
             </DetailSection>
             <DetailSection title="Conditions">
               <DetailField label="Min Order Value" value={selectedCoupon.min_order_value ? `₹${selectedCoupon.min_order_value}` : '-'} />
@@ -275,9 +324,9 @@ export default function AdminCoupons() {
               <DetailField label="Per User Limit" value={selectedCoupon.per_user_limit} />
               <DetailField label="Times Used" value={selectedCoupon.used_count} />
             </DetailSection>
-            <DetailSection title="Schedule">
-              <DetailField label="Start Date" value={selectedCoupon.start_date ? new Date(selectedCoupon.start_date).toLocaleDateString() : 'Not set'} />
-              <DetailField label="End Date" value={selectedCoupon.end_date ? new Date(selectedCoupon.end_date).toLocaleDateString() : 'Not set'} />
+            <DetailSection title="Schedule (IST)">
+              <DetailField label="Start Date" value={formatIST(selectedCoupon.start_date)} />
+              <DetailField label="End Date" value={formatIST(selectedCoupon.end_date)} />
             </DetailSection>
             <div className="col-span-2">
               <DetailField label="Description" value={selectedCoupon.description} />
@@ -383,21 +432,21 @@ export default function AdminCoupons() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="start_date">Start Date</Label>
+                <Label htmlFor="start_date">Start Date (IST)</Label>
                 <Input
                   id="start_date"
                   type="datetime-local"
-                  value={formData.start_date?.slice(0, 16) || ''}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                  value={formData.start_date_local || ''}
+                  onChange={(e) => setFormData({ ...formData, start_date_local: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="end_date">End Date</Label>
+                <Label htmlFor="end_date">End Date (IST)</Label>
                 <Input
                   id="end_date"
                   type="datetime-local"
-                  value={formData.end_date?.slice(0, 16) || ''}
-                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  value={formData.end_date_local || ''}
+                  onChange={(e) => setFormData({ ...formData, end_date_local: e.target.value })}
                 />
               </div>
             </div>
@@ -412,24 +461,39 @@ export default function AdminCoupons() {
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <Switch
-                id="is_active"
-                checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-              />
-              <Label htmlFor="is_active">Active</Label>
-            </div>
+            <div className="space-y-3 border border-border rounded-xl p-4">
+              <p className="text-sm font-semibold text-foreground">Display & Status</p>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="is_active"
+                  checked={formData.is_active ?? true}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                />
+                <Label htmlFor="is_active">Active</Label>
+              </div>
 
-            <div className="flex items-center gap-2">
-              <Switch
-                id="show_on_storefront"
-                checked={formData.show_on_storefront ?? false}
-                onCheckedChange={(checked) => setFormData({ ...formData, show_on_storefront: checked })}
-              />
-              <div>
-                <Label htmlFor="show_on_storefront">Show on Product Pages</Label>
-                <p className="text-xs text-muted-foreground">Display this coupon on product detail pages for customers</p>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show_on_storefront"
+                  checked={formData.show_on_storefront ?? false}
+                  onCheckedChange={(checked) => setFormData({ ...formData, show_on_storefront: checked })}
+                />
+                <div>
+                  <Label htmlFor="show_on_storefront">Show on Product Pages</Label>
+                  <p className="text-xs text-muted-foreground">Display coupon on all product detail pages</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show_on_cart"
+                  checked={(formData as any).show_on_cart ?? false}
+                  onCheckedChange={(checked) => setFormData({ ...formData, show_on_cart: checked })}
+                />
+                <div>
+                  <Label htmlFor="show_on_cart">Show on Cart Page</Label>
+                  <p className="text-xs text-muted-foreground">Display coupon in cart page for easy apply</p>
+                </div>
               </div>
             </div>
 

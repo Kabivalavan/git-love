@@ -50,6 +50,29 @@ const POSITIONS = [
   { value: 'popup', label: 'Popup (1 only, shows after 4s)' },
 ];
 
+// Convert a UTC ISO string to IST datetime-local value for the input
+function utcToISTLocal(utcStr: string | null): string {
+  if (!utcStr) return '';
+  const d = new Date(utcStr);
+  // IST = UTC + 5:30
+  const ist = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+  return ist.toISOString().slice(0, 16);
+}
+
+// Convert a datetime-local value (assumed IST) to UTC ISO string for storage
+function istLocalToUTC(localStr: string): string {
+  if (!localStr) return '';
+  // The user entered IST time, subtract 5:30 to get UTC
+  const d = new Date(localStr);
+  const utc = new Date(d.getTime() - (5.5 * 60 * 60 * 1000));
+  return utc.toISOString();
+}
+
+function formatIST(utcStr: string | null): string {
+  if (!utcStr) return 'Not set';
+  return new Date(utcStr).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+}
+
 export default function AdminBanners() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,7 +81,7 @@ export default function AdminBanners() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<Banner>>({});
+  const [formData, setFormData] = useState<Partial<Banner> & { start_date_local?: string; end_date_local?: string }>({});
   const { toast } = useToast();
   const { log } = useActivityLog();
 
@@ -79,13 +102,11 @@ export default function AdminBanners() {
       const now = new Date().toISOString();
       const allBanners = (data || []) as Banner[];
       
-      // Auto-deactivate expired banners
       const expired = allBanners.filter(b => b.is_active && b.end_date && b.end_date < now);
       if (expired.length > 0) {
         await Promise.all(expired.map(b =>
           supabase.from('banners').update({ is_active: false }).eq('id', b.id)
         ));
-        // Re-mark them locally
         allBanners.forEach(b => {
           if (b.is_active && b.end_date && b.end_date < now) b.is_active = false;
         });
@@ -103,7 +124,11 @@ export default function AdminBanners() {
 
   const handleEdit = () => {
     if (selectedBanner) {
-      setFormData(selectedBanner);
+      setFormData({
+        ...selectedBanner,
+        start_date_local: utcToISTLocal(selectedBanner.start_date),
+        end_date_local: utcToISTLocal(selectedBanner.end_date),
+      });
       setIsDetailOpen(false);
       setIsFormOpen(true);
     }
@@ -117,6 +142,8 @@ export default function AdminBanners() {
       type: 'image',
       position: 'home_top',
       sort_order: 0,
+      start_date_local: '',
+      end_date_local: '',
     });
     setSelectedBanner(null);
     setIsFormOpen(true);
@@ -148,7 +175,6 @@ export default function AdminBanners() {
       return;
     }
 
-    // Prevent duplicate popup banners
     if (formData.position === 'popup') {
       const existingPopup = banners.find(b => b.position === 'popup' && b.id !== selectedBanner?.id);
       if (existingPopup) {
@@ -167,8 +193,8 @@ export default function AdminBanners() {
       media_url_tablet: null,
       media_url_mobile: null,
       redirect_url: formData.redirect_url,
-      start_date: formData.start_date,
-      end_date: formData.end_date,
+      start_date: formData.start_date_local ? istLocalToUTC(formData.start_date_local) : null,
+      end_date: formData.end_date_local ? istLocalToUTC(formData.end_date_local) : null,
       is_active: formData.is_active ?? true,
       show_on_mobile: formData.show_on_mobile ?? true,
       show_on_desktop: formData.show_on_desktop ?? true,
@@ -219,6 +245,16 @@ export default function AdminBanners() {
       render: (b) => POSITIONS.find(p => p.value === b.position)?.label || b.position,
     },
     { key: 'sort_order', header: 'Order' },
+    {
+      key: 'show_on_desktop',
+      header: 'Visibility',
+      render: (b) => (
+        <div className="flex gap-1">
+          {b.show_on_desktop && <Badge variant="outline" className="text-[10px]">Desktop</Badge>}
+          {b.show_on_mobile && <Badge variant="outline" className="text-[10px]">Mobile</Badge>}
+        </div>
+      ),
+    },
     {
       key: 'is_active',
       header: 'Status',
@@ -279,9 +315,9 @@ export default function AdminBanners() {
               <DetailField label="Mobile" value={selectedBanner.show_on_mobile ? 'Yes' : 'No'} />
               <DetailField label="Desktop" value={selectedBanner.show_on_desktop ? 'Yes' : 'No'} />
             </DetailSection>
-            <DetailSection title="Schedule">
-              <DetailField label="Start Date" value={selectedBanner.start_date ? new Date(selectedBanner.start_date).toLocaleDateString() : 'Not set'} />
-              <DetailField label="End Date" value={selectedBanner.end_date ? new Date(selectedBanner.end_date).toLocaleDateString() : 'Not set'} />
+            <DetailSection title="Schedule (IST)">
+              <DetailField label="Start Date" value={formatIST(selectedBanner.start_date)} />
+              <DetailField label="End Date" value={formatIST(selectedBanner.end_date)} />
             </DetailSection>
           </div>
         )}
@@ -304,8 +340,6 @@ export default function AdminBanners() {
                 placeholder="Upload banner (1920 × 900 px)"
               />
             </div>
-
-
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -348,21 +382,21 @@ export default function AdminBanners() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="start_date">Start Date</Label>
+                <Label htmlFor="start_date">Start Date (IST)</Label>
                 <Input
                   id="start_date"
                   type="datetime-local"
-                  value={formData.start_date?.slice(0, 16) || ''}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                  value={formData.start_date_local || ''}
+                  onChange={(e) => setFormData({ ...formData, start_date_local: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="end_date">End Date</Label>
+                <Label htmlFor="end_date">End Date (IST)</Label>
                 <Input
                   id="end_date"
                   type="datetime-local"
-                  value={formData.end_date?.slice(0, 16) || ''}
-                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  value={formData.end_date_local || ''}
+                  onChange={(e) => setFormData({ ...formData, end_date_local: e.target.value })}
                 />
               </div>
             </div>
@@ -381,7 +415,7 @@ export default function AdminBanners() {
               <div className="flex items-center gap-2">
                 <Switch
                   id="is_active"
-                  checked={formData.is_active}
+                  checked={formData.is_active ?? true}
                   onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                 />
                 <Label htmlFor="is_active">Active</Label>
@@ -389,7 +423,7 @@ export default function AdminBanners() {
               <div className="flex items-center gap-2">
                 <Switch
                   id="show_on_mobile"
-                  checked={formData.show_on_mobile}
+                  checked={formData.show_on_mobile ?? true}
                   onCheckedChange={(checked) => setFormData({ ...formData, show_on_mobile: checked })}
                 />
                 <Label htmlFor="show_on_mobile">Show on Mobile</Label>
@@ -397,7 +431,7 @@ export default function AdminBanners() {
               <div className="flex items-center gap-2">
                 <Switch
                   id="show_on_desktop"
-                  checked={formData.show_on_desktop}
+                  checked={formData.show_on_desktop ?? true}
                   onCheckedChange={(checked) => setFormData({ ...formData, show_on_desktop: checked })}
                 />
                 <Label htmlFor="show_on_desktop">Show on Desktop</Label>
