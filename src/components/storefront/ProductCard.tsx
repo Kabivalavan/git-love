@@ -82,9 +82,8 @@ export const ProductCard = React.memo(function ProductCard({
     || product.images?.[0]?.image_url
     || '/placeholder.svg';
 
-  const priceWhole = Math.floor(displayPrice);
-  const priceDecimal = Math.round((displayPrice - priceWhole) * 100);
-  const showDecimal = priceDecimal > 0;
+  const priceWhole = Math.round(displayPrice);
+  const showDecimal = false;
 
   // Prefetch product data on hover for instant page transitions
   const handleMouseEnter = useCallback(() => {

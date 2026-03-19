@@ -286,9 +286,9 @@ export default function ProductDetailPage() {
   const contentSections: ContentSection[] = (product as any).content_sections || [];
   const hasMRP = product.mrp && product.mrp > currentPrice;
 
-  const priceWhole = Math.floor(displayPrice);
-  const priceDecimal = Math.round((displayPrice - priceWhole) * 100);
-  const showDecimal = priceDecimal > 0;
+  const roundedDisplayPrice = Math.round(displayPrice);
+  const priceWhole = roundedDisplayPrice;
+  const showDecimal = false;
 
   const productJsonLd = {
     '@type': 'Product', name: product.name, description: product.description || product.short_description || '',
