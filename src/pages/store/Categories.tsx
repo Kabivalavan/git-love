@@ -80,7 +80,7 @@ export default function CategoriesPage() {
                       {children.map((sub) => (
                         <Link
                           key={sub.id}
-                          to={`/products?category=${cat.slug}&sub=${sub.slug}`}
+                          to={`/category/${cat.slug}?sub=${sub.slug}`}
                           className="group text-center"
                         >
                           <div className="aspect-square rounded-xl overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all">
