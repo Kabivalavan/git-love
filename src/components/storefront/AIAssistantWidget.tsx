@@ -297,6 +297,13 @@ export function AIAssistantWidget() {
 
   const handleProductClick = (url: string) => {
     updateSession({ clicked_product_url: url });
+    // Track product_clicked on external API
+    if (config?.api_base && config?.site_id) {
+      fireWidgetEvent(config.api_base, config.site_id, 'product_clicked', null, {
+        productUrl: url,
+        visitorId: getVisitorId(),
+      });
+    }
   };
 
   if (!config?.enabled) return null;
