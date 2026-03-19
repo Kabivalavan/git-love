@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams, useParams } from 'react-router-dom';
-import { Grid, List, SlidersHorizontal, X, Loader2 } from 'lucide-react';
+import { Grid, List, SlidersHorizontal, X, Loader2, ChevronRight, Home } from 'lucide-react';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,14 @@ import { ShimmerProductGrid } from '@/components/ui/shimmer';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { useQuery } from '@tanstack/react-query';
 import { useCartMutations } from '@/hooks/useCartQuery';
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import type { Product, Category } from '@/types/database';
 
 const ITEMS_PER_PAGE = 20;
@@ -53,6 +61,12 @@ export default function ProductsPage() {
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
   });
+
+  // Current category object
+  const currentCategory = categorySlug ? categories.find(c => c.slug === categorySlug) : null;
+  const parentCategory = currentCategory?.parent_id
+    ? categories.find(c => c.id === currentCategory.parent_id)
+    : null;
 
   // State for infinite scroll
   const [products, setProducts] = useState<Product[]>([]);
@@ -203,6 +217,22 @@ export default function ProductsPage() {
 
   const activeFilterCount = selectedCategories.length + (showInStock ? 1 : 0) + (priceRange[0] > 0 || priceRange[1] < 10000 ? 1 : 0);
 
+  const pageTitle = categorySlug
+    ? (currentCategory?.name || 'Products')
+    : isFeatured ? 'Featured Products'
+    : isBestseller ? 'Best Sellers'
+    : searchQuery ? `Search: "${searchQuery}"`
+    : 'All Products';
+
+  const seoTitle = categorySlug
+    ? `${currentCategory?.name || 'Category'} - Shop Online`
+    : isFeatured ? 'Featured Products - Shop Online'
+    : isBestseller ? 'Best Sellers - Shop Online'
+    : 'Shop All Products';
+
+  const seoDescription = currentCategory?.description
+    || `Browse our collection of ${pageTitle.toLowerCase()}. Free shipping on orders above ₹500.`;
+
   const FilterContent = () => (
     <div className="space-y-6">
       <div>
@@ -246,21 +276,85 @@ export default function ProductsPage() {
   return (
     <StorefrontLayout>
       <SEOHead
-        title="Shop All Products - Decon Fashions"
-        description="Browse our complete collection of premium men's clothing. Free shipping on orders above ₹500."
-        jsonLd={{ '@type': 'CollectionPage', name: 'Products' }}
+        title={seoTitle}
+        description={seoDescription}
+        canonical={categorySlug ? `${window.location.origin}/category/${categorySlug}` : undefined}
+        jsonLd={{
+          '@type': 'CollectionPage',
+          name: pageTitle,
+          ...(currentCategory?.description && { description: currentCategory.description }),
+        }}
       />
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {categorySlug ? categories.find(c => c.slug === categorySlug)?.name || 'Products' :
-               isFeatured ? 'Featured Products' :
-               isBestseller ? 'Best Sellers' :
-               searchQuery ? `Search: "${searchQuery}"` : 'All Products'}
-            </h1>
-            <p className="text-muted-foreground mt-1">{totalCount} products found</p>
+
+      {/* Category Hero Banner */}
+      {currentCategory && (
+        <div className="relative bg-gradient-to-br from-primary/10 via-accent/30 to-primary/5 overflow-hidden">
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-primary/20 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 w-60 h-60 rounded-full bg-accent/30 blur-3xl" />
           </div>
+          {currentCategory.image_url && (
+            <div className="absolute inset-0">
+              <img src={currentCategory.image_url} alt={currentCategory.name} className="w-full h-full object-cover opacity-15" />
+            </div>
+          )}
+          <div className="container mx-auto px-4 py-8 md:py-12 relative z-10">
+            {/* Breadcrumb */}
+            <Breadcrumb className="mb-4">
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link to="/" className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
+                      <Home className="h-3.5 w-3.5" />
+                      <span className="sr-only">Home</span>
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link to="/category">Categories</Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                {parentCategory && (
+                  <>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                      <BreadcrumbLink asChild>
+                        <Link to={`/category/${parentCategory.slug}`}>{parentCategory.name}</Link>
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                  </>
+                )}
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{currentCategory.name}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">{currentCategory.name}</h1>
+            {currentCategory.description && (
+              <p className="text-muted-foreground mt-2 max-w-2xl text-sm md:text-base">{currentCategory.description}</p>
+            )}
+            <p className="text-sm text-muted-foreground mt-3">{totalCount} products</p>
+          </div>
+        </div>
+      )}
+
+      <div className="container mx-auto px-4 py-8">
+        {/* Non-category header */}
+        {!currentCategory && (
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">{pageTitle}</h1>
+              <p className="text-muted-foreground mt-1">{totalCount} products found</p>
+            </div>
+          </div>
+        )}
+
+        {/* Sort/filter bar */}
+        <div className={`flex items-center justify-between gap-3 ${currentCategory ? 'mb-6' : 'mb-6'}`}>
           <div className="flex items-center gap-3">
             <Sheet>
               <SheetTrigger asChild className="lg:hidden">
@@ -277,6 +371,8 @@ export default function ProductsPage() {
                 <div className="mt-6"><FilterContent /></div>
               </SheetContent>
             </Sheet>
+          </div>
+          <div className="flex items-center gap-3">
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="w-40"><SelectValue placeholder="Sort by" /></SelectTrigger>
               <SelectContent>
@@ -317,18 +413,12 @@ export default function ProductsPage() {
         )}
 
         {/* Active filters */}
-        {(selectedCategories.length > 0 || searchQuery || categorySlug) && (
+        {(selectedCategories.length > 0 || searchQuery) && (
           <div className="flex flex-wrap gap-2 mb-4">
             {searchQuery && (
               <Badge variant="secondary" className="gap-1">
                 Search: {searchQuery}
                 <X className="h-3 w-3 cursor-pointer" onClick={() => setSearchParams({})} />
-              </Badge>
-            )}
-            {categorySlug && (
-              <Badge variant="secondary" className="gap-1">
-                {categories.find(c => c.slug === categorySlug)?.name}
-                <X className="h-3 w-3 cursor-pointer" onClick={() => { searchParams.delete('category'); setSearchParams(searchParams); }} />
               </Badge>
             )}
             {selectedCategories.map(catId => {
