@@ -262,7 +262,7 @@ export default function ProductDetailPage() {
   const productJsonLd = {
     '@type': 'Product', name: product.name, description: product.description || product.short_description || '',
     image: images.map(i => i.image_url), sku: product.sku || undefined,
-    offers: { '@type': 'Offer', price: currentPrice, priceCurrency: 'INR', availability: currentStock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' },
+    offers: { '@type': 'Offer', price: currentPrice, priceCurrency: 'INR', availability: availableStock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' },
     ...(reviews.length > 0 && { aggregateRating: { '@type': 'AggregateRating', ratingValue: avgRating.toFixed(1), reviewCount: reviews.length } }),
   };
 
