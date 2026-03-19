@@ -14,8 +14,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
   Save, Loader2, Gift, TrendingUp, ShoppingBag, ShoppingCart,
-  Trash2, Plus, ArrowUpRight, Target, BarChart3, Zap,
+  Trash2, Plus, ArrowUpRight, Target, BarChart3, Zap, Eye, MousePointerClick,
+  Percent, ArrowRight,
 } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import type { ConversionSettings } from '@/hooks/useConversionOptimization';
 import type { Product } from '@/types/database';
 
