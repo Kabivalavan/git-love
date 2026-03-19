@@ -121,6 +121,7 @@ export default function AdminOffers() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<FormData>({});
   const { toast } = useToast();
+  const { log } = useActivityLog();
 
   useEffect(() => {
     fetchOffers();
