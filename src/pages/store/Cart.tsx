@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Star, Truck, RefreshCw } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Star, Truck, RefreshCw, Tag, Copy, Check } from 'lucide-react';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
