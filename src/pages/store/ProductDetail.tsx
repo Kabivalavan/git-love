@@ -238,7 +238,7 @@ export default function ProductDetailPage() {
   const images = product.images || [];
   const currentImage = images[currentImageIndex]?.image_url || '/placeholder.svg';
   const currentPrice = selectedVariant?.price || product.price;
-  // Stock: when variant_required, use variant stock or aggregate from all variants
+  // Stock: when variant_required, use selected variant stock; if none selected, aggregate from all variants
   const computeAvailableStock = () => {
     if (selectedVariant) {
       return Math.max(0, (selectedVariant.stock_quantity ?? 0) - ((selectedVariant as any).in_hold || 0));
@@ -249,11 +249,29 @@ export default function ProductDetailPage() {
     return Math.max(0, (product.stock_quantity ?? 0) - ((product as any).in_hold || 0));
   };
   const availableStock = computeAvailableStock();
+  
+  // Offer pricing - apply offer to the CURRENT variant/product price
   const productOffer = getProductOffer(product);
-  const offerPrice = productOffer?.discountedPrice;
+  let offerPrice: number | null = null;
+  let showOfferDiscount = false;
+  let discount = 0;
+  if (productOffer && productOffer.discountAmount > 0) {
+    // Recalculate discount based on current variant price
+    if (productOffer.offer.type === 'flat') {
+      offerPrice = Math.max(0, currentPrice - productOffer.offer.value);
+    } else if (productOffer.offer.type === 'percentage') {
+      let discAmt = (currentPrice * productOffer.offer.value) / 100;
+      if (productOffer.offer.max_discount && discAmt > productOffer.offer.max_discount) {
+        discAmt = productOffer.offer.max_discount;
+      }
+      offerPrice = currentPrice - discAmt;
+    }
+    if (offerPrice !== null && offerPrice < currentPrice) {
+      showOfferDiscount = true;
+      discount = Math.round(((currentPrice - offerPrice) / currentPrice) * 100);
+    }
+  }
   const displayPrice = offerPrice ?? currentPrice;
-  const showOfferDiscount = productOffer && productOffer.discountAmount > 0;
-  const discount = showOfferDiscount ? Math.round(((currentPrice - displayPrice) / currentPrice) * 100) : 0;
   const avgRating = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) : 0;
   const ratingDist = [5, 4, 3, 2, 1].map(star => ({
     star,

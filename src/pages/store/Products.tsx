@@ -25,6 +25,7 @@ const ITEMS_PER_PAGE = 20;
 
 export default function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { slug: categorySlugParam } = useParams<{ slug?: string }>();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('newest');
   const [priceRange, setPriceRange] = useState([0, 10000]);
@@ -38,7 +39,7 @@ export default function ProductsPage() {
   const { addToCart } = useCartMutations();
 
   const searchQuery = searchParams.get('search') || '';
-  const categorySlug = searchParams.get('category') || '';
+  const categorySlug = categorySlugParam || searchParams.get('category') || '';
   const isFeatured = searchParams.get('featured') === 'true';
   const isBestseller = searchParams.get('bestseller') === 'true';
 
