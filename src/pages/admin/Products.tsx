@@ -121,10 +121,10 @@ export default function AdminProducts() {
   }, [fetchProducts, fetchCategories]);
 
   useEffect(() => {
-    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let refreshTimer: number | null = null;
 
     const scheduleRefresh = () => {
-      if (refreshTimer) window.clearTimeout(refreshTimer);
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
       refreshTimer = window.setTimeout(() => {
         void fetchProducts(false);
       }, 120);
