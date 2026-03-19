@@ -747,7 +747,7 @@ export default function AdminProducts() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setVariantForms([...variantForms, { name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0' }])}
+                    onClick={() => setVariantForms([...variantForms, { name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0', image_url: '' }])}
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Add Variant
