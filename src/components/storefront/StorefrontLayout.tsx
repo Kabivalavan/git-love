@@ -23,12 +23,13 @@ const mobileNavItems = [
 export function StorefrontLayout({ children }: StorefrontLayoutProps) {
   const location = useLocation();
   const cartCount = useCartCount();
+  const isHomePage = location.pathname === '/';
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-background">
       <Header />
       <main className="flex-1 pb-16 lg:pb-0">{children}</main>
-      <Footer />
+      {isHomePage && <Footer />}
       <AIAssistantWidget />
       <ExitIntentPopup />
       {/* Mobile Bottom Navigation - App style */}

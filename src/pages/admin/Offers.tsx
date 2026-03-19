@@ -426,21 +426,33 @@ export default function AdminOffers() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="start_date">Start Date</Label>
+                <Label htmlFor="start_date">Start Date (IST)</Label>
                 <Input
                   id="start_date"
                   type="datetime-local"
                   value={formData.start_date?.slice(0, 16) || ''}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) { setFormData({ ...formData, start_date: null }); return; }
+                    const d = new Date(val);
+                    const utc = new Date(d.getTime() - (5.5 * 60 * 60 * 1000));
+                    setFormData({ ...formData, start_date: utc.toISOString() });
+                  }}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="end_date">End Date</Label>
+                <Label htmlFor="end_date">End Date (IST)</Label>
                 <Input
                   id="end_date"
                   type="datetime-local"
                   value={formData.end_date?.slice(0, 16) || ''}
-                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) { setFormData({ ...formData, end_date: null }); return; }
+                    const d = new Date(val);
+                    const utc = new Date(d.getTime() - (5.5 * 60 * 60 * 1000));
+                    setFormData({ ...formData, end_date: utc.toISOString() });
+                  }}
                 />
               </div>
             </div>

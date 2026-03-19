@@ -38,7 +38,17 @@ function CategoryShimmer() {
 export default function HomePage() {
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showPopup, setShowPopup] = useState(false);
-  const { categories, banners, middleBanners, popupBanner, storeInfo, announcement, isLoading: isGlobalLoading } = useGlobalStore();
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const { categories, banners: allBanners, middleBanners, popupBanner, storeInfo, announcement, isLoading: isGlobalLoading } = useGlobalStore();
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+
+  // Filter banners by device visibility
+  const banners = allBanners.filter(b => isMobile ? (b as any).show_on_mobile !== false : (b as any).show_on_desktop !== false);
 
   useEffect(() => {
     if (banners.length > 1) {

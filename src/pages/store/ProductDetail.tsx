@@ -238,9 +238,17 @@ export default function ProductDetailPage() {
   const images = product.images || [];
   const currentImage = images[currentImageIndex]?.image_url || '/placeholder.svg';
   const currentPrice = selectedVariant?.price || product.price;
-  const inHold = selectedVariant ? ((selectedVariant as any).in_hold || 0) : ((product as any).in_hold || 0);
-  const currentStock = (selectedVariant?.stock_quantity ?? product.stock_quantity) - inHold;
-  const availableStock = Math.max(0, currentStock);
+  // Stock: when variant_required, use variant stock or aggregate from all variants
+  const computeAvailableStock = () => {
+    if (selectedVariant) {
+      return Math.max(0, (selectedVariant.stock_quantity ?? 0) - ((selectedVariant as any).in_hold || 0));
+    }
+    if ((product as any).variant_required && variants.length > 0) {
+      return variants.reduce((sum, v) => sum + Math.max(0, (v.stock_quantity ?? 0) - ((v as any).in_hold || 0)), 0);
+    }
+    return Math.max(0, (product.stock_quantity ?? 0) - ((product as any).in_hold || 0));
+  };
+  const availableStock = computeAvailableStock();
   const productOffer = getProductOffer(product);
   const offerPrice = productOffer?.discountedPrice;
   const displayPrice = offerPrice ?? currentPrice;
@@ -501,17 +509,17 @@ export default function ProductDetailPage() {
                     <Minus className="h-4 w-4" />
                   </Button>
                   <span className="w-10 text-center font-medium">{quantity}</span>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none" onClick={() => setQuantity(Math.min(currentStock, quantity + 1))} disabled={quantity >= currentStock}>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none" onClick={() => setQuantity(Math.min(availableStock, quantity + 1))} disabled={quantity >= availableStock}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
               <div className="flex gap-3">
-                <Button className="flex-1 h-12 text-base rounded-xl gap-2" onClick={handleAddToCart} disabled={currentStock <= 0 || isAddingToCart}>
+                <Button className="flex-1 h-12 text-base rounded-xl gap-2" onClick={handleAddToCart} disabled={availableStock <= 0 || isAddingToCart}>
                   {isAddingToCart ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShoppingCart className="h-5 w-5" />}
                   Add to Cart
                 </Button>
-                <Button ref={buyNowRef} variant="secondary" className="flex-1 h-12 text-base rounded-xl border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground" onClick={handleBuyNow} disabled={currentStock <= 0 || isAddingToCart}>
+                <Button ref={buyNowRef} variant="secondary" className="flex-1 h-12 text-base rounded-xl border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground" onClick={handleBuyNow} disabled={availableStock <= 0 || isAddingToCart}>
                   Buy Now
                 </Button>
               </div>
@@ -651,11 +659,11 @@ export default function ProductDetailPage() {
                 <Minus className="h-3 w-3" />
               </Button>
               <span className="w-6 text-center text-sm font-medium">{quantity}</span>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => setQuantity(Math.min(currentStock, quantity + 1))} disabled={quantity >= currentStock}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => setQuantity(Math.min(availableStock, quantity + 1))} disabled={quantity >= availableStock}>
                 <Plus className="h-3 w-3" />
               </Button>
             </div>
-            <Button className="h-10 px-6 rounded-xl gap-2" onClick={handleAddToCart} disabled={currentStock <= 0 || isAddingToCart}>
+            <Button className="h-10 px-6 rounded-xl gap-2" onClick={handleAddToCart} disabled={availableStock <= 0 || isAddingToCart}>
               {isAddingToCart ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
               Add
             </Button>
