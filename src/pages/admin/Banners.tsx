@@ -54,18 +54,21 @@ const POSITIONS = [
 function utcToISTLocal(utcStr: string | null): string {
   if (!utcStr) return '';
   const d = new Date(utcStr);
-  // IST = UTC + 5:30
-  const ist = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
-  return ist.toISOString().slice(0, 16);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d);
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
 }
 
 // Convert a datetime-local value (assumed IST) to UTC ISO string for storage
 function istLocalToUTC(localStr: string): string {
   if (!localStr) return '';
-  // The user entered IST time, subtract 5:30 to get UTC
-  const d = new Date(localStr);
-  const utc = new Date(d.getTime() - (5.5 * 60 * 60 * 1000));
-  return utc.toISOString();
+  // Treat the datetime-local value as IST (+05:30) regardless of browser timezone
+  const d = new Date(localStr + ':00+05:30');
+  return d.toISOString();
 }
 
 function formatIST(utcStr: string | null): string {

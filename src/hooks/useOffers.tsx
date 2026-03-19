@@ -43,7 +43,7 @@ export function useOffers() {
       return true;
     });
 
-    // Find applicable offers (product-specific first, then category-specific)
+    // Find applicable offers: product-specific > category-specific > all-products
     let productOffer = activeOffers.find(o => {
       if (o.product_id !== product.id) return false;
       // Check variant-specific targeting
@@ -60,7 +60,10 @@ export function useOffers() {
       ? activeOffers.find(o => o.category_id === product.category_id && !o.product_id)
       : null;
 
-    const applicableOffer = productOffer || categoryOffer;
+    // "All products" offers have neither product_id nor category_id
+    const allProductsOffer = activeOffers.find(o => !o.product_id && !o.category_id);
+
+    const applicableOffer = productOffer || categoryOffer || allProductsOffer;
     if (!applicableOffer) return null;
 
     const basePrice = product.price;
