@@ -361,8 +361,9 @@ export default function AdminOffers() {
     },
   ];
 
-  const subCategoriesForParent = formData.category_id
-    ? allCategories.filter(c => c.parent_id === formData.category_id)
+  const parentCatId = formData.parent_category_id || formData.category_id;
+  const subCategoriesForParent = parentCatId
+    ? allCategories.filter(c => c.parent_id === parentCatId)
     : [];
 
   return (
