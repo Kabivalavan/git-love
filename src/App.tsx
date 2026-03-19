@@ -152,7 +152,8 @@ const AppRoutes = () => (
       <Route path="/admin/banners" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminBanners /></Suspense></AdminRoute>} />
       <Route path="/admin/products" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminProducts /></Suspense></AdminRoute>} />
       <Route path="/admin/categories" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminCategories /></Suspense></AdminRoute>} />
-      <Route path="/admin/offers" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminOffersAndCoupons /></Suspense></AdminRoute>} />
+      <Route path="/admin/offers" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminOffers /></Suspense></AdminRoute>} />
+      <Route path="/admin/coupons" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminCoupons /></Suspense></AdminRoute>} />
       <Route path="/admin/orders" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminOrders /></Suspense></AdminRoute>} />
       <Route path="/admin/deliveries" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminDeliveries /></Suspense></AdminRoute>} />
       <Route path="/admin/payments" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminPayments /></Suspense></AdminRoute>} />
