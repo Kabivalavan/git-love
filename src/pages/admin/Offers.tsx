@@ -65,6 +65,7 @@ interface VariantItem {
 }
 
 const OFFER_TYPES = [
+  { value: 'percentage', label: 'Percentage Off' },
   { value: 'flat', label: 'Flat Discount' },
 ];
 
