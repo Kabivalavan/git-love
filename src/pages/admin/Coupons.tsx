@@ -213,7 +213,7 @@ export default function AdminCoupons() {
   };
 
   const formatValue = (coupon: Coupon) => {
-    return coupon.type === 'percentage' ? `${coupon.value}%` : `₹${coupon.value}`;
+    return coupon.type === 'percentage' ? `${coupon.value}%` : `₹${Math.round(coupon.value)}`;
   };
 
   const columns: Column<Coupon>[] = [
@@ -286,20 +286,21 @@ export default function AdminCoupons() {
           <div className="space-y-6">
             <DetailSection title="Coupon Info">
               <DetailField label="Code" value={selectedCoupon.code} />
-              <DetailField label="Type" value={COUPON_TYPES.find(t => t.value === selectedCoupon.type)?.label} />
+              <DetailField label="Description" value={selectedCoupon.description || '-'} />
+              <DetailField label="Type" value={COUPON_TYPES.find(t => t.value === selectedCoupon.type)?.label || selectedCoupon.type} />
               <DetailField label="Value" value={formatValue(selectedCoupon)} />
-              <DetailField label="Status" value={selectedCoupon.is_active ? 'Active' : 'Inactive'} />
+              <DetailField label="Status" value={selectedCoupon.is_active ? 'Active ✓' : 'Inactive'} />
             </DetailSection>
             <DetailSection title="Display Settings">
               <DetailField label="Show on Product Pages" value={selectedCoupon.show_on_storefront ? 'Yes ✓' : 'No'} />
               <DetailField label="Show on Cart Page" value={selectedCoupon.show_on_cart ? 'Yes ✓' : 'No'} />
             </DetailSection>
             <DetailSection title="Conditions">
-              <DetailField label="Min Order Value" value={selectedCoupon.min_order_value ? `₹${selectedCoupon.min_order_value}` : '-'} />
-              <DetailField label="Max Discount" value={selectedCoupon.max_discount ? `₹${selectedCoupon.max_discount}` : '-'} />
+              <DetailField label="Min Order Value" value={selectedCoupon.min_order_value ? `₹${Math.round(selectedCoupon.min_order_value)}` : '-'} />
+              <DetailField label="Max Discount" value={selectedCoupon.max_discount ? `₹${Math.round(selectedCoupon.max_discount)}` : '-'} />
             </DetailSection>
             <DetailSection title="Usage Limits">
-              <DetailField label="Total Limit" value={selectedCoupon.usage_limit || 'Unlimited'} />
+              <DetailField label="Total Limit" value={selectedCoupon.usage_limit ?? 'Unlimited'} />
               <DetailField label="Per User Limit" value={selectedCoupon.per_user_limit} />
               <DetailField label="Times Used" value={selectedCoupon.used_count} />
             </DetailSection>
@@ -307,9 +308,6 @@ export default function AdminCoupons() {
               <DetailField label="Start Date" value={formatIST(selectedCoupon.start_date)} />
               <DetailField label="End Date" value={formatIST(selectedCoupon.end_date)} />
             </DetailSection>
-            <div className="col-span-2">
-              <DetailField label="Description" value={selectedCoupon.description} />
-            </div>
           </div>
         )}
       </DetailPanel>
@@ -354,7 +352,7 @@ export default function AdminCoupons() {
               <Input
                 id="value"
                 type="number"
-                step={formData.type === 'percentage' ? '1' : '0.01'}
+                step={formData.type === 'percentage' ? '1' : '1'}
                 value={formData.value || ''}
                 onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) })}
               />
@@ -366,7 +364,7 @@ export default function AdminCoupons() {
                 <Input
                   id="min_order_value"
                   type="number"
-                  step="0.01"
+                  step="1"
                   value={formData.min_order_value || ''}
                   onChange={(e) => setFormData({ ...formData, min_order_value: parseFloat(e.target.value) })}
                 />
@@ -376,7 +374,7 @@ export default function AdminCoupons() {
                 <Input
                   id="max_discount"
                   type="number"
-                  step="0.01"
+                  step="1"
                   value={formData.max_discount || ''}
                   onChange={(e) => setFormData({ ...formData, max_discount: parseFloat(e.target.value) })}
                 />

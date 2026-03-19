@@ -226,7 +226,7 @@ export default function CartPage() {
                       <p className="text-xs text-muted-foreground mt-0.5">{items.length} items included</p>
                       <p className="text-xs text-muted-foreground mt-1">{items.map(i => i.product.name).join(' + ')}</p>
                       <div className="flex items-center gap-3 mt-2">
-                        <span className="font-bold">₹{bundleTotal.toFixed(0)}</span>
+                        <span className="font-bold">₹{Math.round(bundleTotal)}</span>
                         <Button variant="ghost" size="sm" className="text-destructive text-xs h-7" onClick={() => {
                           for (const item of items) { removeItemMutation.mutate(item.id); }
                           toast({ title: 'Removed', description: 'Bundle removed from cart' });
@@ -269,7 +269,7 @@ export default function CartPage() {
                       <div className="flex items-center justify-between mt-2">
                         {/* Price */}
                         <div className="font-bold text-lg">
-                          ₹{Number(effectivePrice * item.quantity).toFixed(0)}
+                          ₹{Math.round(effectivePrice * item.quantity)}
                           {itemOffer && itemOffer.discountAmount > 0 && (
                             <Badge variant="destructive" className="ml-2 text-[10px] rounded-full">{itemOffer.discountLabel}</Badge>
                           )}
@@ -305,6 +305,42 @@ export default function CartPage() {
               subtotal={subtotal}
               cartProductIds={cartItems.map(i => i.product_id || i.product?.id).filter(Boolean)}
             />
+
+            {/* Available Coupons - Above Order Summary */}
+            {cartCoupons.length > 0 && (
+              <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-primary" />
+                  Available Coupons
+                </h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {cartCoupons.map((coupon) => (
+                    <div key={coupon.id} className="flex items-center justify-between p-2.5 bg-accent/50 rounded-lg border border-dashed border-primary/30">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-sm text-primary">{coupon.code}</span>
+                          <Badge variant="secondary" className="text-[10px] rounded-full">
+                            {coupon.type === 'percentage' ? `${coupon.value}% OFF` : `₹${Math.round(coupon.value)} OFF`}
+                          </Badge>
+                        </div>
+                        {coupon.description && <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{coupon.description}</p>}
+                        {coupon.min_order_value && <p className="text-[10px] text-muted-foreground">Min. order ₹{Math.round(coupon.min_order_value)}</p>}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs flex-shrink-0"
+                        onClick={() => handleCopyCoupon(coupon)}
+                      >
+                        {copiedCouponId === coupon.id ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                        {copiedCouponId === coupon.id ? 'Copied' : 'Copy'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="bg-card rounded-xl border border-border p-5 sticky top-24 space-y-4">
               <h2 className="text-lg font-bold">Order Summary</h2>
 
@@ -335,27 +371,27 @@ export default function CartPage() {
               <div className="space-y-2.5">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Sub Total ({totalItems} items)</span>
-                  <span className="font-medium">₹{subtotal.toFixed(0)}</span>
+                  <span className="font-medium">₹{Math.round(subtotal)}</span>
                 </div>
                 {offerDiscount.totalDiscount > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
                     <span>Offer Discount</span>
-                    <span>-₹{offerDiscount.totalDiscount.toFixed(0)}</span>
+                    <span>-₹{Math.round(offerDiscount.totalDiscount)}</span>
                   </div>
                 )}
                 {couponDiscount > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
                     <span>Coupon Discount</span>
-                    <span>-₹{couponDiscount.toFixed(0)}</span>
+                    <span>-₹{Math.round(couponDiscount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Delivery</span>
-                  <span className={cn("font-medium", shippingCharge === 0 && "text-green-600")}>{shippingCharge === 0 ? 'Free' : `₹${shippingCharge}`}</span>
+                  <span className={cn("font-medium", shippingCharge === 0 && "text-green-600")}>{shippingCharge === 0 ? 'Free' : `₹${Math.round(shippingCharge)}`}</span>
                 </div>
                 {shippingCharge > 0 && freeThreshold > 0 && subtotal < freeThreshold && (
                   <p className="text-xs text-muted-foreground">
-                    Add ₹{(freeThreshold - subtotal).toFixed(0)} more for free shipping
+                    Add ₹{Math.round(freeThreshold - subtotal)} more for free shipping
                   </p>
                 )}
               </div>
@@ -363,8 +399,8 @@ export default function CartPage() {
               <Separator />
 
               <div className="flex justify-between font-bold text-lg">
-                <span>Sub Total</span>
-                <span>₹{total.toFixed(0)}</span>
+                <span>Total</span>
+                <span>₹{Math.round(total)}</span>
               </div>
 
               <Button className="w-full h-12 text-base font-semibold rounded-xl" onClick={() => navigate('/checkout')}>
@@ -375,41 +411,6 @@ export default function CartPage() {
                 <Link to="/products">Continue Shopping</Link>
               </Button>
             </div>
-
-            {/* Available Coupons */}
-            {cartCoupons.length > 0 && (
-              <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-primary" />
-                  Available Coupons
-                </h3>
-                <div className="space-y-2">
-                  {cartCoupons.map((coupon) => (
-                    <div key={coupon.id} className="flex items-center justify-between p-2.5 bg-accent/50 rounded-lg border border-dashed border-primary/30">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-sm text-primary">{coupon.code}</span>
-                          <Badge variant="secondary" className="text-[10px] rounded-full">
-                            {coupon.type === 'percentage' ? `${coupon.value}% OFF` : `₹${coupon.value} OFF`}
-                          </Badge>
-                        </div>
-                        {coupon.description && <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{coupon.description}</p>}
-                        {coupon.min_order_value && <p className="text-[10px] text-muted-foreground">Min. order ₹{coupon.min_order_value}</p>}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs flex-shrink-0"
-                        onClick={() => handleCopyCoupon(coupon)}
-                      >
-                        {copiedCouponId === coupon.id ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
-                        {copiedCouponId === coupon.id ? 'Copied' : 'Copy'}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
