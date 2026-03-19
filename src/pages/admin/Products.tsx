@@ -194,7 +194,7 @@ export default function AdminProducts() {
 
     setFormData({ ...selectedProduct, imageUrls, productType: detectedType, contentSections, variant_required: (selectedProduct as any).variant_required || false } as any);
     // Always ensure at least 1 variant
-    setVariantForms(existingVariants.length > 0 ? existingVariants : [{ name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0' }]);
+    setVariantForms(existingVariants.length > 0 ? existingVariants : [defaultVariant()]);
     setIsDetailOpen(false);
     setIsFormOpen(true);
   };
