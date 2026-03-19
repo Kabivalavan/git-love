@@ -174,7 +174,7 @@ export default function AdminOffers() {
     const offerData = {
       name: formData.name,
       description: formData.description,
-      type: (formData.type || 'percentage') as 'percentage' | 'flat' | 'buy_x_get_y',
+      type: (formData.type || 'flat') as 'percentage' | 'flat' | 'buy_x_get_y',
       value: formData.type === 'buy_x_get_y' ? 0 : (formData.value || 0),
       buy_quantity: formData.buy_quantity || null,
       get_quantity: formData.get_quantity || null,
@@ -182,10 +182,10 @@ export default function AdminOffers() {
       max_discount: formData.max_discount || null,
       category_id: formData.category_id || null,
       product_id: formData.product_id || null,
-      start_date: formData.start_date || null,
-      end_date: formData.end_date || null,
+      start_date: (formData as any).start_date_local ? istLocalToUTC((formData as any).start_date_local) : null,
+      end_date: (formData as any).end_date_local ? istLocalToUTC((formData as any).end_date_local) : null,
       is_active: formData.is_active ?? true,
-      auto_apply: formData.auto_apply ?? false,
+      auto_apply: true,
       show_timer: (formData as any).show_timer ?? false,
     };
 
