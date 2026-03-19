@@ -108,13 +108,13 @@ export default function BundleDetailPage() {
     setIsLoading(false);
   };
 
-  // Collect all bundle images
+  // Only show bundle's own uploaded images, not product images
   const allImages: string[] = [];
-  if (bundle?.image_url) allImages.push(bundle.image_url);
-  bundle?.items?.forEach(item => {
-    const primary = item.product?.images?.find(i => i.is_primary)?.image_url || item.product?.images?.[0]?.image_url;
-    if (primary && !allImages.includes(primary)) allImages.push(primary);
-  });
+  if (bundle?.images && Array.isArray(bundle.images) && bundle.images.length > 0) {
+    bundle.images.forEach(img => { if (img && !allImages.includes(img)) allImages.push(img); });
+  } else if (bundle?.image_url) {
+    allImages.push(bundle.image_url);
+  }
 
   // Check if all required variant selections are made
   const allVariantsSelected = bundle?.items?.every(item => {
