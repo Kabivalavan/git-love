@@ -55,7 +55,7 @@ interface VariantForm {
 }
 
 export default function AdminProducts() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<(Product & { processing_qty?: number })[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -84,9 +84,41 @@ export default function AdminProducts() {
 
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      setProducts((data || []) as unknown as Product[]);
+      setIsLoading(false);
+      return;
     }
+
+    const productsList = (data || []) as unknown as Product[];
+
+    // Fetch processing quantities (items in orders with status new/confirmed/packed)
+    const { data: processingData } = await supabase
+      .from('order_items')
+      .select('product_id, quantity, order:orders!inner(status)')
+      .in('order:orders.status' as any, ['new', 'confirmed', 'packed'] as any);
+
+    // Fallback: query orders separately then match
+    const { data: processingOrders } = await supabase
+      .from('orders')
+      .select('id')
+      .in('status', ['new', 'confirmed', 'packed']);
+
+    let processingMap: Record<string, number> = {};
+    if (processingOrders && processingOrders.length > 0) {
+      const orderIds = processingOrders.map(o => o.id);
+      const { data: items } = await supabase
+        .from('order_items')
+        .select('product_id, quantity')
+        .in('order_id', orderIds);
+      if (items) {
+        items.forEach((item: any) => {
+          if (item.product_id) {
+            processingMap[item.product_id] = (processingMap[item.product_id] || 0) + item.quantity;
+          }
+        });
+      }
+    }
+
+    setProducts(productsList.map(p => ({ ...p, processing_qty: processingMap[p.id] || 0 })));
     setIsLoading(false);
   };
 
