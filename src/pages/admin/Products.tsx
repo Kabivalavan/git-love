@@ -395,6 +395,18 @@ export default function AdminProducts() {
       },
     },
     {
+      key: 'processing_qty' as any,
+      header: 'Processing',
+      render: (p: any) => {
+        const qty = p.processing_qty || 0;
+        return (
+          <Badge variant={qty > 0 ? 'outline' : 'secondary'} className={qty > 0 ? 'border-blue-500 text-blue-700 dark:text-blue-400' : ''}>
+            {qty}
+          </Badge>
+        );
+      },
+    },
+    {
       key: 'category',
       header: 'Category',
       render: (p) => p.category?.name || '-',
