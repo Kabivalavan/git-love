@@ -22,7 +22,8 @@ const AdminProducts = lazy(() => import('./pages/admin/Products'));
 const AdminCategories = lazy(() => import('./pages/admin/Categories'));
 const AdminOrders = lazy(() => import('./pages/admin/Orders'));
 const AdminBanners = lazy(() => import('./pages/admin/Banners'));
-const AdminOffersAndCoupons = lazy(() => import('./pages/admin/OffersAndCoupons'));
+const AdminOffers = lazy(() => import('./pages/admin/Offers'));
+const AdminCoupons = lazy(() => import('./pages/admin/Coupons'));
 const AdminDeliveries = lazy(() => import('./pages/admin/Deliveries'));
 const AdminPayments = lazy(() => import('./pages/admin/Payments'));
 const AdminExpenses = lazy(() => import('./pages/admin/Expenses'));
@@ -151,7 +152,8 @@ const AppRoutes = () => (
       <Route path="/admin/banners" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminBanners /></Suspense></AdminRoute>} />
       <Route path="/admin/products" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminProducts /></Suspense></AdminRoute>} />
       <Route path="/admin/categories" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminCategories /></Suspense></AdminRoute>} />
-      <Route path="/admin/offers" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminOffersAndCoupons /></Suspense></AdminRoute>} />
+      <Route path="/admin/offers" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminOffers /></Suspense></AdminRoute>} />
+      <Route path="/admin/coupons" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminCoupons /></Suspense></AdminRoute>} />
       <Route path="/admin/orders" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminOrders /></Suspense></AdminRoute>} />
       <Route path="/admin/deliveries" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminDeliveries /></Suspense></AdminRoute>} />
       <Route path="/admin/payments" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminPayments /></Suspense></AdminRoute>} />

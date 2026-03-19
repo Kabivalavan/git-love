@@ -78,7 +78,8 @@ const sidebarEntries: SidebarEntry[] = [
     icon: Globe,
     items: [
       { path: '/admin/banners', icon: Image, label: 'Banners & Media' },
-      { path: '/admin/offers', icon: Percent, label: 'Offers & Coupons' },
+      { path: '/admin/offers', icon: Percent, label: 'Offers' },
+      { path: '/admin/coupons', icon: PackageOpen, label: 'Coupons' },
     ],
   },
   {
