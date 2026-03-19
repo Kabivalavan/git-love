@@ -305,7 +305,7 @@ export default function AdminProducts() {
       if (variantForms.length > 0) {
         const variantRecords = variantForms
           .filter(v => v.name.trim())
-          .map(v => ({
+          .map((v, idx) => ({
             product_id: productId,
             name: v.name,
             sku: v.sku || null,
@@ -313,6 +313,7 @@ export default function AdminProducts() {
             mrp: null,
             stock_quantity: parseInt(v.stock_quantity) || 0,
             is_active: true,
+            sort_order: idx,
           }));
         if (variantRecords.length > 0) {
           await supabase.from('product_variants').insert(variantRecords);

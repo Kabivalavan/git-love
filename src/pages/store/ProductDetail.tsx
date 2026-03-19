@@ -238,7 +238,9 @@ export default function ProductDetailPage() {
   const images = product.images || [];
   const currentImage = images[currentImageIndex]?.image_url || '/placeholder.svg';
   const currentPrice = selectedVariant?.price || product.price;
-  const currentStock = selectedVariant?.stock_quantity ?? product.stock_quantity;
+  const inHold = selectedVariant ? ((selectedVariant as any).in_hold || 0) : ((product as any).in_hold || 0);
+  const currentStock = (selectedVariant?.stock_quantity ?? product.stock_quantity) - inHold;
+  const availableStock = Math.max(0, currentStock);
   const productOffer = getProductOffer(product);
   const offerPrice = productOffer?.discountedPrice;
   const displayPrice = offerPrice ?? currentPrice;
