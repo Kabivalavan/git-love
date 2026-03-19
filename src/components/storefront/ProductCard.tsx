@@ -253,4 +253,4 @@ export const ProductCard = React.memo(React.forwardRef<HTMLDivElement, ProductCa
       </div>
     </div>
   );
-});
+}));
