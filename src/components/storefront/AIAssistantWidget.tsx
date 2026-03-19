@@ -71,7 +71,6 @@ function fireWidgetEvent(
     body: JSON.stringify({ eventType, sessionId, payload }),
   }).catch(() => {});
 }
-}
 
 export function AIAssistantWidget() {
   const [isOpen, setIsOpen] = useState(false);
