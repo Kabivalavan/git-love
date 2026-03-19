@@ -132,7 +132,7 @@ export const ProductCard = React.memo(function ProductCard({
           <h3 className="font-medium text-foreground truncate group-hover:text-primary transition-colors">{product.name}</h3>
           <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{product.short_description || product.description}</p>
           <div className="flex items-baseline gap-2 mt-1.5">
-            <span className="font-bold text-lg text-foreground">₹{priceWhole}{showDecimal && <span className="text-xs align-super">.{String(priceDecimal).padStart(2, '0')}</span>}</span>
+            <span className="font-bold text-lg text-foreground">₹{priceWhole}</span>
             {hasDiscount && originalPrice && (
               <>
                 <span className="text-sm text-muted-foreground line-through">₹{Number(originalPrice).toFixed(0)}</span>
