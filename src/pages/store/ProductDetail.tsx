@@ -509,7 +509,7 @@ export default function ProductDetailPage() {
                     <Minus className="h-4 w-4" />
                   </Button>
                   <span className="w-10 text-center font-medium">{quantity}</span>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none" onClick={() => setQuantity(Math.min(currentStock, quantity + 1))} disabled={quantity >= currentStock}>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none" onClick={() => setQuantity(Math.min(availableStock, quantity + 1))} disabled={quantity >= availableStock}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
