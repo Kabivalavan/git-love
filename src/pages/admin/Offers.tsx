@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface Offer {
   id: string;
@@ -42,6 +43,25 @@ interface Offer {
   is_active: boolean;
   auto_apply: boolean;
   created_at: string;
+}
+
+interface CategoryItem {
+  id: string;
+  name: string;
+  parent_id: string | null;
+}
+
+interface ProductItem {
+  id: string;
+  name: string;
+  category_id: string | null;
+  variant_required: boolean | null;
+}
+
+interface VariantItem {
+  id: string;
+  name: string;
+  product_id: string;
 }
 
 const OFFER_TYPES = [
@@ -67,17 +87,29 @@ function formatIST(utcStr: string | null): string {
   return new Date(utcStr).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
 }
 
+type FormData = Partial<Offer> & {
+  start_date_local?: string;
+  end_date_local?: string;
+  show_timer?: boolean;
+  apply_scope?: 'all' | 'category' | 'product';
+  selected_variant_ids?: string[];
+  apply_all_variants?: boolean;
+};
+
 export default function AdminOffers() {
   const [offers, setOffers] = useState<Offer[]>([]);
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
-  const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [allCategories, setAllCategories] = useState<CategoryItem[]>([]);
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<ProductItem[]>([]);
+  const [variants, setVariants] = useState<VariantItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<Offer> & { start_date_local?: string; end_date_local?: string }>({});;
+  const [formData, setFormData] = useState<FormData>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -98,8 +130,6 @@ export default function AdminOffers() {
     } else {
       const now = new Date().toISOString();
       const allOffers = (data || []) as Offer[];
-      
-      // Auto-deactivate expired offers
       const expired = allOffers.filter(o => o.is_active && o.end_date && o.end_date < now);
       if (expired.length > 0) {
         await Promise.all(expired.map(o =>
@@ -109,21 +139,51 @@ export default function AdminOffers() {
           if (o.is_active && o.end_date && o.end_date < now) o.is_active = false;
         });
       }
-      
       setOffers(allOffers);
     }
     setIsLoading(false);
   };
 
   const fetchCategories = async () => {
-    const { data } = await supabase.from('categories').select('id, name').eq('is_active', true);
-    setCategories(data || []);
+    const { data } = await supabase.from('categories').select('id, name, parent_id').eq('is_active', true).order('sort_order');
+    const all = (data || []) as CategoryItem[];
+    setAllCategories(all);
+    // Parent categories (no parent_id)
+    setCategories(all.filter(c => !c.parent_id));
   };
 
   const fetchProducts = async () => {
-    const { data } = await supabase.from('products').select('id, name').eq('is_active', true);
-    setProducts(data || []);
+    const { data } = await supabase.from('products').select('id, name, category_id, variant_required').eq('is_active', true);
+    setProducts((data || []) as ProductItem[]);
   };
+
+  const fetchVariantsForProduct = async (productId: string) => {
+    const { data } = await supabase.from('product_variants').select('id, name, product_id').eq('product_id', productId).eq('is_active', true).order('sort_order');
+    setVariants((data || []) as VariantItem[]);
+  };
+
+  // When category changes in form, filter products
+  useEffect(() => {
+    if (formData.apply_scope === 'category' && formData.category_id) {
+      // Include products from this category and its children
+      const childCatIds = allCategories.filter(c => c.parent_id === formData.category_id).map(c => c.id);
+      const catIds = [formData.category_id, ...childCatIds];
+      setFilteredProducts(products.filter(p => p.category_id && catIds.includes(p.category_id)));
+    } else if (formData.apply_scope === 'product') {
+      setFilteredProducts(products);
+    } else {
+      setFilteredProducts([]);
+    }
+  }, [formData.category_id, formData.apply_scope, products, allCategories]);
+
+  // When product changes, load variants
+  useEffect(() => {
+    if (formData.product_id) {
+      fetchVariantsForProduct(formData.product_id);
+    } else {
+      setVariants([]);
+    }
+  }, [formData.product_id]);
 
   const handleRowClick = (offer: Offer) => {
     setSelectedOffer(offer);
@@ -132,11 +192,15 @@ export default function AdminOffers() {
 
   const handleEdit = () => {
     if (selectedOffer) {
+      const scope = selectedOffer.product_id ? 'product' : selectedOffer.category_id ? 'category' : 'all';
       setFormData({
         ...selectedOffer,
         start_date_local: utcToISTLocal(selectedOffer.start_date),
         end_date_local: utcToISTLocal(selectedOffer.end_date),
-      } as any);
+        apply_scope: scope,
+        apply_all_variants: true,
+        selected_variant_ids: [],
+      });
       setIsDetailOpen(false);
       setIsFormOpen(true);
     }
@@ -150,6 +214,9 @@ export default function AdminOffers() {
       value: 0,
       start_date_local: '',
       end_date_local: '',
+      apply_scope: 'all',
+      apply_all_variants: true,
+      selected_variant_ids: [],
     });
     setSelectedOffer(null);
     setIsFormOpen(true);
@@ -158,9 +225,7 @@ export default function AdminOffers() {
   const handleDelete = async () => {
     if (!selectedOffer) return;
     setIsDeleting(true);
-
     const { error } = await supabase.from('offers').delete().eq('id', selectedOffer.id);
-
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
@@ -176,15 +241,8 @@ export default function AdminOffers() {
       toast({ title: 'Error', description: 'Name is required', variant: 'destructive' });
       return;
     }
-
-    // For buy_x_get_y, value is not needed; for others, value is required
-    if (formData.type !== 'buy_x_get_y' && (!formData.value && formData.value !== 0)) {
+    if (!formData.value && formData.value !== 0) {
       toast({ title: 'Error', description: 'Discount value is required', variant: 'destructive' });
-      return;
-    }
-
-    if (formData.type === 'buy_x_get_y' && (!formData.buy_quantity || !formData.get_quantity)) {
-      toast({ title: 'Error', description: 'Buy quantity and Get quantity are required', variant: 'destructive' });
       return;
     }
 
@@ -194,18 +252,18 @@ export default function AdminOffers() {
       name: formData.name,
       description: formData.description,
       type: (formData.type || 'flat') as 'percentage' | 'flat' | 'buy_x_get_y',
-      value: formData.type === 'buy_x_get_y' ? 0 : (formData.value || 0),
-      buy_quantity: formData.buy_quantity || null,
-      get_quantity: formData.get_quantity || null,
+      value: formData.value || 0,
+      buy_quantity: null,
+      get_quantity: null,
       min_order_value: formData.min_order_value || null,
       max_discount: formData.max_discount || null,
-      category_id: formData.category_id || null,
-      product_id: formData.product_id || null,
-      start_date: (formData as any).start_date_local ? istLocalToUTC((formData as any).start_date_local) : null,
-      end_date: (formData as any).end_date_local ? istLocalToUTC((formData as any).end_date_local) : null,
+      category_id: formData.apply_scope === 'category' ? (formData.category_id || null) : null,
+      product_id: formData.apply_scope === 'product' ? (formData.product_id || null) : null,
+      start_date: formData.start_date_local ? istLocalToUTC(formData.start_date_local) : null,
+      end_date: formData.end_date_local ? istLocalToUTC(formData.end_date_local) : null,
       is_active: formData.is_active ?? true,
       auto_apply: true,
-      show_timer: (formData as any).show_timer ?? false,
+      show_timer: formData.show_timer ?? false,
     };
 
     if (selectedOffer) {
@@ -236,26 +294,31 @@ export default function AdminOffers() {
     return `Buy ${offer.buy_quantity} Get ${offer.get_quantity}`;
   };
 
+  const getTargetLabel = (offer: Offer) => {
+    if (offer.product_id) {
+      const p = products.find(pr => pr.id === offer.product_id);
+      return p ? p.name : 'Specific Product';
+    }
+    if (offer.category_id) {
+      const c = allCategories.find(ca => ca.id === offer.category_id);
+      return c ? c.name : 'Specific Category';
+    }
+    return 'All Products';
+  };
+
   const columns: Column<Offer>[] = [
     { key: 'name', header: 'Name' },
     {
-      key: 'type',
-      header: 'Type',
+      key: 'type', header: 'Type',
       render: (o) => OFFER_TYPES.find(t => t.value === o.type)?.label || o.type,
     },
+    { key: 'value', header: 'Value', render: formatValue },
     {
-      key: 'value',
-      header: 'Value',
-      render: formatValue,
+      key: 'product_id', header: 'Applied To',
+      render: getTargetLabel,
     },
     {
-      key: 'auto_apply',
-      header: 'Auto Apply',
-      render: () => <Badge variant="outline" className="text-[10px]">Always</Badge>,
-    },
-    {
-      key: 'is_active',
-      header: 'Status',
+      key: 'is_active', header: 'Status',
       render: (o) => (
         <Badge variant={o.is_active ? 'default' : 'secondary'}>
           {o.is_active ? 'Active' : 'Inactive'}
@@ -263,6 +326,11 @@ export default function AdminOffers() {
       ),
     },
   ];
+
+  // Get sub-categories for a parent
+  const subCategoriesForParent = formData.category_id
+    ? allCategories.filter(c => c.parent_id === formData.category_id)
+    : [];
 
   return (
     <AdminLayout
@@ -301,6 +369,7 @@ export default function AdminOffers() {
               <DetailField label="Name" value={selectedOffer.name} />
               <DetailField label="Type" value={OFFER_TYPES.find(t => t.value === selectedOffer.type)?.label} />
               <DetailField label="Value" value={formatValue(selectedOffer)} />
+              <DetailField label="Applied To" value={getTargetLabel(selectedOffer)} />
               <DetailField label="Auto Apply" value="Always (auto-applied)" />
             </DetailSection>
             <DetailSection title="Conditions">
@@ -324,6 +393,10 @@ export default function AdminOffers() {
             <DialogTitle>{selectedOffer ? 'Edit Offer' : 'Create Offer'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Step 1: Basic Info */}
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Step 1 — Basic Info</p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Name *</Label>
@@ -331,64 +404,151 @@ export default function AdminOffers() {
                   id="name"
                   value={formData.name || ''}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., Summer Sale"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="type">Type</Label>
-                <Select
-                  value={formData.type || 'percentage'}
-                  onValueChange={(value) => setFormData({ ...formData, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {OFFER_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {formData.type === 'buy_x_get_y' ? (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="buy_quantity">Buy Quantity *</Label>
-                  <Input
-                    id="buy_quantity"
-                    type="number"
-                    value={formData.buy_quantity || ''}
-                    onChange={(e) => setFormData({ ...formData, buy_quantity: parseInt(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="get_quantity">Get Quantity *</Label>
-                  <Input
-                    id="get_quantity"
-                    type="number"
-                    value={formData.get_quantity || ''}
-                    onChange={(e) => setFormData({ ...formData, get_quantity: parseInt(e.target.value) })}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="value">
-                  {formData.type === 'percentage' ? 'Percentage Off *' : 'Flat Discount Amount *'}
-                </Label>
+                <Label htmlFor="value">Flat Discount Amount (₹) *</Label>
                 <Input
                   id="value"
                   type="number"
-                  step={formData.type === 'percentage' ? '1' : '0.01'}
+                  step="0.01"
                   value={formData.value || ''}
                   onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) })}
                 />
               </div>
+            </div>
+
+            {/* Step 2: Apply Scope */}
+            <div className="space-y-1 pt-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Step 2 — Apply To</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Apply Scope</Label>
+              <Select
+                value={formData.apply_scope || 'all'}
+                onValueChange={(value) => setFormData({
+                  ...formData,
+                  apply_scope: value as 'all' | 'category' | 'product',
+                  category_id: value === 'all' ? null : formData.category_id,
+                  product_id: value === 'product' ? formData.product_id : null,
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Products</SelectItem>
+                  <SelectItem value="category">Specific Category</SelectItem>
+                  <SelectItem value="product">Specific Product</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formData.apply_scope === 'category' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Parent Category *</Label>
+                  <Select
+                    value={formData.category_id || 'none'}
+                    onValueChange={(value) => setFormData({ ...formData, category_id: value === 'none' ? null : value, product_id: null })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Select —</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {subCategoriesForParent.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Sub-Category (optional)</Label>
+                    <Select
+                      value={formData.category_id || 'none'}
+                      onValueChange={(value) => {
+                        if (value !== 'none') setFormData({ ...formData, category_id: value });
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="All in parent" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">All in parent category</SelectItem>
+                        {subCategoriesForParent.map((sub) => (
+                          <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
             )}
 
+            {formData.apply_scope === 'product' && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Select Product *</Label>
+                  <Select
+                    value={formData.product_id || 'none'}
+                    onValueChange={(value) => setFormData({ ...formData, product_id: value === 'none' ? null : value, apply_all_variants: true, selected_variant_ids: [] })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Select —</SelectItem>
+                      {products.map((prod) => (
+                        <SelectItem key={prod.id} value={prod.id}>{prod.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Variant selection */}
+                {formData.product_id && variants.length > 0 && (
+                  <div className="space-y-3 border border-border rounded-lg p-3">
+                    <Label className="text-sm font-medium">Variant Selection</Label>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="apply_all_variants"
+                        checked={formData.apply_all_variants ?? true}
+                        onCheckedChange={(checked) => setFormData({
+                          ...formData,
+                          apply_all_variants: !!checked,
+                          selected_variant_ids: checked ? [] : formData.selected_variant_ids,
+                        })}
+                      />
+                      <Label htmlFor="apply_all_variants" className="text-sm cursor-pointer">Apply to all variants</Label>
+                    </div>
+                    {!formData.apply_all_variants && (
+                      <div className="space-y-2 pl-2">
+                        {variants.map((v) => (
+                          <div key={v.id} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`variant-${v.id}`}
+                              checked={(formData.selected_variant_ids || []).includes(v.id)}
+                              onCheckedChange={(checked) => {
+                                const ids = formData.selected_variant_ids || [];
+                                setFormData({
+                                  ...formData,
+                                  selected_variant_ids: checked
+                                    ? [...ids, v.id]
+                                    : ids.filter(id => id !== v.id),
+                                });
+                              }}
+                            />
+                            <Label htmlFor={`variant-${v.id}`} className="text-sm cursor-pointer">{v.name}</Label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 3: Conditions */}
+            <div className="space-y-1 pt-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Step 3 — Conditions & Schedule</p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="min_order_value">Min Order Value</Label>
@@ -414,49 +574,12 @@ export default function AdminOffers() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="category">Apply to Category</Label>
-                <Select
-                  value={formData.category_id || 'none'}
-                  onValueChange={(value) => setFormData({ ...formData, category_id: value === 'none' ? null : value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">All Categories</SelectItem>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="product">Apply to Product</Label>
-                <Select
-                  value={formData.product_id || 'none'}
-                  onValueChange={(value) => setFormData({ ...formData, product_id: value === 'none' ? null : value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All products" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">All Products</SelectItem>
-                    {products.map((prod) => (
-                      <SelectItem key={prod.id} value={prod.id}>{prod.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
                 <Label htmlFor="start_date">Start Date (IST)</Label>
                 <Input
                   id="start_date"
                   type="datetime-local"
-                  value={(formData as any).start_date_local || ''}
-                  onChange={(e) => setFormData({ ...formData, start_date_local: e.target.value } as any)}
+                  value={formData.start_date_local || ''}
+                  onChange={(e) => setFormData({ ...formData, start_date_local: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -464,8 +587,8 @@ export default function AdminOffers() {
                 <Input
                   id="end_date"
                   type="datetime-local"
-                  value={(formData as any).end_date_local || ''}
-                  onChange={(e) => setFormData({ ...formData, end_date_local: e.target.value } as any)}
+                  value={formData.end_date_local || ''}
+                  onChange={(e) => setFormData({ ...formData, end_date_local: e.target.value })}
                 />
               </div>
             </div>
@@ -474,12 +597,13 @@ export default function AdminOffers() {
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                rows={3}
+                rows={2}
                 value={formData.description || ''}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
             </div>
 
+            {/* Settings */}
             <div className="space-y-3 border border-border rounded-xl p-4">
               <p className="text-sm font-semibold text-foreground">Settings</p>
               <div className="flex items-center gap-2">
@@ -500,8 +624,8 @@ export default function AdminOffers() {
               <div className="flex items-center gap-2">
                 <Switch
                   id="show_timer"
-                  checked={(formData as any).show_timer || false}
-                  onCheckedChange={(checked) => setFormData({ ...formData, show_timer: checked } as any)}
+                  checked={formData.show_timer || false}
+                  onCheckedChange={(checked) => setFormData({ ...formData, show_timer: checked })}
                 />
                 <Label htmlFor="show_timer">Show Timer on Product Card</Label>
               </div>

@@ -97,8 +97,6 @@ export default function AdminCoupons() {
     } else {
       const now = new Date().toISOString();
       const allCoupons = (data || []) as Coupon[];
-      
-      // Auto-deactivate expired or usage-exhausted coupons
       const toDeactivate = allCoupons.filter(c => c.is_active && (
         (c.end_date && c.end_date < now) ||
         (c.usage_limit !== null && c.used_count >= c.usage_limit)
@@ -109,7 +107,6 @@ export default function AdminCoupons() {
         ));
         toDeactivate.forEach(c => { c.is_active = false; });
       }
-      
       setCoupons(allCoupons);
     }
     setIsLoading(false);
@@ -151,9 +148,7 @@ export default function AdminCoupons() {
   const handleDelete = async () => {
     if (!selectedCoupon) return;
     setIsDeleting(true);
-
     const { error } = await supabase.from('coupons').delete().eq('id', selectedCoupon.id);
-
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
@@ -170,7 +165,6 @@ export default function AdminCoupons() {
       toast({ title: 'Error', description: 'Code and value are required', variant: 'destructive' });
       return;
     }
-
     setIsSaving(true);
 
     const couponData = {
@@ -186,7 +180,7 @@ export default function AdminCoupons() {
       end_date: formData.end_date_local ? istLocalToUTC(formData.end_date_local) : null,
       is_active: formData.is_active ?? true,
       show_on_storefront: formData.show_on_storefront ?? false,
-      show_on_cart: (formData as any).show_on_cart ?? false,
+      show_on_cart: formData.show_on_cart ?? false,
     };
 
     if (selectedCoupon) {
@@ -224,8 +218,7 @@ export default function AdminCoupons() {
 
   const columns: Column<Coupon>[] = [
     {
-      key: 'code',
-      header: 'Code',
+      key: 'code', header: 'Code',
       render: (c) => (
         <div className="flex items-center gap-2">
           <span className="font-mono font-medium">{c.code}</span>
@@ -235,24 +228,11 @@ export default function AdminCoupons() {
         </div>
       ),
     },
+    { key: 'type', header: 'Type', render: (c) => COUPON_TYPES.find(t => t.value === c.type)?.label || c.type },
+    { key: 'value', header: 'Value', render: formatValue },
+    { key: 'used_count', header: 'Usage', render: (c) => `${c.used_count}${c.usage_limit ? ` / ${c.usage_limit}` : ''}` },
     {
-      key: 'type',
-      header: 'Type',
-      render: (c) => COUPON_TYPES.find(t => t.value === c.type)?.label || c.type,
-    },
-    {
-      key: 'value',
-      header: 'Value',
-      render: formatValue,
-    },
-    {
-      key: 'used_count',
-      header: 'Usage',
-      render: (c) => `${c.used_count}${c.usage_limit ? ` / ${c.usage_limit}` : ''}`,
-    },
-    {
-      key: 'show_on_storefront',
-      header: 'Display',
+      key: 'show_on_storefront', header: 'Display',
       render: (c) => (
         <div className="flex gap-1 flex-wrap">
           {c.show_on_storefront && <Badge variant="outline" className="text-[10px]">Products</Badge>}
@@ -262,8 +242,7 @@ export default function AdminCoupons() {
       ),
     },
     {
-      key: 'is_active',
-      header: 'Status',
+      key: 'is_active', header: 'Status',
       render: (c) => (
         <Badge variant={c.is_active ? 'default' : 'secondary'}>
           {c.is_active ? 'Active' : 'Inactive'}
@@ -358,14 +337,10 @@ export default function AdminCoupons() {
                   value={formData.type || 'percentage'}
                   onValueChange={(value) => setFormData({ ...formData, type: value })}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {COUPON_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
+                      <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -471,7 +446,6 @@ export default function AdminCoupons() {
                 />
                 <Label htmlFor="is_active">Active</Label>
               </div>
-
               <div className="flex items-center gap-2">
                 <Switch
                   id="show_on_storefront"
@@ -483,11 +457,10 @@ export default function AdminCoupons() {
                   <p className="text-xs text-muted-foreground">Display coupon on all product detail pages</p>
                 </div>
               </div>
-
               <div className="flex items-center gap-2">
                 <Switch
                   id="show_on_cart"
-                  checked={(formData as any).show_on_cart ?? false}
+                  checked={formData.show_on_cart ?? false}
                   onCheckedChange={(checked) => setFormData({ ...formData, show_on_cart: checked })}
                 />
                 <div>
