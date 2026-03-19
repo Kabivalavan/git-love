@@ -109,7 +109,12 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (variants.length > 0 && !selectedVariant) {
-      setSelectedVariant(variants[0]);
+      // Auto-select variant with offer if available, otherwise first variant
+      const variantWithOffer = variants.find(v => {
+        const offer = getProductOffer(product!, v.id);
+        return offer && offer.discountAmount > 0;
+      });
+      setSelectedVariant(variantWithOffer || variants[0]);
     }
   }, [variants]);
 
