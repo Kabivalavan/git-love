@@ -256,7 +256,7 @@ export default function ProductDetailPage() {
   const availableStock = computeAvailableStock();
   
   // Offer pricing - apply offer to the CURRENT variant/product price
-  const productOffer = getProductOffer(product);
+  const productOffer = getProductOffer(product, selectedVariant?.id);
   let offerPrice: number | null = null;
   let showOfferDiscount = false;
   let discount = 0;
