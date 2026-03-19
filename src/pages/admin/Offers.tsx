@@ -48,6 +48,25 @@ const OFFER_TYPES = [
   { value: 'flat', label: 'Flat Discount' },
 ];
 
+function utcToISTLocal(utcStr: string | null): string {
+  if (!utcStr) return '';
+  const d = new Date(utcStr);
+  const ist = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+  return ist.toISOString().slice(0, 16);
+}
+
+function istLocalToUTC(localStr: string): string {
+  if (!localStr) return '';
+  const d = new Date(localStr);
+  const utc = new Date(d.getTime() - (5.5 * 60 * 60 * 1000));
+  return utc.toISOString();
+}
+
+function formatIST(utcStr: string | null): string {
+  if (!utcStr) return 'Not set';
+  return new Date(utcStr).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+}
+
 export default function AdminOffers() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
@@ -58,7 +77,7 @@ export default function AdminOffers() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<Offer>>({});
+  const [formData, setFormData] = useState<Partial<Offer> & { start_date_local?: string; end_date_local?: string }>({});;
   const { toast } = useToast();
 
   useEffect(() => {
@@ -113,7 +132,11 @@ export default function AdminOffers() {
 
   const handleEdit = () => {
     if (selectedOffer) {
-      setFormData(selectedOffer);
+      setFormData({
+        ...selectedOffer,
+        start_date_local: utcToISTLocal(selectedOffer.start_date),
+        end_date_local: utcToISTLocal(selectedOffer.end_date),
+      } as any);
       setIsDetailOpen(false);
       setIsFormOpen(true);
     }
@@ -121,10 +144,12 @@ export default function AdminOffers() {
 
   const handleCreate = () => {
     setFormData({
-      type: 'percentage',
+      type: 'flat',
       is_active: true,
-      auto_apply: false,
+      auto_apply: true,
       value: 0,
+      start_date_local: '',
+      end_date_local: '',
     });
     setSelectedOffer(null);
     setIsFormOpen(true);
@@ -168,7 +193,7 @@ export default function AdminOffers() {
     const offerData = {
       name: formData.name,
       description: formData.description,
-      type: (formData.type || 'percentage') as 'percentage' | 'flat' | 'buy_x_get_y',
+      type: (formData.type || 'flat') as 'percentage' | 'flat' | 'buy_x_get_y',
       value: formData.type === 'buy_x_get_y' ? 0 : (formData.value || 0),
       buy_quantity: formData.buy_quantity || null,
       get_quantity: formData.get_quantity || null,
@@ -176,10 +201,10 @@ export default function AdminOffers() {
       max_discount: formData.max_discount || null,
       category_id: formData.category_id || null,
       product_id: formData.product_id || null,
-      start_date: formData.start_date || null,
-      end_date: formData.end_date || null,
+      start_date: (formData as any).start_date_local ? istLocalToUTC((formData as any).start_date_local) : null,
+      end_date: (formData as any).end_date_local ? istLocalToUTC((formData as any).end_date_local) : null,
       is_active: formData.is_active ?? true,
-      auto_apply: formData.auto_apply ?? false,
+      auto_apply: true,
       show_timer: (formData as any).show_timer ?? false,
     };
 
@@ -226,7 +251,7 @@ export default function AdminOffers() {
     {
       key: 'auto_apply',
       header: 'Auto Apply',
-      render: (o) => o.auto_apply ? 'Yes' : 'No',
+      render: () => <Badge variant="outline" className="text-[10px]">Always</Badge>,
     },
     {
       key: 'is_active',
@@ -276,15 +301,15 @@ export default function AdminOffers() {
               <DetailField label="Name" value={selectedOffer.name} />
               <DetailField label="Type" value={OFFER_TYPES.find(t => t.value === selectedOffer.type)?.label} />
               <DetailField label="Value" value={formatValue(selectedOffer)} />
-              <DetailField label="Auto Apply" value={selectedOffer.auto_apply ? 'Yes' : 'No'} />
+              <DetailField label="Auto Apply" value="Always (auto-applied)" />
             </DetailSection>
             <DetailSection title="Conditions">
               <DetailField label="Min Order Value" value={selectedOffer.min_order_value ? `₹${selectedOffer.min_order_value}` : '-'} />
               <DetailField label="Max Discount" value={selectedOffer.max_discount ? `₹${selectedOffer.max_discount}` : '-'} />
             </DetailSection>
-            <DetailSection title="Schedule">
-              <DetailField label="Start Date" value={selectedOffer.start_date ? new Date(selectedOffer.start_date).toLocaleDateString() : 'Not set'} />
-              <DetailField label="End Date" value={selectedOffer.end_date ? new Date(selectedOffer.end_date).toLocaleDateString() : 'Not set'} />
+            <DetailSection title="Schedule (IST)">
+              <DetailField label="Start Date" value={formatIST(selectedOffer.start_date)} />
+              <DetailField label="End Date" value={formatIST(selectedOffer.end_date)} />
             </DetailSection>
             <div className="col-span-2">
               <DetailField label="Description" value={selectedOffer.description} />
@@ -430,14 +455,8 @@ export default function AdminOffers() {
                 <Input
                   id="start_date"
                   type="datetime-local"
-                  value={formData.start_date?.slice(0, 16) || ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (!val) { setFormData({ ...formData, start_date: null }); return; }
-                    const d = new Date(val);
-                    const utc = new Date(d.getTime() - (5.5 * 60 * 60 * 1000));
-                    setFormData({ ...formData, start_date: utc.toISOString() });
-                  }}
+                  value={(formData as any).start_date_local || ''}
+                  onChange={(e) => setFormData({ ...formData, start_date_local: e.target.value } as any)}
                 />
               </div>
               <div className="space-y-2">
@@ -445,14 +464,8 @@ export default function AdminOffers() {
                 <Input
                   id="end_date"
                   type="datetime-local"
-                  value={formData.end_date?.slice(0, 16) || ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (!val) { setFormData({ ...formData, end_date: null }); return; }
-                    const d = new Date(val);
-                    const utc = new Date(d.getTime() - (5.5 * 60 * 60 * 1000));
-                    setFormData({ ...formData, end_date: utc.toISOString() });
-                  }}
+                  value={(formData as any).end_date_local || ''}
+                  onChange={(e) => setFormData({ ...formData, end_date_local: e.target.value } as any)}
                 />
               </div>
             </div>
@@ -467,7 +480,8 @@ export default function AdminOffers() {
               />
             </div>
 
-            <div className="flex flex-wrap gap-6">
+            <div className="space-y-3 border border-border rounded-xl p-4">
+              <p className="text-sm font-semibold text-foreground">Settings</p>
               <div className="flex items-center gap-2">
                 <Switch
                   id="is_active"
@@ -476,13 +490,12 @@ export default function AdminOffers() {
                 />
                 <Label htmlFor="is_active">Active</Label>
               </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="auto_apply"
-                  checked={formData.auto_apply}
-                  onCheckedChange={(checked) => setFormData({ ...formData, auto_apply: checked })}
-                />
-                <Label htmlFor="auto_apply">Auto Apply</Label>
+              <div className="flex items-center gap-2 opacity-60">
+                <Switch id="auto_apply" checked={true} disabled />
+                <div>
+                  <Label htmlFor="auto_apply">Auto Apply</Label>
+                  <p className="text-xs text-muted-foreground">Offers are always auto-applied to matching products</p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Switch

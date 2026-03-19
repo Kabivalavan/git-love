@@ -56,7 +56,7 @@ export default function CategoriesPage() {
               return (
                 <div key={cat.id}>
                   <Link
-                    to={`/products?category=${cat.slug}`}
+                    to={`/category/${cat.slug}`}
                     className="group block mb-4"
                   >
                     <div className="relative aspect-[3/1] md:aspect-[4/1] rounded-2xl overflow-hidden bg-muted">
@@ -80,7 +80,7 @@ export default function CategoriesPage() {
                       {children.map((sub) => (
                         <Link
                           key={sub.id}
-                          to={`/products?category=${cat.slug}&sub=${sub.slug}`}
+                          to={`/category/${cat.slug}?sub=${sub.slug}`}
                           className="group text-center"
                         >
                           <div className="aspect-square rounded-xl overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all">

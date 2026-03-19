@@ -72,15 +72,9 @@ export const ProductCard = React.memo(function ProductCard({
   const isOutOfStock = product.stock_quantity <= 0;
   const isLowStock = lowStockSettings?.show_low_stock_badge && product.stock_quantity > 0 && product.stock_quantity <= lowStockSettings.low_stock_threshold;
   const displayPrice = productOffer?.discountedPrice ?? product.price;
-  const originalPrice = productOffer ? product.price : product.mrp;
-  const hasDiscount = productOffer
-    ? productOffer.discountAmount > 0
-    : (product.mrp && product.mrp > product.price);
-  const discountLabel = productOffer?.discountLabel || (
-    product.mrp && product.mrp > product.price
-      ? `${Math.round(((product.mrp - product.price) / product.mrp) * 100)}% OFF`
-      : ''
-  );
+  const originalPrice = productOffer && productOffer.discountAmount > 0 ? product.price : null;
+  const hasDiscount = productOffer ? productOffer.discountAmount > 0 : false;
+  const discountLabel = productOffer?.discountLabel || '';
 
   const showTimer = productOffer?.offer?.end_date && (productOffer.offer as any).show_timer;
 
@@ -90,6 +84,7 @@ export const ProductCard = React.memo(function ProductCard({
 
   const priceWhole = Math.floor(displayPrice);
   const priceDecimal = Math.round((displayPrice - priceWhole) * 100);
+  const showDecimal = priceDecimal > 0;
 
   // Prefetch product data on hover for instant page transitions
   const handleMouseEnter = useCallback(() => {
@@ -138,7 +133,7 @@ export const ProductCard = React.memo(function ProductCard({
           <h3 className="font-medium text-foreground truncate group-hover:text-primary transition-colors">{product.name}</h3>
           <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{product.short_description || product.description}</p>
           <div className="flex items-baseline gap-2 mt-1.5">
-            <span className="font-bold text-lg text-foreground">₹{priceWhole}<span className="text-xs align-super">.{String(priceDecimal).padStart(2, '0')}</span></span>
+            <span className="font-bold text-lg text-foreground">₹{priceWhole}{showDecimal && <span className="text-xs align-super">.{String(priceDecimal).padStart(2, '0')}</span>}</span>
             {hasDiscount && originalPrice && (
               <>
                 <span className="text-sm text-muted-foreground line-through">₹{Number(originalPrice).toFixed(0)}</span>
@@ -233,7 +228,7 @@ export const ProductCard = React.memo(function ProductCard({
         {/* Price */}
         <div className="flex items-baseline gap-1.5 mt-2">
           <span className={cn("font-bold text-foreground", variant === 'compact' ? "text-sm" : "text-base")}>
-            ₹{priceWhole}<span className="text-[10px] align-super font-semibold">.{String(priceDecimal).padStart(2, '0')}</span>
+            ₹{priceWhole}{showDecimal && <span className="text-[10px] align-super font-semibold">.{String(priceDecimal).padStart(2, '0')}</span>}
           </span>
           {hasDiscount && originalPrice && (
             <span className="text-[11px] text-muted-foreground line-through">₹{Number(originalPrice).toFixed(0)}</span>

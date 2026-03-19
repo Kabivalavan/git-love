@@ -170,7 +170,7 @@ export default function HomePage() {
             {categories.filter(c => !c.parent_id).map((category) => (
               <Link
                 key={category.id}
-                to={`/products?category=${category.slug}`}
+                to={`/category/${category.slug}`}
                 className="group flex items-center gap-3 p-3 bg-card rounded-2xl border border-border hover:shadow-md transition-all"
               >
                 <div className="flex-1 min-w-0">
@@ -195,7 +195,7 @@ export default function HomePage() {
           {/* Desktop: Horizontal scroll with circle icons */}
           <div className="hidden lg:flex gap-8 overflow-x-auto pb-2 scrollbar-thin">
             {categories.filter(c => !c.parent_id).map((category) => (
-              <Link key={category.id} to={`/products?category=${category.slug}`} className="group text-center flex flex-col items-center flex-shrink-0">
+              <Link key={category.id} to={`/category/${category.slug}`} className="group text-center flex flex-col items-center flex-shrink-0">
                 <div className="w-24 h-24 rounded-full overflow-hidden bg-muted border-2 border-transparent group-hover:border-primary transition-all duration-300 group-hover:shadow-lg">
                   {category.image_url ? (
                     <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" loading="lazy" width={96} height={96} />
