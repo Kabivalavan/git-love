@@ -390,12 +390,12 @@ export default function ProductDetailPage() {
 
             {/* Availability */}
             <div className="flex items-center gap-4 flex-wrap">
-              {currentStock > 0 ? (
+              {availableStock > 0 ? (
                 <span className="flex items-center gap-1.5 text-sm">
                   <Check className="h-4 w-4 text-[hsl(var(--success))]" />
                   <span className="text-[hsl(var(--success))] font-medium">In Stock</span>
-                  {currentStock <= 5 && (
-                    <span className="text-destructive text-xs font-medium ml-1">— Only {currentStock} left!</span>
+                  {availableStock <= (product.low_stock_threshold || 5) && (
+                    <span className="text-destructive text-xs font-medium ml-1">— Only {availableStock} left!</span>
                   )}
                 </span>
               ) : (
