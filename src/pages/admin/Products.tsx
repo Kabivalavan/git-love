@@ -255,6 +255,7 @@ export default function AdminProducts() {
       cost_price: '',
       tax_rate: '',
       stock_quantity: '0',
+      image_url: '',
     }));
     setVariantForms([...variantForms, ...newVariants]);
   };
