@@ -340,6 +340,7 @@ export default function AdminProducts() {
             stock_quantity: parseInt(v.stock_quantity) || 0,
             is_active: true,
             sort_order: idx,
+            image_url: v.image_url || null,
           }));
         if (variantRecords.length > 0) {
           await supabase.from('product_variants').insert(variantRecords);
