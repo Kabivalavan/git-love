@@ -215,42 +215,148 @@ export default function ConversionOptimization() {
 
         {/* Overview */}
         <TabsContent value="overview">
+          {/* KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {[
-              { label: 'Exit Popups Shown', key: 'exit_popup_shown', icon: Gift },
-              { label: 'Exit Popup Clicks', key: 'exit_popup_clicked', icon: Zap },
-              { label: 'Upsell Clicks', key: 'upsell_clicked', icon: TrendingUp },
-              { label: 'Cross-Sell Clicks', key: 'cross_sell_clicked', icon: ShoppingBag },
-            ].map((metric) => (
-              <Card key={metric.key}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <metric.icon className="h-4 w-4 text-primary" />
-                    <span className="text-xs text-muted-foreground">{metric.label}</span>
-                  </div>
-                  <p className="text-2xl font-bold">{analytics?.[metric.key] || 0}</p>
-                  <p className="text-[10px] text-muted-foreground">Last 30 days</p>
-                </CardContent>
-              </Card>
-            ))}
+              { label: 'Exit Popups Shown', key: 'exit_popup_shown', icon: Eye, color: 'text-primary' },
+              { label: 'Exit Popup Clicks', key: 'exit_popup_clicked', icon: MousePointerClick, color: 'text-primary' },
+              { label: 'Upsell Clicks', key: 'upsell_clicked', icon: TrendingUp, color: 'text-primary' },
+              { label: 'Cross-Sell Clicks', key: 'cross_sell_clicked', icon: ShoppingBag, color: 'text-primary' },
+            ].map((metric) => {
+              const shownKey = metric.key.replace('_clicked', '_shown');
+              const shown = analytics?.counts?.[shownKey] || 0;
+              const clicked = analytics?.counts?.[metric.key] || 0;
+              const ctr = shown > 0 ? ((clicked / shown) * 100).toFixed(1) : '0';
+              return (
+                <Card key={metric.key}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <metric.icon className={`h-4 w-4 ${metric.color}`} />
+                      <span className="text-xs text-muted-foreground">{metric.label}</span>
+                    </div>
+                    <p className="text-2xl font-bold">{analytics?.counts?.[metric.key] || 0}</p>
+                    {metric.key.includes('clicked') && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        CTR: <span className="font-semibold text-foreground">{ctr}%</span> · {shown} impressions
+                      </p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground">Last 30 days</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
+
+          {/* Charts Row */}
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
+            {/* Bar Chart - Event Distribution */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Event Distribution</CardTitle>
+                <CardDescription className="text-xs">Impressions vs clicks across channels</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={[
+                      { name: 'Exit Popup', shown: analytics?.counts?.exit_popup_shown || 0, clicked: analytics?.counts?.exit_popup_clicked || 0 },
+                      { name: 'Upsell', shown: analytics?.counts?.upsell_shown || 0, clicked: analytics?.counts?.upsell_clicked || 0 },
+                      { name: 'Cross-Sell', shown: analytics?.counts?.cross_sell_shown || 0, clicked: analytics?.counts?.cross_sell_clicked || 0 },
+                    ]}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                      <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                      <Tooltip />
+                      <Bar dataKey="shown" fill="hsl(var(--muted-foreground))" name="Impressions" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="clicked" fill="hsl(var(--primary))" name="Clicks" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Pie Chart - Click Share */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Click Share by Channel</CardTitle>
+                <CardDescription className="text-xs">Where conversions come from</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[220px]">
+                  {(() => {
+                    const pieData = [
+                      { name: 'Exit Popup', value: analytics?.counts?.exit_popup_clicked || 0 },
+                      { name: 'Upsell', value: analytics?.counts?.upsell_clicked || 0 },
+                      { name: 'Cross-Sell', value: analytics?.counts?.cross_sell_clicked || 0 },
+                    ].filter(d => d.value > 0);
+                    const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent-foreground))', 'hsl(var(--muted-foreground))'];
+                    if (pieData.length === 0) return <p className="text-sm text-muted-foreground text-center pt-16">No click data yet</p>;
+                    return (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={pieData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                            {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    );
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Top Clicked Products */}
+          {topProducts.length > 0 && (
+            <Card className="mb-6">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2"><Zap className="h-4 w-4 text-primary" /> Top Converting Products</CardTitle>
+                <CardDescription className="text-xs">Most clicked products via upsell & cross-sell</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="divide-y divide-border">
+                  {topProducts.map((p) => {
+                    const img = p.images?.find((i: any) => i.is_primary)?.image_url || p.images?.[0]?.image_url;
+                    const clicks = analytics?.productClicks?.[p.id] || 0;
+                    return (
+                      <div key={p.id} className="flex items-center gap-3 py-2.5">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                          {img ? <img src={img} alt={p.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xs">📦</div>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{p.name}</p>
+                          <p className="text-xs text-muted-foreground">₹{Number(p.price).toFixed(0)}</p>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">{clicks} clicks</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Feature Status */}
           <Card>
             <CardHeader>
-              <CardTitle>Quick Status</CardTitle>
-              <CardDescription>Current feature activation status</CardDescription>
+              <CardTitle className="text-sm">Feature Status</CardTitle>
+              <CardDescription className="text-xs">Current activation status of all conversion tools</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { name: 'Exit Popup', enabled: settings.exit_popup.enabled },
-                  { name: 'Upsell', enabled: settings.upsell.enabled },
-                  { name: 'Cross-Sell', enabled: settings.cross_sell.enabled },
-                  { name: 'Cart Optimizer', enabled: settings.cart_optimizer.enabled },
+                  { name: 'Exit Popup', enabled: settings.exit_popup.enabled, icon: Gift },
+                  { name: 'Upsell', enabled: settings.upsell.enabled, icon: TrendingUp },
+                  { name: 'Cross-Sell', enabled: settings.cross_sell.enabled, icon: ShoppingBag },
+                  { name: 'Cart Optimizer', enabled: settings.cart_optimizer.enabled, icon: ShoppingCart },
                 ].map((f) => (
-                  <div key={f.name} className="flex items-center gap-2 p-3 border rounded-lg">
-                    <div className={`h-2.5 w-2.5 rounded-full ${f.enabled ? 'bg-[hsl(var(--success))]' : 'bg-muted'}`} />
-                    <span className="text-sm font-medium">{f.name}</span>
-                    <Badge variant={f.enabled ? 'default' : 'secondary'} className="ml-auto text-[10px]">
+                  <div key={f.name} className="flex items-center gap-2.5 p-3 border rounded-lg">
+                    <f.icon className={`h-4 w-4 ${f.enabled ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium">{f.name}</span>
+                    </div>
+                    <Badge variant={f.enabled ? 'default' : 'secondary'} className="text-[10px]">
                       {f.enabled ? 'ON' : 'OFF'}
                     </Badge>
                   </div>
