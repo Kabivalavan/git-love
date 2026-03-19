@@ -1138,6 +1138,7 @@ export type Database = {
           price: number | null
           product_id: string
           sku: string | null
+          sort_order: number | null
           stock_quantity: number | null
           updated_at: string | null
         }
@@ -1152,6 +1153,7 @@ export type Database = {
           price?: number | null
           product_id: string
           sku?: string | null
+          sort_order?: number | null
           stock_quantity?: number | null
           updated_at?: string | null
         }
@@ -1166,6 +1168,7 @@ export type Database = {
           price?: number | null
           product_id?: string
           sku?: string | null
+          sort_order?: number | null
           stock_quantity?: number | null
           updated_at?: string | null
         }
