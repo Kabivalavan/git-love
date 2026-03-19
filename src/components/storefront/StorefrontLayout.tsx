@@ -14,7 +14,7 @@ interface StorefrontLayoutProps {
 
 const mobileNavItems = [
   { icon: Home, label: 'Home', path: '/', fill: true },
-  { icon: LayoutGrid, label: 'Category', path: '/products', fill: false },
+  { icon: LayoutGrid, label: 'Category', path: '/category', fill: false },
   { icon: Heart, label: 'Wishlist', path: '/wishlist', fill: false },
   { icon: ShoppingCart, label: 'Cart', path: '/cart', fill: false },
   { icon: User, label: 'Profile', path: '/account', fill: false },
