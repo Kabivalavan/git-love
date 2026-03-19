@@ -1,0 +1,1 @@
+ALTER TABLE public.bundles ADD COLUMN images jsonb DEFAULT '[]'::jsonb;

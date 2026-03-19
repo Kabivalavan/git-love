@@ -49,6 +49,7 @@ interface Bundle {
   compare_price: number | null;
   is_active: boolean;
   image_url: string | null;
+  images: string[] | null;
   items: BundleItem[];
 }
 
@@ -107,13 +108,13 @@ export default function BundleDetailPage() {
     setIsLoading(false);
   };
 
-  // Collect all bundle images
+  // Only show bundle's own uploaded images, not product images
   const allImages: string[] = [];
-  if (bundle?.image_url) allImages.push(bundle.image_url);
-  bundle?.items?.forEach(item => {
-    const primary = item.product?.images?.find(i => i.is_primary)?.image_url || item.product?.images?.[0]?.image_url;
-    if (primary && !allImages.includes(primary)) allImages.push(primary);
-  });
+  if (bundle?.images && Array.isArray(bundle.images) && bundle.images.length > 0) {
+    bundle.images.forEach(img => { if (img && !allImages.includes(img)) allImages.push(img); });
+  } else if (bundle?.image_url) {
+    allImages.push(bundle.image_url);
+  }
 
   // Check if all required variant selections are made
   const allVariantsSelected = bundle?.items?.every(item => {
@@ -228,15 +229,39 @@ export default function BundleDetailPage() {
   if (isLoading) {
     return (
       <StorefrontLayout>
-        <div className="container mx-auto px-4 py-8 max-w-5xl">
-          <Skeleton className="h-6 w-48 mb-6" />
+        <div className="container mx-auto px-4 py-6 max-w-5xl">
+          {/* Breadcrumb shimmer */}
+          <Skeleton className="h-4 w-36 mb-6" />
           <div className="grid md:grid-cols-2 gap-8">
-            <Skeleton className="aspect-square rounded-xl" />
+            {/* Image gallery shimmer */}
+            <div className="space-y-3">
+              <Skeleton className="aspect-square rounded-xl" />
+              <div className="flex gap-2">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="w-14 h-14 rounded-md" />)}
+              </div>
+            </div>
+            {/* Info shimmer */}
             <div className="space-y-4">
+              <Skeleton className="h-6 w-24" />
               <Skeleton className="h-8 w-3/4" />
               <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-10 w-32" />
-              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-10 w-40" />
+              <Skeleton className="h-4 w-32" />
+              {/* Product items shimmer */}
+              <Skeleton className="h-5 w-48 mt-4" />
+              {[1, 2].map(i => (
+                <div key={i} className="border rounded-xl p-3 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="w-12 h-12 rounded-lg" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-9 w-full" />
+                </div>
+              ))}
+              <Skeleton className="h-14 w-full rounded-lg mt-4" />
             </div>
           </div>
         </div>

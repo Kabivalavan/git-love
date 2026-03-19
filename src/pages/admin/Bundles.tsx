@@ -31,6 +31,7 @@ interface Bundle {
   compare_price: number | null;
   is_active: boolean;
   image_url: string | null;
+  images: string[] | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -116,7 +117,7 @@ export default function AdminBundles() {
 
   const handleEdit = () => {
     if (!selectedBundle) return;
-    setFormData({ ...selectedBundle, imageUrls: selectedBundle.image_url ? [selectedBundle.image_url] : [] });
+    setFormData({ ...selectedBundle, imageUrls: (selectedBundle.images && Array.isArray(selectedBundle.images) && selectedBundle.images.length > 0) ? selectedBundle.images as string[] : selectedBundle.image_url ? [selectedBundle.image_url] : [] });
     setItemForms(
       selectedBundle.items?.map(i => ({
         product_id: i.product_id,
@@ -186,7 +187,8 @@ export default function AdminBundles() {
 
     setIsSaving(true);
     const slug = formData.slug || formData.name!.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    const primaryImage = formData.imageUrls?.[0] || null;
+    const imageUrls = formData.imageUrls || [];
+    const primaryImage = imageUrls[0] || null;
 
     const bundleData = {
       name: formData.name!,
@@ -196,6 +198,7 @@ export default function AdminBundles() {
       compare_price: formData.compare_price || null,
       is_active: formData.is_active ?? true,
       image_url: primaryImage,
+      images: imageUrls as any,
       sort_order: formData.sort_order ?? 0,
     };
 

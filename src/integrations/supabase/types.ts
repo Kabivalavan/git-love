@@ -362,6 +362,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          images: Json | null
           is_active: boolean | null
           name: string
           slug: string
@@ -375,6 +376,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          images?: Json | null
           is_active?: boolean | null
           name: string
           slug: string
@@ -388,6 +390,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          images?: Json | null
           is_active?: boolean | null
           name?: string
           slug?: string
