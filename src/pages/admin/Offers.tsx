@@ -65,6 +65,7 @@ interface VariantItem {
 }
 
 const OFFER_TYPES = [
+  { value: 'percentage', label: 'Percentage Off' },
   { value: 'flat', label: 'Flat Discount' },
 ];
 
@@ -408,7 +409,25 @@ export default function AdminOffers() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="value">Flat Discount Amount (₹) *</Label>
+                <Label htmlFor="type">Discount Type *</Label>
+                <Select
+                  value={formData.type || 'flat'}
+                  onValueChange={(value) => setFormData({ ...formData, type: value })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {OFFER_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="value">
+                  {formData.type === 'percentage' ? 'Percentage (%) *' : 'Flat Discount Amount (₹) *'}
+                </Label>
                 <Input
                   id="value"
                   type="number"
@@ -417,6 +436,19 @@ export default function AdminOffers() {
                   onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) })}
                 />
               </div>
+              {formData.type === 'percentage' && (
+                <div className="space-y-2">
+                  <Label htmlFor="max_discount_inline">Max Discount Cap (₹)</Label>
+                  <Input
+                    id="max_discount_inline"
+                    type="number"
+                    step="0.01"
+                    value={formData.max_discount || ''}
+                    onChange={(e) => setFormData({ ...formData, max_discount: parseFloat(e.target.value) })}
+                    placeholder="Optional"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Step 2: Apply Scope */}

@@ -34,16 +34,24 @@ export default function HomeMiddleBanners({ middleBanners }: Props) {
         <section className="container mx-auto px-4 py-8 md:py-12">
           <div className={`grid gap-4 md:gap-6 ${middleBanners.length === 1 ? 'grid-cols-1' : 'md:grid-cols-2'}`}>
             {middleBanners.map((banner) => (
-              <Card key={banner.id} className="overflow-hidden group cursor-pointer border-0 shadow-lg">
+              <Card key={banner.id} className="overflow-hidden group cursor-pointer border-0 shadow-lg bg-muted">
                 <CardContent className="p-0">
                   <Link to={banner.redirect_url || '/products'}>
-                    <div className="aspect-[2/1] overflow-hidden">
+                    <div className="aspect-[2/1] overflow-hidden flex items-center justify-center">
+                      <ResponsiveImage
+                        src={(banner as any).media_url_mobile || banner.media_url}
+                        alt={banner.title}
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 block md:hidden"
+                        widths={[320, 480, 640]}
+                        sizes="100vw"
+                        loading="lazy"
+                      />
                       <ResponsiveImage
                         src={banner.media_url}
                         alt={banner.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 hidden md:block"
                         widths={[480, 768, 1024, 1280]}
-                        sizes="(max-width: 768px) 100vw, 50vw"
+                        sizes="50vw"
                         loading="lazy"
                       />
                     </div>
