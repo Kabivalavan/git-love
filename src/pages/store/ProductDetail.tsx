@@ -659,11 +659,11 @@ export default function ProductDetailPage() {
                 <Minus className="h-3 w-3" />
               </Button>
               <span className="w-6 text-center text-sm font-medium">{quantity}</span>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => setQuantity(Math.min(currentStock, quantity + 1))} disabled={quantity >= currentStock}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => setQuantity(Math.min(availableStock, quantity + 1))} disabled={quantity >= availableStock}>
                 <Plus className="h-3 w-3" />
               </Button>
             </div>
-            <Button className="h-10 px-6 rounded-xl gap-2" onClick={handleAddToCart} disabled={currentStock <= 0 || isAddingToCart}>
+            <Button className="h-10 px-6 rounded-xl gap-2" onClick={handleAddToCart} disabled={availableStock <= 0 || isAddingToCart}>
               {isAddingToCart ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
               Add
             </Button>
