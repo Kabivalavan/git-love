@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, Truck, MapPin, Plus, Loader2 } from 'lucide-react';
+import { CreditCard, Truck, MapPin, Plus, Loader2, Clock } from 'lucide-react';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,34 @@ interface CartItemWithProduct extends CartItem {
 }
 
 const CHECKOUT_HOLD_WINDOW_MS = 2 * 60 * 1000;
+
+function CheckoutTimer({ expiresAt }: { expiresAt: number }) {
+  const [remaining, setRemaining] = useState(Math.max(0, expiresAt - Date.now()));
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRemaining(Math.max(0, expiresAt - Date.now()));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  const totalSec = Math.ceil(remaining / 1000);
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  const isLow = totalSec <= 30;
+
+  return (
+    <div className={cn(
+      "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-mono font-semibold border",
+      isLow
+        ? "bg-destructive/10 border-destructive/30 text-destructive animate-pulse"
+        : "bg-accent border-border text-foreground"
+    )}>
+      <Clock className="h-4 w-4" />
+      <span>{String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}</span>
+    </div>
+  );
+}
 
 export default function CheckoutPage() {
   const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
@@ -571,7 +600,10 @@ export default function CheckoutPage() {
   return (
     <StorefrontLayout>
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">Checkout</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">Checkout</h1>
+          {holdExpiresAt && !isPlacingOrder && <CheckoutTimer expiresAt={holdExpiresAt} />}
+        </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">

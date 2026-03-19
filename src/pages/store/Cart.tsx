@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Star, Truck, RefreshCw } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Star, Truck, RefreshCw, Tag, Copy, Check } from 'lucide-react';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,6 +90,35 @@ export default function CartPage() {
   };
 
   const removeCoupon = () => { setAppliedCoupon(null); setCouponCode(''); localStorage.removeItem('applied_coupon'); };
+
+  // Fetch coupons with show_on_cart enabled
+  const [cartCoupons, setCartCoupons] = useState<Coupon[]>([]);
+  const [copiedCouponId, setCopiedCouponId] = useState<string | null>(null);
+  useEffect(() => {
+    supabase
+      .from('coupons')
+      .select('*')
+      .eq('is_active', true)
+      .eq('show_on_cart', true)
+      .then(({ data }) => {
+        if (data) {
+          const now = new Date();
+          const valid = (data as unknown as Coupon[]).filter(c => {
+            if (c.start_date && new Date(c.start_date) > now) return false;
+            if (c.end_date && new Date(c.end_date) < now) return false;
+            if (c.usage_limit && (c.used_count ?? 0) >= c.usage_limit) return false;
+            return true;
+          });
+          setCartCoupons(valid);
+        }
+      });
+  }, []);
+
+  const handleCopyCoupon = (coupon: Coupon) => {
+    setCouponCode(coupon.code);
+    setCopiedCouponId(coupon.id);
+    setTimeout(() => setCopiedCouponId(null), 1500);
+  };
 
   const subtotal = cartItems.reduce((sum, item) => {
     const price = item.variant?.price || item.product.price;
@@ -346,6 +375,41 @@ export default function CartPage() {
                 <Link to="/products">Continue Shopping</Link>
               </Button>
             </div>
+
+            {/* Available Coupons */}
+            {cartCoupons.length > 0 && (
+              <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-primary" />
+                  Available Coupons
+                </h3>
+                <div className="space-y-2">
+                  {cartCoupons.map((coupon) => (
+                    <div key={coupon.id} className="flex items-center justify-between p-2.5 bg-accent/50 rounded-lg border border-dashed border-primary/30">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-sm text-primary">{coupon.code}</span>
+                          <Badge variant="secondary" className="text-[10px] rounded-full">
+                            {coupon.type === 'percentage' ? `${coupon.value}% OFF` : `₹${coupon.value} OFF`}
+                          </Badge>
+                        </div>
+                        {coupon.description && <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{coupon.description}</p>}
+                        {coupon.min_order_value && <p className="text-[10px] text-muted-foreground">Min. order ₹{coupon.min_order_value}</p>}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs flex-shrink-0"
+                        onClick={() => handleCopyCoupon(coupon)}
+                      >
+                        {copiedCouponId === coupon.id ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                        {copiedCouponId === coupon.id ? 'Copied' : 'Copy'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
