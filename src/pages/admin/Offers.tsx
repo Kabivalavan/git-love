@@ -251,7 +251,7 @@ export default function AdminOffers() {
     {
       key: 'auto_apply',
       header: 'Auto Apply',
-      render: (o) => o.auto_apply ? 'Yes' : 'No',
+      render: () => <Badge variant="outline" className="text-[10px]">Always</Badge>,
     },
     {
       key: 'is_active',
