@@ -136,8 +136,8 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
 
     return {
       offer: applicableOffer,
-      discountedPrice: Math.round(discountedPrice * 100) / 100,
-      discountAmount: Math.round(discountAmount * 100) / 100,
+      discountedPrice: Math.round(discountedPrice),
+      discountAmount: Math.round(discountAmount),
       discountLabel,
     };
   }, [offers]);
