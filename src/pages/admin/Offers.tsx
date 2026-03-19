@@ -102,6 +102,7 @@ type FormData = Partial<Offer> & {
   apply_scope?: 'all' | 'category' | 'product';
   selected_variant_ids?: string[];
   apply_all_variants?: boolean;
+  parent_category_id?: string | null;
 };
 
 export default function AdminOffers() {
@@ -198,6 +199,12 @@ export default function AdminOffers() {
     if (selectedOffer) {
       const scope = selectedOffer.product_id ? 'product' : selectedOffer.category_id ? 'category' : 'all';
       const hasVariantIds = selectedOffer.variant_ids && selectedOffer.variant_ids.length > 0;
+      // Determine parent_category_id: if category_id is a sub-category, find its parent
+      let parentCatId: string | null = null;
+      if (scope === 'category' && selectedOffer.category_id) {
+        const cat = allCategories.find(c => c.id === selectedOffer.category_id);
+        parentCatId = cat?.parent_id || selectedOffer.category_id;
+      }
       setFormData({
         ...selectedOffer,
         start_date_local: utcToISTLocal(selectedOffer.start_date),
@@ -205,6 +212,7 @@ export default function AdminOffers() {
         apply_scope: scope,
         apply_all_variants: !hasVariantIds,
         selected_variant_ids: hasVariantIds ? selectedOffer.variant_ids! : [],
+        parent_category_id: parentCatId,
       });
       setIsDetailOpen(false);
       setIsFormOpen(true);
@@ -360,8 +368,9 @@ export default function AdminOffers() {
     },
   ];
 
-  const subCategoriesForParent = formData.category_id
-    ? allCategories.filter(c => c.parent_id === formData.category_id)
+  const parentCatId = formData.parent_category_id || formData.category_id;
+  const subCategoriesForParent = parentCatId
+    ? allCategories.filter(c => c.parent_id === parentCatId)
     : [];
 
   return (
@@ -529,8 +538,11 @@ export default function AdminOffers() {
                 <div className="space-y-2">
                   <Label>Parent Category *</Label>
                   <Select
-                    value={formData.category_id || 'none'}
-                    onValueChange={(value) => setFormData({ ...formData, category_id: value === 'none' ? null : value, product_id: null })}
+                    value={formData.parent_category_id || formData.category_id || 'none'}
+                    onValueChange={(value) => {
+                      const pid = value === 'none' ? null : value;
+                      setFormData({ ...formData, parent_category_id: pid, category_id: pid, product_id: null });
+                    }}
                   >
                     <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                     <SelectContent>
@@ -545,9 +557,17 @@ export default function AdminOffers() {
                   <div className="space-y-2">
                     <Label>Sub-Category (optional)</Label>
                     <Select
-                      value={formData.category_id || 'none'}
+                      value={
+                        formData.category_id && formData.category_id !== formData.parent_category_id
+                          ? formData.category_id
+                          : 'none'
+                      }
                       onValueChange={(value) => {
-                        if (value !== 'none') setFormData({ ...formData, category_id: value });
+                        if (value === 'none') {
+                          setFormData({ ...formData, category_id: formData.parent_category_id || null });
+                        } else {
+                          setFormData({ ...formData, category_id: value });
+                        }
                       }}
                     >
                       <SelectTrigger><SelectValue placeholder="All in parent" /></SelectTrigger>
