@@ -72,15 +72,9 @@ export const ProductCard = React.memo(function ProductCard({
   const isOutOfStock = product.stock_quantity <= 0;
   const isLowStock = lowStockSettings?.show_low_stock_badge && product.stock_quantity > 0 && product.stock_quantity <= lowStockSettings.low_stock_threshold;
   const displayPrice = productOffer?.discountedPrice ?? product.price;
-  const originalPrice = productOffer ? product.price : product.mrp;
-  const hasDiscount = productOffer
-    ? productOffer.discountAmount > 0
-    : (product.mrp && product.mrp > product.price);
-  const discountLabel = productOffer?.discountLabel || (
-    product.mrp && product.mrp > product.price
-      ? `${Math.round(((product.mrp - product.price) / product.mrp) * 100)}% OFF`
-      : ''
-  );
+  const originalPrice = productOffer && productOffer.discountAmount > 0 ? product.price : null;
+  const hasDiscount = productOffer ? productOffer.discountAmount > 0 : false;
+  const discountLabel = productOffer?.discountLabel || '';
 
   const showTimer = productOffer?.offer?.end_date && (productOffer.offer as any).show_timer;
 
