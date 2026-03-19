@@ -1138,6 +1138,7 @@ export type Database = {
           cost_price: number | null
           created_at: string | null
           id: string
+          image_url: string | null
           in_hold: number
           is_active: boolean | null
           mrp: number | null
@@ -1155,6 +1156,7 @@ export type Database = {
           cost_price?: number | null
           created_at?: string | null
           id?: string
+          image_url?: string | null
           in_hold?: number
           is_active?: boolean | null
           mrp?: number | null
@@ -1172,6 +1174,7 @@ export type Database = {
           cost_price?: number | null
           created_at?: string | null
           id?: string
+          image_url?: string | null
           in_hold?: number
           is_active?: boolean | null
           mrp?: number | null

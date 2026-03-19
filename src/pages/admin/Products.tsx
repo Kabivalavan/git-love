@@ -52,6 +52,7 @@ interface VariantForm {
   cost_price: string;
   tax_rate: string;
   stock_quantity: string;
+  image_url: string;
 }
 
 export default function AdminProducts() {
@@ -169,6 +170,7 @@ export default function AdminProducts() {
       cost_price: (v as any).cost_price?.toString() || '',
       tax_rate: (v as any).tax_rate?.toString() || '',
       stock_quantity: v.stock_quantity?.toString() || '0',
+      image_url: (v as any).image_url || '',
     }));
     
     // Detect product type from variants
@@ -192,12 +194,12 @@ export default function AdminProducts() {
 
     setFormData({ ...selectedProduct, imageUrls, productType: detectedType, contentSections, variant_required: (selectedProduct as any).variant_required || false } as any);
     // Always ensure at least 1 variant
-    setVariantForms(existingVariants.length > 0 ? existingVariants : [{ name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0' }]);
+    setVariantForms(existingVariants.length > 0 ? existingVariants : [defaultVariant()]);
     setIsDetailOpen(false);
     setIsFormOpen(true);
   };
 
-  const defaultVariant = (): VariantForm => ({ name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0' });
+  const defaultVariant = (): VariantForm => ({ name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0', image_url: '' });
 
   const handleCreate = () => {
     setFormData({
@@ -253,6 +255,7 @@ export default function AdminProducts() {
       cost_price: '',
       tax_rate: '',
       stock_quantity: '0',
+      image_url: '',
     }));
     setVariantForms([...variantForms, ...newVariants]);
   };
@@ -338,6 +341,7 @@ export default function AdminProducts() {
             stock_quantity: parseInt(v.stock_quantity) || 0,
             is_active: true,
             sort_order: idx,
+            image_url: v.image_url || null,
           }));
         if (variantRecords.length > 0) {
           await supabase.from('product_variants').insert(variantRecords);
@@ -743,7 +747,7 @@ export default function AdminProducts() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setVariantForms([...variantForms, { name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0' }])}
+                    onClick={() => setVariantForms([...variantForms, { name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0', image_url: '' }])}
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Add Variant
@@ -872,6 +876,78 @@ export default function AdminProducts() {
                 </p>
                 <p className="text-xs text-muted-foreground">Automatically calculated from variant quantities</p>
               </div>
+
+              {/* Variant Images */}
+              {variantForms.filter(v => v.name.trim()).length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-semibold">Variant Images</Label>
+                      <p className="text-xs text-muted-foreground">Assign unique images per variant or use the same image for all</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const firstImg = formData.imageUrls?.[0] || '';
+                        if (!firstImg) return;
+                        setVariantForms(variantForms.map(v => ({ ...v, image_url: firstImg })));
+                      }}
+                      disabled={!formData.imageUrls?.length}
+                    >
+                      Use same image for all
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {variantForms.filter(v => v.name.trim()).map((variant, index) => (
+                      <div key={index} className="border rounded-xl p-3 space-y-2 bg-muted/20">
+                        <p className="text-xs font-semibold text-foreground">{variant.name}</p>
+                        {variant.image_url ? (
+                          <div className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                            <img src={variant.image_url} alt={variant.name} className="w-full h-full object-cover" />
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-1 right-1 h-6 w-6"
+                              onClick={() => {
+                                const updated = [...variantForms];
+                                updated[index].image_url = '';
+                                setVariantForms(updated);
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Select
+                            value=""
+                            onValueChange={(url) => {
+                              const updated = [...variantForms];
+                              updated[index].image_url = url;
+                              setVariantForms(updated);
+                            }}
+                          >
+                            <SelectTrigger className="h-9 text-xs">
+                              <SelectValue placeholder="Select from product images" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(formData.imageUrls || []).map((url, imgIdx) => (
+                                <SelectItem key={imgIdx} value={url}>
+                                  <div className="flex items-center gap-2">
+                                    <img src={url} alt="" className="w-6 h-6 rounded object-cover" />
+                                    <span>Image {imgIdx + 1}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="low_stock_threshold">Low Stock Alert Threshold</Label>
                 <Input

@@ -109,7 +109,12 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (variants.length > 0 && !selectedVariant) {
-      setSelectedVariant(variants[0]);
+      // Auto-select variant with offer if available, otherwise first variant
+      const variantWithOffer = variants.find(v => {
+        const offer = getProductOffer(product!, v.id);
+        return offer && offer.discountAmount > 0;
+      });
+      setSelectedVariant(variantWithOffer || variants[0]);
     }
   }, [variants]);
 
@@ -251,7 +256,7 @@ export default function ProductDetailPage() {
   const availableStock = computeAvailableStock();
   
   // Offer pricing - apply offer to the CURRENT variant/product price
-  const productOffer = getProductOffer(product);
+  const productOffer = getProductOffer(product, selectedVariant?.id);
   let offerPrice: number | null = null;
   let showOfferDiscount = false;
   let discount = 0;
@@ -281,9 +286,9 @@ export default function ProductDetailPage() {
   const contentSections: ContentSection[] = (product as any).content_sections || [];
   const hasMRP = product.mrp && product.mrp > currentPrice;
 
-  const priceWhole = Math.floor(displayPrice);
-  const priceDecimal = Math.round((displayPrice - priceWhole) * 100);
-  const showDecimal = priceDecimal > 0;
+  const roundedDisplayPrice = Math.round(displayPrice);
+  const priceWhole = roundedDisplayPrice;
+  const showDecimal = false;
 
   const productJsonLd = {
     '@type': 'Product', name: product.name, description: product.description || product.short_description || '',
@@ -399,7 +404,7 @@ export default function ProductDetailPage() {
             <div className="bg-muted/50 rounded-2xl p-4">
               <div className="flex items-baseline gap-3 flex-wrap">
                 <span className="text-3xl md:text-4xl font-bold text-foreground">
-                  ₹{priceWhole}{showDecimal && <span className="text-lg align-super font-semibold">.{String(priceDecimal).padStart(2, '0')}</span>}
+                  ₹{priceWhole}
                 </span>
                 {hasMRP && (
                   <span className="text-lg text-muted-foreground line-through">MRP ₹{Number(product.mrp).toFixed(0)}</span>
