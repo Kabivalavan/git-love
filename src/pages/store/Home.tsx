@@ -170,7 +170,7 @@ export default function HomePage() {
             {categories.filter(c => !c.parent_id).map((category) => (
               <Link
                 key={category.id}
-                to={`/products?category=${category.slug}`}
+                to={`/category/${category.slug}`}
                 className="group flex items-center gap-3 p-3 bg-card rounded-2xl border border-border hover:shadow-md transition-all"
               >
                 <div className="flex-1 min-w-0">
