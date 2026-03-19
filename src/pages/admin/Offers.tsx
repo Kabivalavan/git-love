@@ -199,6 +199,12 @@ export default function AdminOffers() {
     if (selectedOffer) {
       const scope = selectedOffer.product_id ? 'product' : selectedOffer.category_id ? 'category' : 'all';
       const hasVariantIds = selectedOffer.variant_ids && selectedOffer.variant_ids.length > 0;
+      // Determine parent_category_id: if category_id is a sub-category, find its parent
+      let parentCatId: string | null = null;
+      if (scope === 'category' && selectedOffer.category_id) {
+        const cat = allCategories.find(c => c.id === selectedOffer.category_id);
+        parentCatId = cat?.parent_id || selectedOffer.category_id;
+      }
       setFormData({
         ...selectedOffer,
         start_date_local: utcToISTLocal(selectedOffer.start_date),
@@ -206,6 +212,7 @@ export default function AdminOffers() {
         apply_scope: scope,
         apply_all_variants: !hasVariantIds,
         selected_variant_ids: hasVariantIds ? selectedOffer.variant_ids! : [],
+        parent_category_id: parentCatId,
       });
       setIsDetailOpen(false);
       setIsFormOpen(true);
