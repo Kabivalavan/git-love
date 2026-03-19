@@ -57,6 +57,22 @@ function detectSurface() {
   return { surface: 'home', slug: null };
 }
 
+function fireWidgetEvent(
+  apiBase: string,
+  siteId: string,
+  eventType: string,
+  sessionId: string | null,
+  payload: Record<string, any> = {}
+) {
+  if (!apiBase || !siteId) return;
+  fetch(`${apiBase}/widget-event`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-site-id': siteId },
+    body: JSON.stringify({ eventType, sessionId, payload }),
+  }).catch(() => {});
+}
+}
+
 export function AIAssistantWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<MessageType[]>([]);
