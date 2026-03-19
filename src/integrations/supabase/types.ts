@@ -835,6 +835,7 @@ export type Database = {
           type: Database["public"]["Enums"]["offer_type"]
           updated_at: string | null
           value: number
+          variant_ids: Json | null
         }
         Insert: {
           auto_apply?: boolean | null
@@ -855,6 +856,7 @@ export type Database = {
           type: Database["public"]["Enums"]["offer_type"]
           updated_at?: string | null
           value: number
+          variant_ids?: Json | null
         }
         Update: {
           auto_apply?: boolean | null
@@ -875,6 +877,7 @@ export type Database = {
           type?: Database["public"]["Enums"]["offer_type"]
           updated_at?: string | null
           value?: number
+          variant_ids?: Json | null
         }
         Relationships: [
           {
@@ -1132,6 +1135,7 @@ export type Database = {
       product_variants: {
         Row: {
           attributes: Json | null
+          cost_price: number | null
           created_at: string | null
           id: string
           in_hold: number
@@ -1143,10 +1147,12 @@ export type Database = {
           sku: string | null
           sort_order: number | null
           stock_quantity: number | null
+          tax_rate: number | null
           updated_at: string | null
         }
         Insert: {
           attributes?: Json | null
+          cost_price?: number | null
           created_at?: string | null
           id?: string
           in_hold?: number
@@ -1158,10 +1164,12 @@ export type Database = {
           sku?: string | null
           sort_order?: number | null
           stock_quantity?: number | null
+          tax_rate?: number | null
           updated_at?: string | null
         }
         Update: {
           attributes?: Json | null
+          cost_price?: number | null
           created_at?: string | null
           id?: string
           in_hold?: number
@@ -1173,6 +1181,7 @@ export type Database = {
           sku?: string | null
           sort_order?: number | null
           stock_quantity?: number | null
+          tax_rate?: number | null
           updated_at?: string | null
         }
         Relationships: [
