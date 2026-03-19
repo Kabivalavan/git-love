@@ -170,6 +170,7 @@ export default function AdminProducts() {
       cost_price: (v as any).cost_price?.toString() || '',
       tax_rate: (v as any).tax_rate?.toString() || '',
       stock_quantity: v.stock_quantity?.toString() || '0',
+      image_url: (v as any).image_url || '',
     }));
     
     // Detect product type from variants
