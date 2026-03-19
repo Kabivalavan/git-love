@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CreditCard, Truck, MapPin, Plus, Loader2, Clock } from 'lucide-react';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
