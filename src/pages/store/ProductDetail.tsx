@@ -515,11 +515,11 @@ export default function ProductDetailPage() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Button className="flex-1 h-12 text-base rounded-xl gap-2" onClick={handleAddToCart} disabled={currentStock <= 0 || isAddingToCart}>
+                <Button className="flex-1 h-12 text-base rounded-xl gap-2" onClick={handleAddToCart} disabled={availableStock <= 0 || isAddingToCart}>
                   {isAddingToCart ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShoppingCart className="h-5 w-5" />}
                   Add to Cart
                 </Button>
-                <Button ref={buyNowRef} variant="secondary" className="flex-1 h-12 text-base rounded-xl border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground" onClick={handleBuyNow} disabled={currentStock <= 0 || isAddingToCart}>
+                <Button ref={buyNowRef} variant="secondary" className="flex-1 h-12 text-base rounded-xl border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground" onClick={handleBuyNow} disabled={availableStock <= 0 || isAddingToCart}>
                   Buy Now
                 </Button>
               </div>
