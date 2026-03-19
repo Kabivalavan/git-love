@@ -410,7 +410,11 @@ export default function AdminOffers() {
               {selectedOffer.variant_ids && selectedOffer.variant_ids.length > 0 && (
                 <DetailField
                   label="Specific Variants"
-                  value={selectedOffer.variant_ids.map(id => detailVariantNames[id] || id).join(', ')}
+                  value={
+                    Object.keys(detailVariantNames).length > 0
+                      ? selectedOffer.variant_ids.map(id => detailVariantNames[id] || 'Unknown').join(', ')
+                      : 'Loading...'
+                  }
                 />
               )}
               {selectedOffer.product_id && (!selectedOffer.variant_ids || selectedOffer.variant_ids.length === 0) && (

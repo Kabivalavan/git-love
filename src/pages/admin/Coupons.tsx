@@ -53,15 +53,19 @@ const COUPON_TYPES = [
 function utcToISTLocal(utcStr: string | null): string {
   if (!utcStr) return '';
   const d = new Date(utcStr);
-  const ist = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
-  return ist.toISOString().slice(0, 16);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d);
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
 }
 
 function istLocalToUTC(localStr: string): string {
   if (!localStr) return '';
-  const d = new Date(localStr);
-  const utc = new Date(d.getTime() - (5.5 * 60 * 60 * 1000));
-  return utc.toISOString();
+  const d = new Date(localStr + ':00+05:30');
+  return d.toISOString();
 }
 
 function formatIST(utcStr: string | null): string {
