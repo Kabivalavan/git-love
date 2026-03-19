@@ -234,7 +234,7 @@ export const ProductCard = React.memo(function ProductCard({
         {/* Price */}
         <div className="flex items-baseline gap-1.5 mt-2">
           <span className={cn("font-bold text-foreground", variant === 'compact' ? "text-sm" : "text-base")}>
-            ₹{priceWhole}<span className="text-[10px] align-super font-semibold">.{String(priceDecimal).padStart(2, '0')}</span>
+            ₹{priceWhole}{showDecimal && <span className="text-[10px] align-super font-semibold">.{String(priceDecimal).padStart(2, '0')}</span>}
           </span>
           {hasDiscount && originalPrice && (
             <span className="text-[11px] text-muted-foreground line-through">₹{Number(originalPrice).toFixed(0)}</span>

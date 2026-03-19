@@ -109,6 +109,7 @@ const AppRoutes = () => (
         {/* Public Storefront */}
         <Route path="/" element={<HomePage />} />
         <Route path="/category" element={<Suspense fallback={<RouteLoadingFallback />}><CategoriesPage /></Suspense>} />
+        <Route path="/category/:slug" element={<Suspense fallback={<RouteLoadingFallback />}><ProductsPage /></Suspense>} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/product/:slug" element={<ProductDetailPage />} />
         <Route path="/cart" element={<CartPage />} />
