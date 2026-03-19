@@ -110,10 +110,21 @@ export function useCartMutations() {
         await supabase.from('cart_items').update({ quantity }).eq('id', itemId);
       }
     },
-    onSuccess: invalidateCart,
-    onError: () => {
+    onMutate: async ({ itemId, quantity }) => {
+      await queryClient.cancelQueries({ queryKey: CART_QUERY_KEY });
+      const previous = queryClient.getQueryData<CartItemWithProduct[]>(CART_QUERY_KEY);
+      queryClient.setQueryData<CartItemWithProduct[]>(CART_QUERY_KEY, (old) => {
+        if (!old) return old;
+        if (quantity <= 0) return old.filter(i => i.id !== itemId);
+        return old.map(i => i.id === itemId ? { ...i, quantity } : i);
+      });
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(CART_QUERY_KEY, context.previous);
       toast({ title: 'Error', description: 'Failed to update cart', variant: 'destructive' });
     },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY }),
   });
 
   const removeItem = useMutation({
