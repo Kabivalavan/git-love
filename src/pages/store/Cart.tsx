@@ -269,7 +269,7 @@ export default function CartPage() {
                       <div className="flex items-center justify-between mt-2">
                         {/* Price */}
                         <div className="font-bold text-lg">
-                          ₹{Number(effectivePrice * item.quantity).toFixed(0)}
+                          ₹{Math.round(effectivePrice * item.quantity)}
                           {itemOffer && itemOffer.discountAmount > 0 && (
                             <Badge variant="destructive" className="ml-2 text-[10px] rounded-full">{itemOffer.discountLabel}</Badge>
                           )}
