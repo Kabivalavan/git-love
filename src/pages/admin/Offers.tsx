@@ -48,6 +48,25 @@ const OFFER_TYPES = [
   { value: 'flat', label: 'Flat Discount' },
 ];
 
+function utcToISTLocal(utcStr: string | null): string {
+  if (!utcStr) return '';
+  const d = new Date(utcStr);
+  const ist = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+  return ist.toISOString().slice(0, 16);
+}
+
+function istLocalToUTC(localStr: string): string {
+  if (!localStr) return '';
+  const d = new Date(localStr);
+  const utc = new Date(d.getTime() - (5.5 * 60 * 60 * 1000));
+  return utc.toISOString();
+}
+
+function formatIST(utcStr: string | null): string {
+  if (!utcStr) return 'Not set';
+  return new Date(utcStr).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+}
+
 export default function AdminOffers() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
