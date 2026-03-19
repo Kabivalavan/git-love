@@ -328,13 +328,16 @@ export default function AdminOffers() {
   const [detailVariantNames, setDetailVariantNames] = useState<Record<string, string>>({});
   useEffect(() => {
     if (selectedOffer?.variant_ids && selectedOffer.variant_ids.length > 0 && selectedOffer.product_id) {
+      setDetailVariantNames({}); // reset while loading
       supabase.from('product_variants').select('id, name').eq('product_id', selectedOffer.product_id).then(({ data }) => {
         const map: Record<string, string> = {};
         (data || []).forEach((v: any) => { map[v.id] = v.name; });
         setDetailVariantNames(map);
       });
+    } else {
+      setDetailVariantNames({});
     }
-  }, [selectedOffer?.id]);
+  }, [selectedOffer?.id, selectedOffer?.product_id]);
 
   const columns: Column<Offer>[] = [
     { key: 'name', header: 'Name' },
