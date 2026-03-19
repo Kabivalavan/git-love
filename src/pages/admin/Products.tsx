@@ -55,7 +55,7 @@ interface VariantForm {
 }
 
 export default function AdminProducts() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<(Product & { processing_qty?: number })[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -84,9 +84,37 @@ export default function AdminProducts() {
 
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      setProducts((data || []) as unknown as Product[]);
+      setIsLoading(false);
+      return;
     }
+
+    const productsList = (data || []) as unknown as Product[];
+
+    // Fetch processing quantities (items in orders with status new/confirmed/packed)
+
+    // Fallback: query orders separately then match
+    const { data: processingOrders } = await supabase
+      .from('orders')
+      .select('id')
+      .in('status', ['new', 'confirmed', 'packed']);
+
+    let processingMap: Record<string, number> = {};
+    if (processingOrders && processingOrders.length > 0) {
+      const orderIds = processingOrders.map(o => o.id);
+      const { data: items } = await supabase
+        .from('order_items')
+        .select('product_id, quantity')
+        .in('order_id', orderIds);
+      if (items) {
+        items.forEach((item: any) => {
+          if (item.product_id) {
+            processingMap[item.product_id] = (processingMap[item.product_id] || 0) + item.quantity;
+          }
+        });
+      }
+    }
+
+    setProducts(productsList.map(p => ({ ...p, processing_qty: processingMap[p.id] || 0 })));
     setIsLoading(false);
   };
 
@@ -277,7 +305,7 @@ export default function AdminProducts() {
       if (variantForms.length > 0) {
         const variantRecords = variantForms
           .filter(v => v.name.trim())
-          .map(v => ({
+          .map((v, idx) => ({
             product_id: productId,
             name: v.name,
             sku: v.sku || null,
@@ -285,6 +313,7 @@ export default function AdminProducts() {
             mrp: null,
             stock_quantity: parseInt(v.stock_quantity) || 0,
             is_active: true,
+            sort_order: idx,
           }));
         if (variantRecords.length > 0) {
           await supabase.from('product_variants').insert(variantRecords);
@@ -362,6 +391,18 @@ export default function AdminProducts() {
         return (
           <Badge variant={inHold > 0 ? 'outline' : 'secondary'} className={inHold > 0 ? 'border-amber-500 text-amber-700 dark:text-amber-400' : ''}>
             {inHold}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: 'processing_qty' as any,
+      header: 'Processing',
+      render: (p: any) => {
+        const qty = p.processing_qty || 0;
+        return (
+          <Badge variant={qty > 0 ? 'outline' : 'secondary'} className={qty > 0 ? 'border-blue-500 text-blue-700 dark:text-blue-400' : ''}>
+            {qty}
           </Badge>
         );
       },

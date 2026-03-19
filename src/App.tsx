@@ -51,6 +51,7 @@ const ContactUsPage = lazy(() => import('./pages/store/ContactUs'));
 const FAQPage = lazy(() => import('./pages/store/FAQ'));
 const WishlistPage = lazy(() => import('./pages/store/Wishlist'));
 const BundleDetailPage = lazy(() => import('./pages/store/BundleDetail'));
+const CategoriesPage = lazy(() => import('./pages/store/Categories'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,6 +89,7 @@ const AppRoutes = () => (
       <Routes>
         {/* Public Storefront */}
         <Route path="/" element={<HomePage />} />
+        <Route path="/category" element={<Suspense fallback={<RouteLoadingFallback />}><CategoriesPage /></Suspense>} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/product/:slug" element={<ProductDetailPage />} />
         <Route path="/cart" element={<CartPage />} />

@@ -238,7 +238,9 @@ export default function ProductDetailPage() {
   const images = product.images || [];
   const currentImage = images[currentImageIndex]?.image_url || '/placeholder.svg';
   const currentPrice = selectedVariant?.price || product.price;
-  const currentStock = selectedVariant?.stock_quantity ?? product.stock_quantity;
+  const inHold = selectedVariant ? ((selectedVariant as any).in_hold || 0) : ((product as any).in_hold || 0);
+  const currentStock = (selectedVariant?.stock_quantity ?? product.stock_quantity) - inHold;
+  const availableStock = Math.max(0, currentStock);
   const productOffer = getProductOffer(product);
   const offerPrice = productOffer?.discountedPrice;
   const displayPrice = offerPrice ?? currentPrice;
@@ -255,11 +257,12 @@ export default function ProductDetailPage() {
 
   const priceWhole = Math.floor(displayPrice);
   const priceDecimal = Math.round((displayPrice - priceWhole) * 100);
+  const showDecimal = priceDecimal > 0;
 
   const productJsonLd = {
     '@type': 'Product', name: product.name, description: product.description || product.short_description || '',
     image: images.map(i => i.image_url), sku: product.sku || undefined,
-    offers: { '@type': 'Offer', price: currentPrice, priceCurrency: 'INR', availability: currentStock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' },
+    offers: { '@type': 'Offer', price: currentPrice, priceCurrency: 'INR', availability: availableStock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' },
     ...(reviews.length > 0 && { aggregateRating: { '@type': 'AggregateRating', ratingValue: avgRating.toFixed(1), reviewCount: reviews.length } }),
   };
 
@@ -370,7 +373,7 @@ export default function ProductDetailPage() {
             <div className="bg-muted/50 rounded-2xl p-4">
               <div className="flex items-baseline gap-3 flex-wrap">
                 <span className="text-3xl md:text-4xl font-bold text-foreground">
-                  ₹{priceWhole}<span className="text-lg align-super font-semibold">.{String(priceDecimal).padStart(2, '0')}</span>
+                  ₹{priceWhole}{showDecimal && <span className="text-lg align-super font-semibold">.{String(priceDecimal).padStart(2, '0')}</span>}
                 </span>
                 {hasMRP && (
                   <span className="text-lg text-muted-foreground line-through">MRP ₹{Number(product.mrp).toFixed(0)}</span>
@@ -387,12 +390,12 @@ export default function ProductDetailPage() {
 
             {/* Availability */}
             <div className="flex items-center gap-4 flex-wrap">
-              {currentStock > 0 ? (
+              {availableStock > 0 ? (
                 <span className="flex items-center gap-1.5 text-sm">
                   <Check className="h-4 w-4 text-[hsl(var(--success))]" />
                   <span className="text-[hsl(var(--success))] font-medium">In Stock</span>
-                  {currentStock <= 5 && (
-                    <span className="text-destructive text-xs font-medium ml-1">— Only {currentStock} left!</span>
+                  {availableStock <= (product.low_stock_threshold || 5) && (
+                    <span className="text-destructive text-xs font-medium ml-1">— Only {availableStock} left!</span>
                   )}
                 </span>
               ) : (
