@@ -375,6 +375,41 @@ export default function CartPage() {
                 <Link to="/products">Continue Shopping</Link>
               </Button>
             </div>
+
+            {/* Available Coupons */}
+            {cartCoupons.length > 0 && (
+              <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-primary" />
+                  Available Coupons
+                </h3>
+                <div className="space-y-2">
+                  {cartCoupons.map((coupon) => (
+                    <div key={coupon.id} className="flex items-center justify-between p-2.5 bg-accent/50 rounded-lg border border-dashed border-primary/30">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-sm text-primary">{coupon.code}</span>
+                          <Badge variant="secondary" className="text-[10px] rounded-full">
+                            {coupon.type === 'percentage' ? `${coupon.value}% OFF` : `₹${coupon.value} OFF`}
+                          </Badge>
+                        </div>
+                        {coupon.description && <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{coupon.description}</p>}
+                        {coupon.min_order_value && <p className="text-[10px] text-muted-foreground">Min. order ₹{coupon.min_order_value}</p>}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs flex-shrink-0"
+                        onClick={() => handleCopyCoupon(coupon)}
+                      >
+                        {copiedCouponId === coupon.id ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                        {copiedCouponId === coupon.id ? 'Copied' : 'Copy'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
