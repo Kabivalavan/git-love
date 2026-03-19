@@ -264,6 +264,12 @@ export function AIAssistantWidget() {
           completed_at: new Date().toISOString(),
         });
 
+        // Track recommendation_viewed on external API
+        fireWidgetEvent(config!.api_base, config!.site_id, 'recommendation_viewed', data.sessionId || null, {
+          count: recs.length,
+          productIds: recs.map((r: any) => r.externalId || r.name).filter(Boolean),
+        });
+
         setTimeout(() => {
           setMessages(prev => [
             ...prev.filter(m => m.type !== 'thinking'),
