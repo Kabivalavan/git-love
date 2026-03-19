@@ -131,10 +131,19 @@ export function useCartMutations() {
     mutationFn: async (itemId: string) => {
       await supabase.from('cart_items').delete().eq('id', itemId);
     },
-    onSuccess: invalidateCart,
-    onError: () => {
+    onMutate: async (itemId) => {
+      await queryClient.cancelQueries({ queryKey: CART_QUERY_KEY });
+      const previous = queryClient.getQueryData<CartItemWithProduct[]>(CART_QUERY_KEY);
+      queryClient.setQueryData<CartItemWithProduct[]>(CART_QUERY_KEY, (old) =>
+        old?.filter(i => i.id !== itemId)
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(CART_QUERY_KEY, context.previous);
       toast({ title: 'Error', description: 'Failed to remove item', variant: 'destructive' });
     },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY }),
   });
 
   const clearCart = useMutation({
