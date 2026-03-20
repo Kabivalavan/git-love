@@ -88,7 +88,7 @@ export default function HomePage() {
         <HeroBannerShimmer />
       ) : banners.length > 0 ? (
         <section className="relative">
-          <div className="relative overflow-hidden aspect-[2/1] sm:aspect-[2.5/1] lg:aspect-[3/1]">
+          <div className="relative overflow-hidden aspect-[16/7] sm:aspect-[2.5/1] lg:aspect-[3/1] bg-muted">
             {banners.map((banner, index) => {
               const isFirst = index === 0;
               return (
