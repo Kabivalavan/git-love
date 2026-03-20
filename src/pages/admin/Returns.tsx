@@ -226,6 +226,231 @@ export default function AdminReturns() {
     return acc;
   }, {} as Record<string, number>);
 
+  // Detail view
+  if (selectedReturn && isDetailOpen) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-between mb-4">
+          <Button variant="ghost" size="sm" onClick={() => { setIsDetailOpen(false); setSelectedReturn(null); }}>
+            <X className="h-4 w-4 mr-1" /> Back to Returns
+          </Button>
+          <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColors[selectedReturn.status]}`}>
+            {selectedReturn.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+          </span>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 space-y-4">
+            {/* Return Items */}
+            <Card>
+              <CardContent className="p-4">
+                <Label className="text-sm font-semibold">Return Items</Label>
+                <div className="space-y-2 mt-2">
+                  {(selectedReturn.items || []).map(item => (
+                    <div key={item.id} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm">{item.product_name}</p>
+                        {item.variant_name && <p className="text-xs text-muted-foreground">{item.variant_name}</p>}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm">Qty: {item.quantity}</p>
+                        <p className="text-xs font-medium">₹{(item.price * item.quantity).toFixed(0)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between pt-3 border-t mt-3">
+                  <span className="font-semibold text-sm">Total Refund</span>
+                  <span className="font-bold">₹{(selectedReturn.items || []).reduce((s, i) => s + i.price * i.quantity, 0).toFixed(0)}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Reason */}
+            <Card>
+              <CardContent className="p-4">
+                <Label className="text-sm font-semibold">Return Reason</Label>
+                <p className="text-sm mt-1">{selectedReturn.reason}</p>
+                {selectedReturn.reason_details && <p className="text-xs text-muted-foreground mt-1">{selectedReturn.reason_details}</p>}
+              </CardContent>
+            </Card>
+
+            {/* Images */}
+            {selectedReturn.images && selectedReturn.images.length > 0 && (
+              <Card>
+                <CardContent className="p-4">
+                  <Label className="text-sm font-semibold">Proof Images</Label>
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {selectedReturn.images.map((img, i) => (
+                      <img
+                        key={i}
+                        src={img}
+                        alt={`Proof ${i + 1}`}
+                        className="w-full aspect-square object-cover rounded-lg cursor-pointer border"
+                        onClick={() => setImagePreview(img)}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Refund Info */}
+            {selectedReturn.refund && (
+              <Card>
+                <CardContent className="p-4 bg-green-50 dark:bg-green-950/20">
+                  <Label className="text-sm font-semibold">Refund Details</Label>
+                  <p className="text-sm font-medium mt-1">{selectedReturn.refund.refund_number} — ₹{Number(selectedReturn.refund.amount).toFixed(0)}</p>
+                  <p className="text-xs text-muted-foreground">Mode: {selectedReturn.refund.mode} | Status: {selectedReturn.refund.status}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Admin Notes */}
+            <Card>
+              <CardContent className="p-4 space-y-3">
+                <Label className="text-sm font-semibold">Admin Notes</Label>
+                <Textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)} placeholder="Internal notes..." rows={2} />
+              </CardContent>
+            </Card>
+
+            {/* Actions */}
+            {selectedReturn.status === 'requested' && (
+              <Card>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex gap-2">
+                    <Button className="flex-1" onClick={() => updateStatus('approved')} disabled={isProcessing}>
+                      <Check className="h-4 w-4 mr-1" /> Approve
+                    </Button>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Reject Reason</Label>
+                    <Textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Reason for rejection..." rows={2} />
+                    <Button variant="destructive" size="sm" className="mt-2" onClick={() => updateStatus('rejected', { reject_reason: rejectReason })} disabled={isProcessing || !rejectReason}>
+                      <X className="h-4 w-4 mr-1" /> Reject
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {selectedReturn.status === 'approved' && (
+              <Card>
+                <CardContent className="p-4 space-y-3">
+                  <Label className="text-sm font-semibold">Pickup Details</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input placeholder="Partner name" value={pickupPartner} onChange={e => setPickupPartner(e.target.value)} />
+                    <Input placeholder="Tracking number" value={pickupTracking} onChange={e => setPickupTracking(e.target.value)} />
+                  </div>
+                  <Button onClick={() => updateStatus('in_transit', { pickup_partner: pickupPartner, pickup_tracking: pickupTracking })} disabled={isProcessing}>
+                    <Truck className="h-4 w-4 mr-1" /> Mark In Transit
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {selectedReturn.status === 'in_transit' && (
+              <Card>
+                <CardContent className="p-4">
+                  <Button onClick={() => updateStatus('received')} disabled={isProcessing}>
+                    <Package className="h-4 w-4 mr-1" /> Mark Received
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {selectedReturn.status === 'received' && (
+              <Card>
+                <CardContent className="p-4 space-y-3">
+                  <Label className="text-sm font-semibold">Item Condition</Label>
+                  <Select value={itemCondition} onValueChange={setItemCondition}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="good">Good — Restock</SelectItem>
+                      <SelectItem value="damaged">Damaged — Do not restock</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={processRefund} disabled={isProcessing}>
+                    {isProcessing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <DollarSign className="h-4 w-4 mr-1" />}
+                    Process Refund
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {selectedReturn.status === 'refunded' && (
+              <Card>
+                <CardContent className="p-4">
+                  <Button onClick={() => updateStatus('completed')} disabled={isProcessing}>
+                    <Check className="h-4 w-4 mr-1" /> Mark Completed
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-4 space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Return #</span><span className="font-medium">{selectedReturn.return_number}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Order #</span><span className="font-medium">{selectedReturn.order?.order_number || '—'}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span>{format(new Date(selectedReturn.created_at), 'dd MMM yyyy')}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Order Total</span><span>₹{Number(selectedReturn.order?.total || 0).toFixed(0)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Payment</span><span>{selectedReturn.order?.payment_method || '—'}</span></div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4 space-y-1">
+                <Label className="text-xs text-muted-foreground">Customer</Label>
+                <p className="text-sm font-medium">{selectedReturn.profile?.full_name || 'Unknown'}</p>
+                <p className="text-xs text-muted-foreground">{selectedReturn.profile?.email}</p>
+                <p className="text-xs text-muted-foreground">{selectedReturn.profile?.mobile_number}</p>
+              </CardContent>
+            </Card>
+
+            {/* Status Timeline */}
+            <Card>
+              <CardContent className="p-4">
+                <Label className="text-xs text-muted-foreground mb-2 block">Status Flow</Label>
+                <div className="space-y-2">
+                  {(['requested', 'approved', 'in_transit', 'received', 'refunded', 'completed'] as ReturnStatus[]).map((s, i) => {
+                    const statusIdx = ['requested', 'approved', 'in_transit', 'received', 'refunded', 'completed'].indexOf(selectedReturn.status);
+                    const isActive = i <= statusIdx;
+                    const isRejected = selectedReturn.status === 'rejected';
+                    return (
+                      <div key={s} className="flex items-center gap-2">
+                        <div className={`h-3 w-3 rounded-full flex-shrink-0 ${isRejected ? 'bg-muted' : isActive ? 'bg-green-500' : 'bg-muted'}`} />
+                        <span className={`text-xs ${isActive && !isRejected ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                          {s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {selectedReturn.status === 'rejected' && (
+                    <div className="flex items-center gap-2">
+                      <div className="h-3 w-3 rounded-full flex-shrink-0 bg-red-500" />
+                      <span className="text-xs font-medium text-destructive">Rejected</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Image Preview */}
+        <Dialog open={!!imagePreview} onOpenChange={() => setImagePreview(null)}>
+          <DialogContent className="max-w-lg p-2">
+            {imagePreview && <img src={imagePreview} alt="Proof" className="w-full rounded-lg" />}
+          </DialogContent>
+        </Dialog>
+      </AdminLayout>
+    );
+  }
+
+  // Grid view
   return (
     <AdminLayout>
       <div className="space-y-4">
@@ -303,168 +528,6 @@ export default function AdminReturns() {
           </div>
         )}
       </div>
-
-      {/* Detail Dialog */}
-      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          {selectedReturn && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  Return {selectedReturn.return_number}
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[selectedReturn.status]}`}>
-                    {selectedReturn.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                  </span>
-                </DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Customer</Label>
-                    <p className="text-sm font-medium">{selectedReturn.profile?.full_name || 'Unknown'}</p>
-                    <p className="text-xs text-muted-foreground">{selectedReturn.profile?.email}</p>
-                    <p className="text-xs text-muted-foreground">{selectedReturn.profile?.mobile_number}</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Order</Label>
-                    <p className="text-sm font-medium">{selectedReturn.order?.order_number}</p>
-                    <p className="text-xs text-muted-foreground">Total: ₹{Number(selectedReturn.order?.total || 0).toFixed(0)}</p>
-                    <p className="text-xs text-muted-foreground">Payment: {selectedReturn.order?.payment_method || '—'}</p>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <Label className="text-xs text-muted-foreground">Return Reason</Label>
-                  <p className="text-sm font-medium">{selectedReturn.reason}</p>
-                  {selectedReturn.reason_details && <p className="text-xs text-muted-foreground mt-1">{selectedReturn.reason_details}</p>}
-                </div>
-
-                <div>
-                  <Label className="text-xs text-muted-foreground">Return Items</Label>
-                  <div className="space-y-2 mt-1">
-                    {(selectedReturn.items || []).map(item => (
-                      <div key={item.id} className="flex justify-between items-center p-2 bg-muted/50 rounded-lg text-sm">
-                        <div>
-                          <p className="font-medium">{item.product_name}</p>
-                          {item.variant_name && <p className="text-xs text-muted-foreground">{item.variant_name}</p>}
-                        </div>
-                        <div className="text-right">
-                          <p>Qty: {item.quantity}</p>
-                          <p className="text-xs">₹{(item.price * item.quantity).toFixed(0)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {selectedReturn.images && selectedReturn.images.length > 0 && (
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Proof Images</Label>
-                    <div className="grid grid-cols-3 gap-2 mt-1">
-                      {selectedReturn.images.map((img, i) => (
-                        <img
-                          key={i}
-                          src={img}
-                          alt={`Proof ${i + 1}`}
-                          className="w-full aspect-square object-cover rounded-lg cursor-pointer border"
-                          onClick={(e) => { e.stopPropagation(); setImagePreview(img); }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {selectedReturn.refund && (
-                  <div className="p-3 bg-green-50 rounded-lg">
-                    <Label className="text-xs text-muted-foreground">Refund</Label>
-                    <p className="text-sm font-medium">{selectedReturn.refund.refund_number} — ₹{Number(selectedReturn.refund.amount).toFixed(0)}</p>
-                    <p className="text-xs">Mode: {selectedReturn.refund.mode} | Status: {selectedReturn.refund.status}</p>
-                  </div>
-                )}
-
-                <Separator />
-
-                <div>
-                  <Label>Admin Notes</Label>
-                  <Textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)} placeholder="Internal notes..." rows={2} />
-                </div>
-
-                {/* Actions based on status */}
-                {selectedReturn.status === 'requested' && (
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <Button className="flex-1" onClick={() => updateStatus('approved')} disabled={isProcessing}>
-                        <Check className="h-4 w-4 mr-1" /> Approve
-                      </Button>
-                    </div>
-                    <div>
-                      <Label>Reject Reason (if rejecting)</Label>
-                      <Textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Reason for rejection..." rows={2} />
-                      <Button variant="destructive" size="sm" className="mt-2" onClick={() => updateStatus('rejected', { reject_reason: rejectReason })} disabled={isProcessing || !rejectReason}>
-                        <X className="h-4 w-4 mr-1" /> Confirm Reject
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {selectedReturn.status === 'approved' && (
-                  <div className="space-y-3">
-                    <Label>Pickup Details</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input placeholder="Partner name" value={pickupPartner} onChange={e => setPickupPartner(e.target.value)} />
-                      <Input placeholder="Tracking number" value={pickupTracking} onChange={e => setPickupTracking(e.target.value)} />
-                    </div>
-                    <Button onClick={() => updateStatus('in_transit', { pickup_partner: pickupPartner, pickup_tracking: pickupTracking })} disabled={isProcessing}>
-                      <Truck className="h-4 w-4 mr-1" /> Mark In Transit
-                    </Button>
-                  </div>
-                )}
-
-                {selectedReturn.status === 'in_transit' && (
-                  <Button onClick={() => updateStatus('received')} disabled={isProcessing}>
-                    <Package className="h-4 w-4 mr-1" /> Mark Received
-                  </Button>
-                )}
-
-                {selectedReturn.status === 'received' && (
-                  <div className="space-y-3">
-                    <div>
-                      <Label>Item Condition</Label>
-                      <Select value={itemCondition} onValueChange={setItemCondition}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="good">Good — Restock</SelectItem>
-                          <SelectItem value="damaged">Damaged — Do not restock</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button onClick={processRefund} disabled={isProcessing}>
-                      {isProcessing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <DollarSign className="h-4 w-4 mr-1" />}
-                      Process Refund
-                    </Button>
-                  </div>
-                )}
-
-                {selectedReturn.status === 'refunded' && (
-                  <Button onClick={() => updateStatus('completed')} disabled={isProcessing}>
-                    <Check className="h-4 w-4 mr-1" /> Mark Completed
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Image Preview */}
-      <Dialog open={!!imagePreview} onOpenChange={() => setImagePreview(null)}>
-        <DialogContent className="max-w-lg p-2">
-          {imagePreview && <img src={imagePreview} alt="Proof" className="w-full rounded-lg" />}
-        </DialogContent>
-      </Dialog>
     </AdminLayout>
   );
 }

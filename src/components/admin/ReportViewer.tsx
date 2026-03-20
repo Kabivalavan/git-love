@@ -1115,7 +1115,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
                   <XAxis type="number" tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} tick={{ fontSize: 11 }} />
                   <YAxis dataKey={yKey} type="category" width={140} tick={{ fontSize: 11 }} />
                   <Tooltip formatter={(v: number) => fmt(v)} contentStyle={CustomTooltipStyle} />
-                  <Bar dataKey={xKey} fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey={xKey} fill={COLORS[0]} radius={[0, 4, 4, 0]} />
                 </BarChart>
               ) : type === 'bar' ? (
                 <BarChart data={chartData}>
@@ -1124,7 +1124,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
                   <YAxis tickFormatter={(v) => typeof v === 'number' && v > 1000 ? `₹${(v/1000).toFixed(0)}k` : v} tick={{ fontSize: 11 }} />
                   <Tooltip formatter={(v: number) => typeof v === 'number' && v > 100 ? fmt(v) : v} contentStyle={CustomTooltipStyle} />
                   <Legend />
-                  <Bar dataKey={yKey} fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name={yLabel || yKey} />
+                  <Bar dataKey={yKey} fill={COLORS[0]} radius={[4, 4, 0, 0]} name={yLabel || yKey} />
                 </BarChart>
               ) : type === 'bar-stacked' ? (
                 <BarChart data={chartData}>
@@ -1170,8 +1170,8 @@ export function ReportViewer({ report }: ReportViewerProps) {
                   <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
                   <Tooltip contentStyle={CustomTooltipStyle} />
                   <Legend />
-                  <Bar yAxisId="left" dataKey={barKey} fill="hsl(var(--primary))" name={barName} radius={[4, 4, 0, 0]} />
-                  <Line yAxisId="right" type="monotone" dataKey={lineKey} stroke="#10B981" strokeWidth={2} dot={false} name={lineName} />
+                   <Bar yAxisId="left" dataKey={barKey} fill={COLORS[0]} name={barName} radius={[4, 4, 0, 0]} />
+                   <Line yAxisId="right" type="monotone" dataKey={lineKey} stroke={COLORS[1]} strokeWidth={2} dot={false} name={lineName} />
                 </ComposedChart>
               ) : type === 'scatter' ? (
                 <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
@@ -1179,7 +1179,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
                   <XAxis dataKey="x" name="Units Sold" tick={{ fontSize: 11 }} label={{ value: 'Units Sold', position: 'insideBottom', offset: -10, fontSize: 11 }} />
                   <YAxis dataKey="y" name="Stock" tick={{ fontSize: 11 }} label={{ value: 'Current Stock', angle: -90, position: 'insideLeft', fontSize: 11 }} />
                   <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={CustomTooltipStyle} formatter={(v, name) => [v, name]} />
-                  <Scatter data={chartData} fill="hsl(var(--primary))" fillOpacity={0.7} />
+                  <Scatter data={chartData} fill={COLORS[4]} fillOpacity={0.7} />
                 </ScatterChart>
               ) : null}
             </ResponsiveContainer>

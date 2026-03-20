@@ -53,6 +53,7 @@ interface VariantForm {
   tax_rate: string;
   stock_quantity: string;
   image_url: string;
+  is_returnable: boolean;
 }
 
 export default function AdminProducts() {
@@ -171,6 +172,7 @@ export default function AdminProducts() {
       tax_rate: (v as any).tax_rate?.toString() || '',
       stock_quantity: v.stock_quantity?.toString() || '0',
       image_url: (v as any).image_url || '',
+      is_returnable: (v as any).is_returnable !== false,
     }));
     
     // Detect product type from variants
@@ -199,7 +201,7 @@ export default function AdminProducts() {
     setIsFormOpen(true);
   };
 
-  const defaultVariant = (): VariantForm => ({ name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0', image_url: '' });
+  const defaultVariant = (): VariantForm => ({ name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0', image_url: '', is_returnable: true });
 
   const handleCreate = () => {
     setFormData({
@@ -256,6 +258,7 @@ export default function AdminProducts() {
       tax_rate: '',
       stock_quantity: '0',
       image_url: '',
+      is_returnable: true,
     }));
     setVariantForms([...variantForms, ...newVariants]);
   };
@@ -342,9 +345,10 @@ export default function AdminProducts() {
             is_active: true,
             sort_order: idx,
             image_url: v.image_url || null,
+            is_returnable: v.is_returnable,
           }));
         if (variantRecords.length > 0) {
-          await supabase.from('product_variants').insert(variantRecords);
+          await supabase.from('product_variants').insert(variantRecords as any);
         }
       }
 
@@ -744,10 +748,10 @@ export default function AdminProducts() {
                       Quick Add {formData.productType === 'footwear' ? 'Shoe' : 'Clothing'} Sizes
                     </Button>
                   )}
-                  <Button
+                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setVariantForms([...variantForms, { name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0', image_url: '' }])}
+                    onClick={() => setVariantForms([...variantForms, { name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0', image_url: '', is_returnable: true }])}
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Add Variant
@@ -861,6 +865,19 @@ export default function AdminProducts() {
                               className="h-10"
                             />
                           </div>
+                        </div>
+                        {/* Returnable toggle */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <Switch
+                            id={`returnable-${index}`}
+                            checked={variant.is_returnable}
+                            onCheckedChange={(checked) => {
+                              const updated = [...variantForms];
+                              updated[index].is_returnable = checked;
+                              setVariantForms(updated);
+                            }}
+                          />
+                          <Label htmlFor={`returnable-${index}`} className="text-xs text-muted-foreground">Returnable</Label>
                         </div>
                       </div>
                     ))}

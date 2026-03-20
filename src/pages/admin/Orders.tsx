@@ -635,7 +635,11 @@ export default function AdminOrders() {
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="space-y-1">
                     <Label className="text-xs">Order Status</Label>
-                    <Select value={selectedOrder.status} onValueChange={handleStatusUpdate} disabled={isUpdating}>
+                    <Select
+                      value={selectedOrder.status}
+                      onValueChange={handleStatusUpdate}
+                      disabled={isUpdating || selectedOrder.status === 'delivered' || selectedOrder.status === 'returned'}
+                    >
                       <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {ORDER_STATUSES.map(s => (
@@ -643,6 +647,9 @@ export default function AdminOrders() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {(selectedOrder.status === 'delivered' || selectedOrder.status === 'returned') && (
+                      <p className="text-[10px] text-muted-foreground">🔒 Locked — cannot edit</p>
+                    )}
                   </div>
                   {isUpdating && <Loader2 className="h-4 w-4 animate-spin" />}
                   {/* Payment status */}
@@ -651,12 +658,23 @@ export default function AdminOrders() {
                     {selectedOrder.payment_method === 'cod' ? (
                       <Select
                         value={selectedOrder.payment_status}
+                        disabled={selectedOrder.status === 'delivered' || selectedOrder.status === 'returned'}
                         onValueChange={async (val) => {
-                          const typedVal = val as 'pending' | 'paid' | 'failed' | 'refunded' | 'partial';
+                          const typedVal = val as 'pending' | 'paid' | 'failed' | 'refunded';
                           await supabase.from('orders').update({ payment_status: typedVal }).eq('id', selectedOrder.id);
-                          const { data: paymentRecord } = await supabase.from('payments').select('id').eq('order_id', selectedOrder.id).eq('method', 'cod').single();
+                          // Auto-create or update payment record for COD
+                          const { data: paymentRecord } = await supabase.from('payments').select('id').eq('order_id', selectedOrder.id).eq('method', 'cod').maybeSingle();
                           if (paymentRecord) {
                             await supabase.from('payments').update({ status: typedVal }).eq('id', paymentRecord.id);
+                          } else if (typedVal === 'paid') {
+                            // Auto-create payment record when COD is marked as paid
+                            await supabase.from('payments').insert({
+                              order_id: selectedOrder.id,
+                              method: 'cod' as any,
+                              amount: selectedOrder.total,
+                              status: 'paid' as any,
+                              transaction_id: `COD-${selectedOrder.order_number}`,
+                            });
                           }
                           setSelectedOrder({ ...selectedOrder, payment_status: typedVal });
                           fetchOrders();
@@ -667,7 +685,6 @@ export default function AdminOrders() {
                         <SelectContent>
                           <SelectItem value="pending">Pending</SelectItem>
                           <SelectItem value="paid">Received</SelectItem>
-                          <SelectItem value="partial">Partial</SelectItem>
                           <SelectItem value="failed">Failed</SelectItem>
                         </SelectContent>
                       </Select>

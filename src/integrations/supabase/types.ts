@@ -1157,6 +1157,7 @@ export type Database = {
           image_url: string | null
           in_hold: number
           is_active: boolean | null
+          is_returnable: boolean | null
           mrp: number | null
           name: string
           price: number | null
@@ -1175,6 +1176,7 @@ export type Database = {
           image_url?: string | null
           in_hold?: number
           is_active?: boolean | null
+          is_returnable?: boolean | null
           mrp?: number | null
           name: string
           price?: number | null
@@ -1193,6 +1195,7 @@ export type Database = {
           image_url?: string | null
           in_hold?: number
           is_active?: boolean | null
+          is_returnable?: boolean | null
           mrp?: number | null
           name?: string
           price?: number | null

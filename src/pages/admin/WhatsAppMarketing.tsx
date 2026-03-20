@@ -164,9 +164,24 @@ export default function WhatsAppMarketing() {
     );
     setTemplates(updated);
 
-    const { error } = await supabase
+    // Check if record exists, then update or insert
+    const { data: existing } = await supabase
       .from('store_settings')
-      .upsert({ key: 'whatsapp_templates', value: updated as any }, { onConflict: 'key' });
+      .select('id')
+      .eq('key', 'whatsapp_templates')
+      .maybeSingle();
+
+    let error;
+    if (existing) {
+      ({ error } = await supabase
+        .from('store_settings')
+        .update({ value: updated as any })
+        .eq('key', 'whatsapp_templates'));
+    } else {
+      ({ error } = await supabase
+        .from('store_settings')
+        .insert({ key: 'whatsapp_templates', value: updated as any }));
+    }
 
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -180,9 +195,18 @@ export default function WhatsAppMarketing() {
   const toggleTemplate = async (id: string, active: boolean) => {
     const updated = templates.map(t => t.id === id ? { ...t, is_active: active } : t);
     setTemplates(updated);
-    await supabase
+    
+    const { data: existing } = await supabase
       .from('store_settings')
-      .upsert({ key: 'whatsapp_templates', value: updated as any }, { onConflict: 'key' });
+      .select('id')
+      .eq('key', 'whatsapp_templates')
+      .maybeSingle();
+
+    if (existing) {
+      await supabase.from('store_settings').update({ value: updated as any }).eq('key', 'whatsapp_templates');
+    } else {
+      await supabase.from('store_settings').insert({ key: 'whatsapp_templates', value: updated as any });
+    }
   };
 
   const getPreviewMessage = (template: WhatsAppTemplate) => {
