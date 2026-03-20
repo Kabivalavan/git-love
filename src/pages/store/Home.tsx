@@ -97,7 +97,7 @@ export default function HomePage() {
                     <ResponsiveImage
                       src={banner.media_url_mobile || banner.media_url}
                       alt={banner.title}
-                      className="w-full h-full object-cover block sm:hidden"
+                      className="w-full h-full object-contain block sm:hidden"
                       widths={[320, 480, 640, 800]}
                       sizes="100vw"
                       loading={isFirst ? 'eager' : 'lazy'}
