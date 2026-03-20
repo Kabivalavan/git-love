@@ -4,10 +4,11 @@
  import { Card, CardContent } from '@/components/ui/card';
  import { useAuth } from '@/hooks/useAuth';
  import { cn } from '@/lib/utils';
- import { ShoppingBag, MapPin, User, LogOut } from 'lucide-react';
+import { ShoppingBag, MapPin, User, LogOut, RotateCcw } from 'lucide-react';
  
  const accountLinks = [
    { path: '/account', label: 'My Orders', icon: ShoppingBag, exact: true },
+   { path: '/account/returns', label: 'My Returns', icon: RotateCcw },
    { path: '/account/addresses', label: 'Saved Addresses', icon: MapPin },
    { path: '/account/profile', label: 'Profile Settings', icon: User },
  ];
