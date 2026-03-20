@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
-type EntityType = 'product' | 'order' | 'category' | 'banner' | 'coupon' | 'offer' | 'customer' | 'expense' | 'delivery' | 'bundle' | 'settings';
+type EntityType = 'product' | 'order' | 'category' | 'banner' | 'coupon' | 'offer' | 'customer' | 'expense' | 'delivery' | 'bundle' | 'settings' | 'return';
 type Action = 'create' | 'update' | 'delete' | 'status_change' | 'block' | 'unblock' | 'refund' | 'export';
 
 interface LogParams {
