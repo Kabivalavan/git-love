@@ -599,7 +599,6 @@ export default function AdminAnalytics() {
             </div>
           </TabsContent>
 
-          {/* ENGAGEMENT TAB */}
           <TabsContent value="engagement" className="space-y-6 mt-4">
             <Card>
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Product Engagement Funnel</CardTitle></CardHeader>
@@ -607,30 +606,51 @@ export default function AdminAnalytics() {
                 {isLoading ? <div className="space-y-3"><div className="animate-pulse rounded-md bg-muted h-4 w-3/4" /><div className="animate-pulse rounded-md bg-muted h-4 w-1/2" /><div className="animate-pulse rounded-md bg-muted h-3 w-2/3" /></div> : !data?.engagementByProduct.length ? (
                   <p className="text-sm text-muted-foreground">No engagement data yet.</p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Product</TableHead>
-                        <TableHead className="text-right">Views</TableHead>
-                        <TableHead className="text-right">Cart Adds</TableHead>
-                        <TableHead className="text-right">Orders</TableHead>
-                        <TableHead className="text-right">Conversion</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.engagementByProduct.map((p, i) => (
-                        <TableRow key={i}>
-                          <TableCell className="text-sm font-medium">{p.product_name}</TableCell>
-                          <TableCell className="text-right">{p.views}</TableCell>
-                          <TableCell className="text-right">{p.cart_adds}</TableCell>
-                          <TableCell className="text-right">{p.orders}</TableCell>
-                          <TableCell className="text-right">
-                            <Badge variant={p.conversion > 5 ? "default" : "secondary"}>{p.conversion}%</Badge>
-                          </TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead className="text-right">Views</TableHead>
+                          <TableHead className="text-center" colSpan={1}>Funnel</TableHead>
+                          <TableHead className="text-right">Cart Adds</TableHead>
+                          <TableHead className="text-right">Orders</TableHead>
+                          <TableHead className="text-right">Conversion</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {data.engagementByProduct.map((p, i) => {
+                          const maxViews = Math.max(...data.engagementByProduct.map(e => e.views), 1);
+                          const viewPercent = (p.views / maxViews) * 100;
+                          const cartPercent = p.views > 0 ? (p.cart_adds / p.views) * 100 : 0;
+                          const orderPercent = p.views > 0 ? (p.orders / p.views) * 100 : 0;
+                          return (
+                            <TableRow key={i}>
+                              <TableCell className="text-sm font-medium">{p.product_name}</TableCell>
+                              <TableCell className="text-right">{p.views}</TableCell>
+                              <TableCell className="min-w-[200px]">
+                                <div className="flex items-center h-4 rounded-full overflow-hidden bg-muted">
+                                  <div className="h-full rounded-l-full transition-all" style={{ width: `${Math.max(viewPercent, 2)}%`, background: '#3B82F6' }} title={`Views: ${p.views}`} />
+                                  <div className="h-full transition-all" style={{ width: `${Math.max(cartPercent, 0)}%`, background: '#F59E0B' }} title={`Cart: ${p.cart_adds}`} />
+                                  <div className="h-full rounded-r-full transition-all" style={{ width: `${Math.max(orderPercent, 0)}%`, background: '#10B981' }} title={`Orders: ${p.orders}`} />
+                                </div>
+                                <div className="flex gap-2 mt-1 text-[9px] text-muted-foreground">
+                                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full inline-block" style={{background:'#3B82F6'}} /> Views</span>
+                                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full inline-block" style={{background:'#F59E0B'}} /> Cart</span>
+                                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full inline-block" style={{background:'#10B981'}} /> Orders</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">{p.cart_adds}</TableCell>
+                              <TableCell className="text-right">{p.orders}</TableCell>
+                              <TableCell className="text-right">
+                                <Badge variant={p.conversion > 5 ? "default" : "secondary"}>{p.conversion}%</Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>

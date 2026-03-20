@@ -320,16 +320,23 @@ export default function AdminActivityLog() {
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Package className="h-3 w-3" /> Entity Type
+                    <Package className="h-3 w-3" /> Entity
                   </div>
                   <p className="text-sm font-medium text-foreground capitalize">{selectedLog.entity_type}</p>
+                  {(selectedLog.details?.name || selectedLog.details?.order_number || selectedLog.details?.code) && (
+                    <p className="text-xs text-muted-foreground">
+                      {selectedLog.details?.name || selectedLog.details?.order_number || selectedLog.details?.code}
+                    </p>
+                  )}
                 </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Hash className="h-3 w-3" /> Entity ID
+                {selectedLog.entity_id && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Hash className="h-3 w-3" /> Reference ID
+                    </div>
+                    <p className="text-xs font-mono text-muted-foreground break-all">{selectedLog.entity_id}</p>
                   </div>
-                  <p className="text-xs font-mono text-foreground break-all">{selectedLog.entity_id || '-'}</p>
-                </div>
+                )}
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" /> Timestamp
