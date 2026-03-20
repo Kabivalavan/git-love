@@ -600,9 +600,10 @@ export default function CheckoutPage() {
       await supabase.from('cart_items').delete().eq('cart_id', cart.id);
     }
 
-    // Clear coupon and hold timer from localStorage
+    // Clear coupon, hold timer, and checkout loaded flag
     localStorage.removeItem('applied_coupon');
     localStorage.removeItem(HOLD_EXPIRY_STORAGE_KEY);
+    sessionStorage.removeItem(CHECKOUT_DATA_LOADED_KEY);
 
     toast({ title: 'Order placed!', description: `Order #${orderNumber} has been placed successfully` });
     setIsPlacingOrder(false);
