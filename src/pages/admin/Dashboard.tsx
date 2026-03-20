@@ -167,72 +167,6 @@ export default function AdminDashboard() {
       supabase.removeChannel(ordersChannel);
     };
   }, [fetchDashboardData, fetchLiveViewers]);
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-
-      const [ordersRes, productsRes, customersRes, analyticsRes] = await Promise.all([
-        supabase.from('orders').select('*').order('created_at', { ascending: false }),
-        supabase.from('products').select('*'),
-        supabase.from('profiles').select('id'),
-        supabase.from('analytics_events').select('id').eq('event_type', 'page_view').gte('created_at', weekAgo.toISOString()),
-      ]);
-
-      const ordersData = (ordersRes.data || []) as unknown as Order[];
-      const productsData = (productsRes.data || []) as unknown as Product[];
-      const customersData = customersRes.data || [];
-      const pageViews = analyticsRes.data?.length || 0;
-
-      const todayOrders = ordersData.filter(o => new Date(o.created_at) >= today);
-      const todaySales = todayOrders.reduce((sum, o) => sum + Number(o.total), 0);
-      const weekOrders = ordersData.filter(o => new Date(o.created_at) >= weekAgo);
-      const weekSales = weekOrders.reduce((sum, o) => sum + Number(o.total), 0);
-      const newOrders = ordersData.filter(o => o.status === 'new').length;
-      const processingOrders = ordersData.filter(o => o.status === 'confirmed' || o.status === 'packed').length;
-      const deliveredOrders = ordersData.filter(o => o.status === 'delivered').length;
-      const lowStock = productsData.filter(p => p.stock_quantity <= p.low_stock_threshold);
-      const avgOrderValue = ordersData.length > 0 ? ordersData.reduce((s, o) => s + Number(o.total), 0) / ordersData.length : 0;
-      const codOrders = ordersData.filter(o => o.payment_method === 'cod').length;
-      const conversionRate = pageViews > 0 ? (weekOrders.length / pageViews) * 100 : 0;
-
-      setStats({
-        todaySales, weekSales, totalOrders: ordersData.length, newOrders, processingOrders, deliveredOrders,
-        totalProducts: productsData.length, lowStockProducts: lowStock.length, totalCustomers: customersData.length,
-        avgOrderValue, conversionRate, codOrders, onlineOrders: ordersData.length - codOrders,
-      });
-
-      const dailySales: Record<string, { date: string; revenue: number; orders: number }> = {};
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        dailySales[key] = { date: key, revenue: 0, orders: 0 };
-      }
-      ordersData.forEach(o => {
-        const key = new Date(o.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        if (dailySales[key]) {
-          dailySales[key].revenue += Number(o.total);
-          dailySales[key].orders += 1;
-        }
-      });
-      setSalesChart(Object.values(dailySales));
-
-      const statusCounts: Record<string, number> = {};
-      ordersData.forEach(o => { statusCounts[o.status] = (statusCounts[o.status] || 0) + 1; });
-      setOrderStatusChart(Object.entries(statusCounts).map(([name, value]) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1), value
-      })));
-
-      setRecentOrders(ordersData.slice(0, 5));
-      setLowStockProducts(lowStock.slice(0, 5));
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const orderColumns: Column<Order>[] = [
     { key: 'order_number', header: 'Order #' },
@@ -513,3 +447,4 @@ export default function AdminDashboard() {
     </AdminLayout>
   );
 }
+
