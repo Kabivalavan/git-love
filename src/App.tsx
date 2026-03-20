@@ -55,6 +55,7 @@ const FAQPage = lazy(() => import('./pages/store/FAQ'));
 const WishlistPage = lazy(() => import('./pages/store/Wishlist'));
 const BundleDetailPage = lazy(() => import('./pages/store/BundleDetail'));
 const CategoriesPage = lazy(() => import('./pages/store/Categories'));
+const AllBundlesPage = lazy(() => import('./pages/store/AllBundles'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
