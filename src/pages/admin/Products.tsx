@@ -866,6 +866,19 @@ export default function AdminProducts() {
                             />
                           </div>
                         </div>
+                        {/* Returnable toggle */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <Switch
+                            id={`returnable-${index}`}
+                            checked={variant.is_returnable}
+                            onCheckedChange={(checked) => {
+                              const updated = [...variantForms];
+                              updated[index].is_returnable = checked;
+                              setVariantForms(updated);
+                            }}
+                          />
+                          <Label htmlFor={`returnable-${index}`} className="text-xs text-muted-foreground">Returnable</Label>
+                        </div>
                       </div>
                     ))}
                   </div>
