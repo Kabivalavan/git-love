@@ -306,8 +306,6 @@ export function AIAssistantWidget() {
     }
   };
 
-  if (!config?.enabled) return null;
-
   // Listen for open event from mobile bottom nav
   useEffect(() => {
     const handleOpen = () => {
@@ -317,6 +315,8 @@ export function AIAssistantWidget() {
     window.addEventListener('ai-assistant:open', handleOpen);
     return () => window.removeEventListener('ai-assistant:open', handleOpen);
   }, [sessionStarted, startSession]);
+
+  if (!config?.enabled) return null;
 
   return (
     <>
