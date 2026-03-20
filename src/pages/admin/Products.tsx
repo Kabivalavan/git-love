@@ -345,9 +345,10 @@ export default function AdminProducts() {
             is_active: true,
             sort_order: idx,
             image_url: v.image_url || null,
+            is_returnable: v.is_returnable,
           }));
         if (variantRecords.length > 0) {
-          await supabase.from('product_variants').insert(variantRecords);
+          await supabase.from('product_variants').insert(variantRecords as any);
         }
       }
 
