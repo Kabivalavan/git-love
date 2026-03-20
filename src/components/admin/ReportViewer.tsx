@@ -1170,8 +1170,8 @@ export function ReportViewer({ report }: ReportViewerProps) {
                   <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
                   <Tooltip contentStyle={CustomTooltipStyle} />
                   <Legend />
-                  <Bar yAxisId="left" dataKey={barKey} fill="hsl(var(--primary))" name={barName} radius={[4, 4, 0, 0]} />
-                  <Line yAxisId="right" type="monotone" dataKey={lineKey} stroke="#10B981" strokeWidth={2} dot={false} name={lineName} />
+                   <Bar yAxisId="left" dataKey={barKey} fill={COLORS[0]} name={barName} radius={[4, 4, 0, 0]} />
+                   <Line yAxisId="right" type="monotone" dataKey={lineKey} stroke={COLORS[1]} strokeWidth={2} dot={false} name={lineName} />
                 </ComposedChart>
               ) : type === 'scatter' ? (
                 <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
