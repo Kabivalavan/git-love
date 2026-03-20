@@ -604,6 +604,10 @@ export default function AdminOrders() {
     o.order_number.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const uniqueFilteredOrders = Array.from(
+    new Map(filteredOrders.map(order => [order.id, order])).values()
+  );
+
   // Order detail view
   if (selectedOrder) {
     const address = getAddress();
