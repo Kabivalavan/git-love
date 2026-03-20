@@ -47,6 +47,7 @@ interface DashboardStats {
   conversionRate: number;
   codOrders: number;
   onlineOrders: number;
+  returnRequests: number;
 }
 
 const COLORS = ['hsl(38, 92%, 50%)', 'hsl(280, 65%, 60%)', 'hsl(211, 100%, 50%)'];
