@@ -164,9 +164,24 @@ export default function WhatsAppMarketing() {
     );
     setTemplates(updated);
 
-    const { error } = await supabase
+    // Check if record exists, then update or insert
+    const { data: existing } = await supabase
       .from('store_settings')
-      .upsert({ key: 'whatsapp_templates', value: updated as any }, { onConflict: 'key' });
+      .select('id')
+      .eq('key', 'whatsapp_templates')
+      .maybeSingle();
+
+    let error;
+    if (existing) {
+      ({ error } = await supabase
+        .from('store_settings')
+        .update({ value: updated as any })
+        .eq('key', 'whatsapp_templates'));
+    } else {
+      ({ error } = await supabase
+        .from('store_settings')
+        .insert({ key: 'whatsapp_templates', value: updated as any }));
+    }
 
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
