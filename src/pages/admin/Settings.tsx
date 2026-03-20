@@ -435,6 +435,10 @@ export default function AdminSettings() {
             <Bot className="h-4 w-4" />
             <span className="hidden sm:inline">AI</span>
           </TabsTrigger>
+          <TabsTrigger value="returns" className="gap-2">
+            <RotateCcw className="h-4 w-4" />
+            <span className="hidden sm:inline">Returns</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* Store Info */}
