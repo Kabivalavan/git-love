@@ -29,6 +29,7 @@ export function BulkEmail() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
