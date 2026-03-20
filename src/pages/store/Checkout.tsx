@@ -778,7 +778,6 @@ export default function CheckoutPage() {
                                   <p className="text-xs text-muted-foreground">{item.variant.name}{item.variant.sku ? ` · ${item.variant.sku}` : ''}</p>
                                 )}
                                 <p className="text-xs text-muted-foreground">₹{effectivePrice} × {item.quantity}</p>
-                                <p className="text-xs text-muted-foreground">Available: {getAvailableStockForItem(item)}</p>
                               </div>
                               <span className="font-medium flex-shrink-0">₹{(effectivePrice * item.quantity).toFixed(0)}</span>
                             </div>

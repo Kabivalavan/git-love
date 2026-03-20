@@ -473,24 +473,78 @@ export default function AdminBundles() {
               })}
             </div>
 
-            {/* Auto-calculated price suggestions */}
+            {/* Auto-calculated price suggestions with per-product breakdown */}
             {itemForms.some(i => i.product_id) && (
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 mb-1">
                   <Info className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold text-foreground">Auto-Calculated Suggestions</span>
+                  <span className="text-sm font-semibold text-foreground">Price Breakdown & Profit Analysis</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+
+                {/* Per-product breakdown */}
+                <div className="space-y-1.5">
+                  {itemForms.filter(i => i.product_id).map((item, idx) => {
+                    const prod = products.find(p => p.id === item.product_id);
+                    if (!prod) return null;
+                    const qty = parseInt(item.quantity) || 1;
+                    let sp = prod.price || 0;
+                    let cp = prod.cost_price || 0;
+                    if (item.default_variant_id && prod.variants) {
+                      const v = prod.variants.find(v => v.id === item.default_variant_id);
+                      if (v) { sp = v.price || sp; cp = (v as any).cost_price || cp; }
+                    }
+                    return (
+                      <div key={idx} className="flex items-center justify-between text-xs bg-background/60 rounded-lg px-3 py-1.5 border border-border/50">
+                        <span className="font-medium truncate flex-1">{prod.name} × {qty}</span>
+                        <div className="flex gap-4 text-right flex-shrink-0">
+                          <span>SP: <strong>₹{Math.round(sp * qty)}</strong></span>
+                          <span className="text-muted-foreground">CP: ₹{Math.round(cp * qty)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Totals */}
+                <div className="grid grid-cols-2 gap-3 text-sm pt-1 border-t border-primary/10">
                   <div>
-                    <p className="text-xs text-muted-foreground">Total Selling Price (sum)</p>
+                    <p className="text-xs text-muted-foreground">Total Selling Price</p>
                     <p className="text-lg font-bold text-primary">₹{suggestedPrices.totalSP}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Total Cost Price (sum)</p>
+                    <p className="text-xs text-muted-foreground">Total Cost Price</p>
                     <p className="text-lg font-bold text-foreground">₹{suggestedPrices.totalCP}</p>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Set bundle price below these to create an attractive deal</p>
+
+                {/* Profit/discount after bundle price set */}
+                {formData.bundle_price && formData.bundle_price > 0 && (
+                  <div className="grid grid-cols-3 gap-3 text-sm pt-2 border-t border-primary/10">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Customer Saves</p>
+                      <p className="text-base font-bold text-green-600">
+                        ₹{Math.round(suggestedPrices.totalSP - formData.bundle_price)}
+                        <span className="text-[10px] font-normal ml-1">
+                          ({suggestedPrices.totalSP > 0 ? Math.round(((suggestedPrices.totalSP - formData.bundle_price) / suggestedPrices.totalSP) * 100) : 0}% off)
+                        </span>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Your Profit</p>
+                      <p className={`text-base font-bold ${formData.bundle_price - suggestedPrices.totalCP >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                        ₹{Math.round(formData.bundle_price - suggestedPrices.totalCP)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Margin</p>
+                      <p className={`text-base font-bold ${formData.bundle_price - suggestedPrices.totalCP >= 0 ? 'text-foreground' : 'text-destructive'}`}>
+                        {formData.bundle_price > 0 ? Math.round(((formData.bundle_price - suggestedPrices.totalCP) / formData.bundle_price) * 100) : 0}%
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground">Set bundle price below total SP to create an attractive deal</p>
               </div>
             )}
 

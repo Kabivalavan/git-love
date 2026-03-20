@@ -425,9 +425,6 @@ export default function ProductDetailPage() {
                 <span className="flex items-center gap-1.5 text-sm">
                   <Check className="h-4 w-4 text-[hsl(var(--success))]" />
                   <span className="text-[hsl(var(--success))] font-medium">In Stock</span>
-                  {availableStock <= (product.low_stock_threshold || 5) && (
-                    <span className="text-destructive text-xs font-medium ml-1">— Only {availableStock} left!</span>
-                  )}
                 </span>
               ) : (
                 <span className="text-destructive text-sm font-medium">Out of stock</span>

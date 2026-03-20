@@ -289,7 +289,7 @@ export default function ConversionOptimization() {
                       { name: 'Upsell', value: analytics?.counts?.upsell_clicked || 0 },
                       { name: 'Cross-Sell', value: analytics?.counts?.cross_sell_clicked || 0 },
                     ].filter(d => d.value > 0);
-                    const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent-foreground))', 'hsl(var(--muted-foreground))'];
+                    const COLORS = ['#3B82F6', '#10B981', '#F59E0B'];
                     if (pieData.length === 0) return <p className="text-sm text-muted-foreground text-center pt-16">No click data yet</p>;
                     return (
                       <ResponsiveContainer width="100%" height="100%">
