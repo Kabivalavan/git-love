@@ -1341,6 +1341,202 @@ export type Database = {
         }
         Relationships: []
       }
+      refunds: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          mode: string
+          notes: string | null
+          order_id: string
+          processed_at: string | null
+          refund_number: string
+          return_id: string
+          status: Database["public"]["Enums"]["refund_status"]
+          transaction_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          mode?: string
+          notes?: string | null
+          order_id: string
+          processed_at?: string | null
+          refund_number: string
+          return_id: string
+          status?: Database["public"]["Enums"]["refund_status"]
+          transaction_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          mode?: string
+          notes?: string | null
+          order_id?: string
+          processed_at?: string | null
+          refund_number?: string
+          return_id?: string
+          status?: Database["public"]["Enums"]["refund_status"]
+          transaction_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "refunds_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "returns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      return_items: {
+        Row: {
+          created_at: string | null
+          id: string
+          order_item_id: string
+          price: number
+          product_id: string | null
+          product_name: string
+          quantity: number
+          return_id: string
+          variant_id: string | null
+          variant_name: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          order_item_id: string
+          price?: number
+          product_id?: string | null
+          product_name: string
+          quantity?: number
+          return_id: string
+          variant_id?: string | null
+          variant_name?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          order_item_id?: string
+          price?: number
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          return_id?: string
+          variant_id?: string | null
+          variant_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_items_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_items_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "returns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      returns: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          id: string
+          images: Json | null
+          item_condition: string | null
+          order_id: string
+          pickup_partner: string | null
+          pickup_tracking: string | null
+          reason: string
+          reason_details: string | null
+          reject_reason: string | null
+          return_address: Json | null
+          return_number: string
+          status: Database["public"]["Enums"]["return_status"]
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          images?: Json | null
+          item_condition?: string | null
+          order_id: string
+          pickup_partner?: string | null
+          pickup_tracking?: string | null
+          reason: string
+          reason_details?: string | null
+          reject_reason?: string | null
+          return_address?: Json | null
+          return_number: string
+          status?: Database["public"]["Enums"]["return_status"]
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          images?: Json | null
+          item_condition?: string | null
+          order_id?: string
+          pickup_partner?: string | null
+          pickup_tracking?: string | null
+          reason?: string
+          reason_details?: string | null
+          reject_reason?: string | null
+          return_address?: Json | null
+          return_number?: string
+          status?: Database["public"]["Enums"]["return_status"]
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "returns_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           comment: string | null
@@ -1555,6 +1751,8 @@ export type Database = {
       cleanup_expired_holds: { Args: never; Returns: undefined }
       finalize_order_stock: { Args: { p_order_id: string }; Returns: undefined }
       generate_order_number: { Args: never; Returns: string }
+      generate_refund_number: { Args: never; Returns: string }
+      generate_return_number: { Args: never; Returns: string }
       get_homepage_data: { Args: never; Returns: Json }
       get_product_page_data: { Args: { p_slug: string }; Returns: Json }
       get_user_role: {
@@ -1616,6 +1814,15 @@ export type Database = {
         | "returned"
       payment_method: "online" | "cod" | "wallet"
       payment_status: "pending" | "paid" | "failed" | "refunded" | "partial"
+      refund_status: "pending" | "processing" | "success" | "failed"
+      return_status:
+        | "requested"
+        | "approved"
+        | "rejected"
+        | "in_transit"
+        | "received"
+        | "refunded"
+        | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1783,6 +1990,16 @@ export const Constants = {
       ],
       payment_method: ["online", "cod", "wallet"],
       payment_status: ["pending", "paid", "failed", "refunded", "partial"],
+      refund_status: ["pending", "processing", "success", "failed"],
+      return_status: [
+        "requested",
+        "approved",
+        "rejected",
+        "in_transit",
+        "received",
+        "refunded",
+        "completed",
+      ],
     },
   },
 } as const
