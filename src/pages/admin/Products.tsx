@@ -200,7 +200,7 @@ export default function AdminProducts() {
     setIsFormOpen(true);
   };
 
-  const defaultVariant = (): VariantForm => ({ name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0', image_url: '' });
+  const defaultVariant = (): VariantForm => ({ name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0', image_url: '', is_returnable: true });
 
   const handleCreate = () => {
     setFormData({
