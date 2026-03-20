@@ -69,7 +69,7 @@ export default function CustomerAuth() {
 
         const { error } = await signIn(formData.email, formData.password);
         if (error) {
-          toast({ title: 'Login failed', description: 'Invalid mobile number or password', variant: 'destructive' });
+          toast({ title: 'Login failed', description: 'Invalid email or password', variant: 'destructive' });
         } else {
           toast({ title: 'Welcome back!' });
           navigate('/');
