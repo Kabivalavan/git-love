@@ -35,21 +35,8 @@ export default function CartPage() {
     default_shipping_charge: checkoutSettingsData?.default_shipping_charge ?? 50,
   };
 
-  // Restore saved coupon
-  useEffect(() => {
-    const savedCoupon = localStorage.getItem('applied_coupon');
-    if (savedCoupon) {
-      try {
-        const coupon = JSON.parse(savedCoupon) as Coupon;
-        if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
-          localStorage.removeItem('applied_coupon');
-        } else {
-          setAppliedCoupon(coupon);
-          setCouponCode(coupon.code);
-        }
-      } catch { localStorage.removeItem('applied_coupon'); }
-    }
-  }, []);
+  // Do NOT auto-restore coupons from localStorage on cart page.
+  // Coupons should only be manually applied by the user.
 
   const updateQuantity = async (itemId: string, newQuantity: number) => {
     if (newQuantity < 1) return;
@@ -118,6 +105,7 @@ export default function CartPage() {
     setCouponCode(coupon.code);
     setCopiedCouponId(coupon.id);
     setTimeout(() => setCopiedCouponId(null), 1500);
+    // Only copy the code — do NOT auto-apply
   };
 
   const subtotal = cartItems.reduce((sum, item) => {

@@ -1,60 +1,58 @@
 import { Link } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Shimmer } from '@/components/ui/shimmer';
+import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { ResponsiveImage } from '@/components/ui/responsive-image';
+import { Shimmer } from '@/components/ui/shimmer';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
-import { useLazySection } from '@/hooks/useLazySection';
+import { SEOHead } from '@/components/seo/SEOHead';
 
-function BundleShimmer() {
-  return (
-    <section className="container mx-auto px-4 py-6 md:py-10">
-      <div className="flex items-center justify-between mb-5">
-        <Shimmer className="h-7 w-36" />
-        <Shimmer className="h-5 w-20" />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="rounded-xl border bg-card overflow-hidden">
-            <Shimmer className="aspect-[2/1] w-full rounded-none" />
-            <div className="p-4 space-y-2">
-              <Shimmer className="h-5 w-2/3" />
-              <Shimmer className="h-3 w-full" />
-              <Shimmer className="h-6 w-24" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-export default function HomeBundles() {
+export default function AllBundlesPage() {
   const { bundles, isLoading } = useGlobalStore();
-  const { ref, isVisible } = useLazySection();
-
-  if (bundles.length === 0 && !isLoading) return null;
 
   return (
-    <div ref={ref}>
-      {!isVisible ? (
-        <BundleShimmer />
-      ) : isLoading ? (
-        <BundleShimmer />
-      ) : (
-        <section className="container mx-auto px-4 py-6 md:py-10">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg md:text-2xl font-bold text-foreground">Bundle Deals</h2>
-            <Link to="/bundles" className="text-sm font-medium text-primary flex items-center gap-1">
-              View All <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
+    <StorefrontLayout>
+      <SEOHead title="Bundle Deals - Save More" description="Browse our exclusive bundle deals and combo offers. Save more when you buy together." />
+      <div className="container mx-auto px-4 py-6 md:py-8">
+        <nav className="flex items-center gap-3 mb-5">
+          <Link to="/" className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center hover:bg-muted transition-colors">
+            <ChevronLeft className="h-5 w-5 text-foreground" />
+          </Link>
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-foreground">Bundle Deals</h1>
+            <p className="text-sm text-muted-foreground">Save more with our combo offers</p>
           </div>
+        </nav>
+
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="rounded-xl border bg-card overflow-hidden">
+                <Shimmer className="aspect-[2/1] w-full rounded-none" />
+                <div className="p-4 space-y-2">
+                  <Shimmer className="h-5 w-2/3" />
+                  <Shimmer className="h-3 w-full" />
+                  <Shimmer className="h-6 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : bundles.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-lg text-muted-foreground">No bundle deals available right now.</p>
+            <Link to="/products" className="text-primary font-medium text-sm mt-2 inline-block hover:underline">Browse Products →</Link>
+          </div>
+        ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {bundles.map((bundle: any) => {
               const discount = bundle.compare_price && bundle.compare_price > bundle.bundle_price
                 ? Math.round(((bundle.compare_price - bundle.bundle_price) / bundle.compare_price) * 100)
                 : 0;
-              const bundleImage = bundle.image_url || bundle.items?.[0]?.product?.images?.[0]?.image_url || '/placeholder.svg';
+              const bundleImages = Array.isArray(bundle.images) && bundle.images.length > 0
+                ? bundle.images
+                : bundle.image_url ? [bundle.image_url] : [];
+              const bundleImage = bundleImages[0] || bundle.items?.[0]?.product?.images?.[0]?.image_url || '/placeholder.svg';
+
               return (
                 <Link key={bundle.id} to={`/bundles/${bundle.slug}`} className="block group">
                   <div className="overflow-hidden rounded-xl border border-border bg-card hover:shadow-lg transition-all duration-300">
@@ -87,8 +85,8 @@ export default function HomeBundles() {
               );
             })}
           </div>
-        </section>
-      )}
-    </div>
+        )}
+      </div>
+    </StorefrontLayout>
   );
 }

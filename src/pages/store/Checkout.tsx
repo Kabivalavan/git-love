@@ -27,6 +27,7 @@ interface CartItemWithProduct extends CartItem {
 }
 
 const CHECKOUT_HOLD_WINDOW_MS = 2 * 60 * 1000;
+const HOLD_EXPIRY_STORAGE_KEY = 'checkout_hold_expires_at';
 
 function CheckoutTimer({ expiresAt }: { expiresAt: number }) {
   const [remaining, setRemaining] = useState(Math.max(0, expiresAt - Date.now()));
@@ -156,6 +157,7 @@ export default function CheckoutPage() {
   }, [user, navigate]);
 
   // Place stock hold when cart items load and release it when user leaves checkout
+  // Persist expiry in localStorage so external tab switches don't reset the timer
   useEffect(() => {
     if (!user || holdItems.length === 0) return;
 
@@ -163,6 +165,20 @@ export default function CheckoutPage() {
     holdExpiryHandledRef.current = false;
 
     const reserveStockForCheckout = async () => {
+      // Check if a valid hold already exists from a previous mount (e.g. tab switch)
+      const storedExpiry = localStorage.getItem(HOLD_EXPIRY_STORAGE_KEY);
+      if (storedExpiry) {
+        const expiry = parseInt(storedExpiry, 10);
+        if (expiry > Date.now()) {
+          // Still valid — resume the existing timer
+          if (!isCancelled) setHoldExpiresAt(expiry);
+          return;
+        } else {
+          // Expired while away
+          localStorage.removeItem(HOLD_EXPIRY_STORAGE_KEY);
+        }
+      }
+
       const { data, error } = await supabase.rpc('place_stock_hold', {
         p_user_id: user.id,
         p_items: holdItems as any,
@@ -180,15 +196,24 @@ export default function CheckoutPage() {
         return;
       }
 
-      setHoldExpiresAt(Date.now() + CHECKOUT_HOLD_WINDOW_MS);
+      const expiry = Date.now() + CHECKOUT_HOLD_WINDOW_MS;
+      localStorage.setItem(HOLD_EXPIRY_STORAGE_KEY, String(expiry));
+      setHoldExpiresAt(expiry);
     };
 
     void reserveStockForCheckout();
 
+    // Only release hold on unmount if navigating INTERNALLY (not tab switch)
+    // We detect this: if document is visible at unmount time, user navigated away internally
     return () => {
       isCancelled = true;
-      setHoldExpiresAt(null);
-      void releaseActiveCheckoutHold();
+      if (document.visibilityState === 'visible') {
+        // Internal navigation — release hold
+        setHoldExpiresAt(null);
+        localStorage.removeItem(HOLD_EXPIRY_STORAGE_KEY);
+        void releaseActiveCheckoutHold();
+      }
+      // If hidden (tab switch / external), keep the hold alive
     };
   }, [user, holdItems, holdSignature, navigate, releaseActiveCheckoutHold, toast]);
 
@@ -202,6 +227,7 @@ export default function CheckoutPage() {
 
       holdExpiryHandledRef.current = true;
       setHoldExpiresAt(null);
+      localStorage.removeItem(HOLD_EXPIRY_STORAGE_KEY);
 
       void (async () => {
         await releaseActiveCheckoutHold();
@@ -551,8 +577,9 @@ export default function CheckoutPage() {
       await supabase.from('cart_items').delete().eq('cart_id', cart.id);
     }
 
-    // Clear coupon from localStorage
+    // Clear coupon and hold timer from localStorage
     localStorage.removeItem('applied_coupon');
+    localStorage.removeItem(HOLD_EXPIRY_STORAGE_KEY);
 
     toast({ title: 'Order placed!', description: `Order #${orderNumber} has been placed successfully` });
     setIsPlacingOrder(false);
@@ -778,7 +805,6 @@ export default function CheckoutPage() {
                                   <p className="text-xs text-muted-foreground">{item.variant.name}{item.variant.sku ? ` · ${item.variant.sku}` : ''}</p>
                                 )}
                                 <p className="text-xs text-muted-foreground">₹{effectivePrice} × {item.quantity}</p>
-                                <p className="text-xs text-muted-foreground">Available: {getAvailableStockForItem(item)}</p>
                               </div>
                               <span className="font-medium flex-shrink-0">₹{(effectivePrice * item.quantity).toFixed(0)}</span>
                             </div>

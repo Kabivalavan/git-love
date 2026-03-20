@@ -55,6 +55,7 @@ const FAQPage = lazy(() => import('./pages/store/FAQ'));
 const WishlistPage = lazy(() => import('./pages/store/Wishlist'));
 const BundleDetailPage = lazy(() => import('./pages/store/BundleDetail'));
 const CategoriesPage = lazy(() => import('./pages/store/Categories'));
+const AllBundlesPage = lazy(() => import('./pages/store/AllBundles'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -136,6 +137,7 @@ const AppRoutes = () => (
       <Route path="/contact" element={<Suspense fallback={<StorefrontLayout><StorefrontLoadingFallback /></StorefrontLayout>}><ContactUsPage /></Suspense>} />
       <Route path="/faq" element={<Suspense fallback={<StorefrontLayout><StorefrontLoadingFallback /></StorefrontLayout>}><FAQPage /></Suspense>} />
       <Route path="/wishlist" element={<Suspense fallback={<StorefrontLayout><StorefrontLoadingFallback /></StorefrontLayout>}><WishlistPage /></Suspense>} />
+      <Route path="/bundles" element={<Suspense fallback={<StorefrontLayout><StorefrontLoadingFallback /></StorefrontLayout>}><AllBundlesPage /></Suspense>} />
       <Route path="/bundles/:slug" element={<Suspense fallback={<StorefrontLayout><StorefrontLoadingFallback /></StorefrontLayout>}><BundleDetailPage /></Suspense>} />
 
       {/* User Account */}
