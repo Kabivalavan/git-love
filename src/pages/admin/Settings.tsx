@@ -117,6 +117,7 @@ export default function AdminSettings() {
   const [storefrontDisplay, setStorefrontDisplay] = useState({
     show_low_stock_badge: false,
     low_stock_threshold: 5,
+    show_low_stock_text_on_product_page: false,
   });
   const [aiAssistant, setAiAssistant] = useState({
     enabled: false,
@@ -1073,6 +1074,17 @@ export default function AdminSettings() {
                   <p className="text-xs text-muted-foreground">Products with stock at or below this number will show the low stock badge</p>
                 </div>
               )}
+
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <Label className="text-base font-medium">Show "Only X Left" on Product Page</Label>
+                  <p className="text-sm text-muted-foreground">Display "Only X left" text on the product detail page when stock is below the low stock threshold</p>
+                </div>
+                <Switch
+                  checked={storefrontDisplay.show_low_stock_text_on_product_page}
+                  onCheckedChange={(checked) => setStorefrontDisplay({ ...storefrontDisplay, show_low_stock_text_on_product_page: checked })}
+                />
+              </div>
 
               <Button
                 onClick={() => handleSave('storefront_display', storefrontDisplay as unknown as Record<string, unknown>)}

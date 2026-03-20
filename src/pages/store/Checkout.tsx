@@ -64,6 +64,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [isLoading, setIsLoading] = useState(true);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const dataLoadedRef = useRef(false);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings>({
     cod_enabled: true,
@@ -116,7 +117,10 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (user) {
-      fetchData();
+      // Skip re-fetching if data was already loaded (e.g. returning from an external tab)
+      if (!dataLoadedRef.current) {
+        fetchData();
+      }
       // Load and validate coupon from cart
       const savedCoupon = localStorage.getItem('applied_coupon');
       if (savedCoupon) {
@@ -267,7 +271,6 @@ export default function CheckoutPage() {
         .select('*, product:products(*), variant:product_variants(*), bundle_id, bundle_name')
         .eq('cart_id', cart.id);
       setCartItems((items || []) as CartItemWithProduct[]);
-
     }
 
     const { data: addressesData } = await supabase
@@ -294,6 +297,7 @@ export default function CheckoutPage() {
       }
     }
 
+    dataLoadedRef.current = true;
     setIsLoading(false);
   };
 

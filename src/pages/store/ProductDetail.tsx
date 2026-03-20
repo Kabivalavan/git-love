@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy, Home, Package, Check, MapPin, Undo2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -95,6 +96,21 @@ export default function ProductDetailPage() {
   const { trackEvent } = useAnalytics();
   const { getProductOffer } = useGlobalStore();
   const { addToCart } = useCartMutations();
+
+  // Fetch storefront display settings for low stock text
+  const { data: lowStockSettings } = useQuery({
+    queryKey: ['storefront-display-settings'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('store_settings')
+        .select('value')
+        .eq('key', 'storefront_display')
+        .single();
+      return (data?.value as any) || { show_low_stock_badge: false, low_stock_threshold: 5, show_low_stock_text_on_product_page: false };
+    },
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   // ⚡ SINGLE RPC CALL — replaces 5 separate queries
   const { data: pageData, isLoading, error: pageError } = useProductPageData(slug);
@@ -422,10 +438,18 @@ export default function ProductDetailPage() {
             {/* Availability */}
             <div className="flex items-center gap-4 flex-wrap">
               {availableStock > 0 ? (
-                <span className="flex items-center gap-1.5 text-sm">
-                  <Check className="h-4 w-4 text-[hsl(var(--success))]" />
-                  <span className="text-[hsl(var(--success))] font-medium">In Stock</span>
-                </span>
+                <>
+                  <span className="flex items-center gap-1.5 text-sm">
+                    <Check className="h-4 w-4 text-[hsl(var(--success))]" />
+                    <span className="text-[hsl(var(--success))] font-medium">In Stock</span>
+                  </span>
+                  {lowStockSettings?.show_low_stock_text_on_product_page && 
+                   availableStock <= (lowStockSettings.low_stock_threshold || 5) && (
+                    <span className="text-sm font-semibold text-destructive animate-pulse">
+                      Only {availableStock} left!
+                    </span>
+                  )}
+                </>
               ) : (
                 <span className="text-destructive text-sm font-medium">Out of stock</span>
               )}
