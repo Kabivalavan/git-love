@@ -1,4 +1,4 @@
- import { useState, useEffect } from 'react';
+ import { useEffect } from 'react';
  import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
  import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
  import { Card, CardContent } from '@/components/ui/card';
