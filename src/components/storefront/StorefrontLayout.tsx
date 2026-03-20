@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, LayoutGrid, ShoppingCart, User, Sparkles } from 'lucide-react';
 import { Header } from './Header';
@@ -8,10 +8,13 @@ import { ExitIntentPopup } from './ExitIntentPopup';
 import { cn } from '@/lib/utils';
 import { useCartCount } from '@/hooks/useCartQuery';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 interface StorefrontLayoutProps {
   children: ReactNode;
 }
+
+const AI_CACHE_KEY = 'ai_enabled_cache';
 
 const baseMobileNavItems = [
   { icon: Home, label: 'Home', path: '/', fill: true },
@@ -20,31 +23,31 @@ const baseMobileNavItems = [
   { icon: User, label: 'Profile', path: '/account', fill: false },
 ];
 
+function getCachedAiEnabled(): boolean {
+  try { return localStorage.getItem(AI_CACHE_KEY) === '1'; } catch { return false; }
+}
+
 export function StorefrontLayout({ children }: StorefrontLayoutProps) {
   const location = useLocation();
   const cartCount = useCartCount();
   const isHomePage = location.pathname === '/';
-  const [isAiEnabled, setIsAiEnabled] = useState(false);
 
-  useEffect(() => {
-    let mounted = true;
-
-    const fetchAiState = async () => {
+  const { data: isAiEnabled = getCachedAiEnabled() } = useQuery({
+    queryKey: ['ai-assistant-enabled'],
+    queryFn: async () => {
       const { data } = await supabase
         .from('store_settings')
         .select('value')
         .eq('key', 'ai_assistant')
         .maybeSingle();
-
-      if (!mounted) return;
-      setIsAiEnabled(Boolean((data?.value as { enabled?: boolean } | null)?.enabled));
-    };
-
-    void fetchAiState();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+      const enabled = Boolean((data?.value as { enabled?: boolean } | null)?.enabled);
+      try { localStorage.setItem(AI_CACHE_KEY, enabled ? '1' : '0'); } catch {}
+      return enabled;
+    },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   const mobileNavItems = useMemo(() => {
     if (!isAiEnabled) return baseMobileNavItems;
