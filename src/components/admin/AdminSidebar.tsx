@@ -89,6 +89,7 @@ const sidebarEntries: SidebarEntry[] = [
     items: [
       { path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
       { path: '/admin/customers', icon: Users, label: 'Customers' },
+      { path: '/admin/whatsapp-marketing', icon: MessageSquare, label: 'WhatsApp' },
     ],
   },
   { path: '/admin/sales-boost', icon: Zap, label: 'Sales Boost' },
