@@ -57,14 +57,17 @@ function CheckoutTimer({ expiresAt }: { expiresAt: number }) {
   );
 }
 
+const CHECKOUT_DATA_LOADED_KEY = 'checkout_data_loaded';
+
 export default function CheckoutPage() {
   const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
-  const [isLoading, setIsLoading] = useState(true);
+  // Start as not loading if data was already loaded (tab switch scenario)
+  const [isLoading, setIsLoading] = useState(() => !sessionStorage.getItem(CHECKOUT_DATA_LOADED_KEY));
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-  const dataLoadedRef = useRef(false);
+  const dataLoadedRef = useRef(!!sessionStorage.getItem(CHECKOUT_DATA_LOADED_KEY));
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings>({
     cod_enabled: true,
@@ -230,6 +233,7 @@ export default function CheckoutPage() {
         // Internal navigation — release hold
         setHoldExpiresAt(null);
         localStorage.removeItem(HOLD_EXPIRY_STORAGE_KEY);
+        sessionStorage.removeItem(CHECKOUT_DATA_LOADED_KEY);
         void releaseActiveCheckoutHold();
       }
       // If hidden (tab switch / external), keep the hold alive
@@ -313,6 +317,7 @@ export default function CheckoutPage() {
     }
 
     dataLoadedRef.current = true;
+    sessionStorage.setItem(CHECKOUT_DATA_LOADED_KEY, '1');
     setIsLoading(false);
   };
 
@@ -519,6 +524,29 @@ export default function CheckoutPage() {
           },
         });
 
+        // Fire order confirmation email trigger
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            fetch(`https://riqjidlyjyhfpgnjtbqi.supabase.co/functions/v1/email-triggers`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+              body: JSON.stringify({
+                trigger: 'order_created',
+                data: {
+                  email: user.email,
+                  customer_name: address.full_name,
+                  order_number: orderNumber,
+                  order_items: cartItems.map(i => `${i.product.name} x${i.quantity}`).join(', '),
+                  order_total: String(total.toFixed(0)),
+                  delivery_address: `${address.address_line1}, ${address.city} - ${address.pincode}`,
+                  tracking_url: `${window.location.origin}/account/order/${order.id}`,
+                },
+              }),
+            }).catch(() => {});
+          }
+        } catch {}
+
         await clearCartAndRedirect(orderNumber);
       } else if (paymentMethod === 'online') {
         initiatePayment({
@@ -596,9 +624,10 @@ export default function CheckoutPage() {
       await supabase.from('cart_items').delete().eq('cart_id', cart.id);
     }
 
-    // Clear coupon and hold timer from localStorage
+    // Clear coupon, hold timer, and checkout loaded flag
     localStorage.removeItem('applied_coupon');
     localStorage.removeItem(HOLD_EXPIRY_STORAGE_KEY);
+    sessionStorage.removeItem(CHECKOUT_DATA_LOADED_KEY);
 
     toast({ title: 'Order placed!', description: `Order #${orderNumber} has been placed successfully` });
     setIsPlacingOrder(false);

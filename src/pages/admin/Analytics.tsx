@@ -188,18 +188,16 @@ export default function AdminAnalytics() {
 
       const productViewsList = Array.from(productViewsMap.entries())
         .map(([product_id, views]) => ({ product_id, product_name: productNames[product_id] || 'Unknown', views }))
-        .sort((a, b) => b.views - a.views)
-        .slice(0, 15);
+        .sort((a, b) => b.views - a.views);
 
-      // Most ordered
+      // Most ordered - show ALL products
       const orderedMap = new Map<string, number>();
       orderItemsList.forEach(item => {
         orderedMap.set(item.product_name, (orderedMap.get(item.product_name) || 0) + item.quantity);
       });
       const mostOrdered = Array.from(orderedMap.entries())
         .map(([product_name, total_orders]) => ({ product_name, total_orders }))
-        .sort((a, b) => b.total_orders - a.total_orders)
-        .slice(0, 15);
+        .sort((a, b) => b.total_orders - a.total_orders);
 
       // Daily views + visitors
       const dailyMap = new Map<string, { views: number; visitors: Set<string> }>();
@@ -374,18 +372,29 @@ export default function AdminAnalytics() {
                   <div className="flex items-end gap-1 h-40">
                     {data.dailyViews.map((d, i) => {
                       const maxViews = Math.max(...data.dailyViews.map(v => v.views), 1);
-                      const height = (d.views / maxViews) * 100;
+                      const maxVisitors = Math.max(...data.dailyViews.map(v => v.visitors), 1);
+                      const viewHeight = (d.views / maxViews) * 100;
+                      const visitorHeight = (d.visitors / maxVisitors) * 100;
                       return (
-                        <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground">{d.views}</span>
-                          <div className="w-full bg-primary/80 rounded-t-sm transition-all" style={{ height: `${Math.max(height, 4)}%` }} />
+                        <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                          {/* Tooltip */}
+                          <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-popover border border-border rounded-md px-2 py-1 text-[10px] shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
+                            <div className="font-semibold">{d.date}</div>
+                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{background:'#3B82F6'}} /> {d.views} views</div>
+                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{background:'#10B981'}} /> {d.visitors} visitors</div>
+                          </div>
+                          <div className="w-full flex gap-[1px] items-end" style={{height: '100%'}}>
+                            <div className="flex-1 rounded-t-sm transition-all" style={{ height: `${Math.max(viewHeight, 4)}%`, background: '#3B82F6' }} />
+                            <div className="flex-1 rounded-t-sm transition-all" style={{ height: `${Math.max(visitorHeight, 4)}%`, background: '#10B981' }} />
+                          </div>
                           <span className="text-[9px] text-muted-foreground truncate w-full text-center">{d.date}</span>
                         </div>
                       );
                     })}
                   </div>
                   <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-primary/80" /> Page Views</span>
+                    <span className="flex items-center gap-1"><div className="w-3 h-3 rounded" style={{background:'#3B82F6'}} /> Page Views</span>
+                    <span className="flex items-center gap-1"><div className="w-3 h-3 rounded" style={{background:'#10B981'}} /> Unique Visitors</span>
                   </div>
                 </CardContent>
               </Card>
@@ -590,7 +599,6 @@ export default function AdminAnalytics() {
             </div>
           </TabsContent>
 
-          {/* ENGAGEMENT TAB */}
           <TabsContent value="engagement" className="space-y-6 mt-4">
             <Card>
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Product Engagement Funnel</CardTitle></CardHeader>
@@ -598,30 +606,51 @@ export default function AdminAnalytics() {
                 {isLoading ? <div className="space-y-3"><div className="animate-pulse rounded-md bg-muted h-4 w-3/4" /><div className="animate-pulse rounded-md bg-muted h-4 w-1/2" /><div className="animate-pulse rounded-md bg-muted h-3 w-2/3" /></div> : !data?.engagementByProduct.length ? (
                   <p className="text-sm text-muted-foreground">No engagement data yet.</p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Product</TableHead>
-                        <TableHead className="text-right">Views</TableHead>
-                        <TableHead className="text-right">Cart Adds</TableHead>
-                        <TableHead className="text-right">Orders</TableHead>
-                        <TableHead className="text-right">Conversion</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.engagementByProduct.map((p, i) => (
-                        <TableRow key={i}>
-                          <TableCell className="text-sm font-medium">{p.product_name}</TableCell>
-                          <TableCell className="text-right">{p.views}</TableCell>
-                          <TableCell className="text-right">{p.cart_adds}</TableCell>
-                          <TableCell className="text-right">{p.orders}</TableCell>
-                          <TableCell className="text-right">
-                            <Badge variant={p.conversion > 5 ? "default" : "secondary"}>{p.conversion}%</Badge>
-                          </TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead className="text-right">Views</TableHead>
+                          <TableHead className="text-center" colSpan={1}>Funnel</TableHead>
+                          <TableHead className="text-right">Cart Adds</TableHead>
+                          <TableHead className="text-right">Orders</TableHead>
+                          <TableHead className="text-right">Conversion</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {data.engagementByProduct.map((p, i) => {
+                          const maxViews = Math.max(...data.engagementByProduct.map(e => e.views), 1);
+                          const viewPercent = (p.views / maxViews) * 100;
+                          const cartPercent = p.views > 0 ? (p.cart_adds / p.views) * 100 : 0;
+                          const orderPercent = p.views > 0 ? (p.orders / p.views) * 100 : 0;
+                          return (
+                            <TableRow key={i}>
+                              <TableCell className="text-sm font-medium">{p.product_name}</TableCell>
+                              <TableCell className="text-right">{p.views}</TableCell>
+                              <TableCell className="min-w-[200px]">
+                                <div className="flex items-center h-4 rounded-full overflow-hidden bg-muted">
+                                  <div className="h-full rounded-l-full transition-all" style={{ width: `${Math.max(viewPercent, 2)}%`, background: '#3B82F6' }} title={`Views: ${p.views}`} />
+                                  <div className="h-full transition-all" style={{ width: `${Math.max(cartPercent, 0)}%`, background: '#F59E0B' }} title={`Cart: ${p.cart_adds}`} />
+                                  <div className="h-full rounded-r-full transition-all" style={{ width: `${Math.max(orderPercent, 0)}%`, background: '#10B981' }} title={`Orders: ${p.orders}`} />
+                                </div>
+                                <div className="flex gap-2 mt-1 text-[9px] text-muted-foreground">
+                                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full inline-block" style={{background:'#3B82F6'}} /> Views</span>
+                                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full inline-block" style={{background:'#F59E0B'}} /> Cart</span>
+                                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full inline-block" style={{background:'#10B981'}} /> Orders</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">{p.cart_adds}</TableCell>
+                              <TableCell className="text-right">{p.orders}</TableCell>
+                              <TableCell className="text-right">
+                                <Badge variant={p.conversion > 5 ? "default" : "secondary"}>{p.conversion}%</Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>

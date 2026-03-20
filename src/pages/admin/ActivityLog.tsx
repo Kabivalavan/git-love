@@ -146,7 +146,10 @@ export default function AdminActivityLog() {
           <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold">
             {(l.profile?.full_name?.[0] || l.profile?.email?.[0] || '?').toUpperCase()}
           </div>
-          <span className="text-sm truncate">{l.profile?.full_name || l.profile?.email || 'Unknown'}</span>
+          <div className="flex flex-col">
+            <span className="text-sm truncate">{l.profile?.full_name || l.profile?.email || 'Unknown'}</span>
+            <Badge variant="outline" className="text-[9px] w-fit px-1 py-0">Admin</Badge>
+          </div>
         </div>
       ),
     },
@@ -317,16 +320,23 @@ export default function AdminActivityLog() {
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Package className="h-3 w-3" /> Entity Type
+                    <Package className="h-3 w-3" /> Entity
                   </div>
                   <p className="text-sm font-medium text-foreground capitalize">{selectedLog.entity_type}</p>
+                  {(selectedLog.details?.name || selectedLog.details?.order_number || selectedLog.details?.code) && (
+                    <p className="text-xs text-muted-foreground">
+                      {selectedLog.details?.name || selectedLog.details?.order_number || selectedLog.details?.code}
+                    </p>
+                  )}
                 </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Hash className="h-3 w-3" /> Entity ID
+                {selectedLog.entity_id && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Hash className="h-3 w-3" /> Reference ID
+                    </div>
+                    <p className="text-xs font-mono text-muted-foreground break-all">{selectedLog.entity_id}</p>
                   </div>
-                  <p className="text-xs font-mono text-foreground break-all">{selectedLog.entity_id || '-'}</p>
-                </div>
+                )}
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" /> Timestamp

@@ -35,6 +35,7 @@ const AdminBundles = lazy(() => import('./pages/admin/Bundles'));
 const AdminNotifications = lazy(() => import('./pages/admin/Notifications'));
 const AdminActivityLog = lazy(() => import('./pages/admin/ActivityLog'));
 const AdminConversionOptimization = lazy(() => import('./pages/admin/ConversionOptimization'));
+const AdminWhatsAppMarketing = lazy(() => import('./pages/admin/WhatsAppMarketing'));
 
 const ProductsPage = lazy(() => import('./pages/store/Products'));
 const ProductDetailPage = lazy(() => import('./pages/store/ProductDetail'));
@@ -168,6 +169,7 @@ const AppRoutes = () => (
       <Route path="/admin/notifications" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminNotifications /></Suspense></AdminRoute>} />
       <Route path="/admin/activity-log" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminActivityLog /></Suspense></AdminRoute>} />
       <Route path="/admin/sales-boost" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminConversionOptimization /></Suspense></AdminRoute>} />
+      <Route path="/admin/whatsapp-marketing" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminWhatsAppMarketing /></Suspense></AdminRoute>} />
       <Route path="*" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><NotFound /></Suspense>} />
     </Routes>
   </>
