@@ -127,6 +127,16 @@ export default function AdminSettings() {
     button_text: '✨ Need help choosing?',
   });
   const [isSyncingProducts, setIsSyncingProducts] = useState(false);
+  const [returnSettings, setReturnSettings] = useState({
+    defaultReturnWindow: 7,
+    requireReason: true,
+    requireImageProof: true,
+    autoApprove: false,
+    pickupEnabled: true,
+    refundMode: 'original',
+    returnShippingCharges: 'customer',
+    restockingFee: 0,
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
