@@ -117,7 +117,10 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (user) {
-      fetchData();
+      // Skip re-fetching if data was already loaded (e.g. returning from an external tab)
+      if (!dataLoadedRef.current) {
+        fetchData();
+      }
       // Load and validate coupon from cart
       const savedCoupon = localStorage.getItem('applied_coupon');
       if (savedCoupon) {
