@@ -267,8 +267,8 @@ export default function ConversionOptimization() {
                       <XAxis dataKey="name" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
                       <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" />
                       <Tooltip />
-                      <Bar dataKey="shown" fill="hsl(var(--muted-foreground))" name="Impressions" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="clicked" fill="hsl(var(--primary))" name="Clicks" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="shown" fill="#94A3B8" name="Impressions" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="clicked" fill="#3B82F6" name="Clicks" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
