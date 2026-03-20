@@ -6,7 +6,7 @@
  import { Separator } from '@/components/ui/separator';
  import { supabase } from '@/integrations/supabase/client';
  import { useAuth } from '@/hooks/useAuth';
-import { ArrowLeft, Package, Truck, CheckCircle, MapPin } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, MapPin, RotateCcw } from 'lucide-react';
  import type { Order, OrderItem, Delivery, ShippingAddress, OrderStatus } from '@/types/database';
  import { cn } from '@/lib/utils';
  
