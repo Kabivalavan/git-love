@@ -35,6 +35,7 @@ const AdminBundles = lazy(() => import('./pages/admin/Bundles'));
 const AdminNotifications = lazy(() => import('./pages/admin/Notifications'));
 const AdminActivityLog = lazy(() => import('./pages/admin/ActivityLog'));
 const AdminConversionOptimization = lazy(() => import('./pages/admin/ConversionOptimization'));
+const AdminWhatsAppMarketing = lazy(() => import('./pages/admin/WhatsAppMarketing'));
 
 const ProductsPage = lazy(() => import('./pages/store/Products'));
 const ProductDetailPage = lazy(() => import('./pages/store/ProductDetail'));
