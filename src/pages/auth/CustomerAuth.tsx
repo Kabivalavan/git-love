@@ -47,7 +47,7 @@ export default function CustomerAuth() {
     setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  const mobileToEmail = (mobile: string) => `${mobile.replace(/[^0-9]/g, '')}@mobile.user`;
+  // Use actual email for auth instead of mobile-derived email
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
