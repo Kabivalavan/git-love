@@ -1003,6 +1003,9 @@ export default function AdminOrders() {
                         ({items.filter((i: any) => i.variant_name).map((i: any) => i.variant_name).join(', ')})
                       </span>
                     )}
+                    {order.status === 'returned' && (
+                      <Badge className="ml-1 text-[9px] bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">↩ Returned</Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
