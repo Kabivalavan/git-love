@@ -207,6 +207,20 @@ export function BulkEmail() {
                 Variables: <code>{'{{name}}'}</code>, <code>{'{{email}}'}</code>
               </p>
             </div>
+            <div>
+              <Label className="text-xs">Image URL (optional)</Label>
+              <Input
+                value={imageUrl}
+                onChange={e => setImageUrl(e.target.value)}
+                placeholder="https://example.com/promo-banner.jpg"
+                className="mt-1"
+              />
+              {imageUrl.trim() && (
+                <div className="mt-2 rounded-lg overflow-hidden border border-border">
+                  <img src={imageUrl} alt="Preview" className="w-full h-32 object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                </div>
+              )}
+            </div>
 
             {isSending && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
