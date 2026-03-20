@@ -79,7 +79,7 @@ export default function ProductsPage() {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Filter key to detect changes
-  const filterKey = JSON.stringify([searchQuery, categorySlug, isFeatured, isBestseller, sortBy, priceRange, selectedCategories, showInStock, selectedSubCategory]);
+  const filterKey = JSON.stringify([searchQuery, categorySlug, isFeatured, isBestseller, sortBy, priceRange, selectedCategories, showInStock, selectedSubCategory, subSlugParam]);
 
   // Reset when filters change
   useEffect(() => {

@@ -129,11 +129,22 @@ export function BulkEmail() {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${session.access_token}`,
             },
-            body: JSON.stringify({
-              to: customer.email,
-              subject: personalizedSubject,
-              html: `<div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#333;max-width:600px;margin:0 auto;padding:24px">${personalizedBody}</div>`,
-            }),
+             body: JSON.stringify({
+               to: customer.email,
+               subject: personalizedSubject,
+               html: `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb">
+  <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:28px 24px;text-align:center">
+    <h1 style="color:#ffffff;font-size:20px;margin:0;font-weight:700;letter-spacing:-0.3px">${personalizedSubject}</h1>
+  </div>
+  <div style="padding:28px 24px">
+    ${imageHtml}
+    <div style="font-size:15px;line-height:1.7;color:#374151">${personalizedBody}</div>
+  </div>
+  <div style="padding:16px 24px;background:#f9fafb;text-align:center;border-top:1px solid #e5e7eb">
+    <p style="margin:0;font-size:12px;color:#9ca3af">You received this email because you're a valued customer.</p>
+  </div>
+</div>`,
+             }),
           }
         );
 
