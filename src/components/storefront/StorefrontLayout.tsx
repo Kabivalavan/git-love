@@ -1,21 +1,21 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, LayoutGrid, Heart, ShoppingCart, User } from 'lucide-react';
+import { Home, LayoutGrid, ShoppingCart, User, Sparkles } from 'lucide-react';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { AIAssistantWidget } from './AIAssistantWidget';
 import { ExitIntentPopup } from './ExitIntentPopup';
 import { cn } from '@/lib/utils';
 import { useCartCount } from '@/hooks/useCartQuery';
+import { supabase } from '@/integrations/supabase/client';
 
 interface StorefrontLayoutProps {
   children: ReactNode;
 }
 
-const mobileNavItems = [
+const baseMobileNavItems = [
   { icon: Home, label: 'Home', path: '/', fill: true },
   { icon: LayoutGrid, label: 'Category', path: '/category', fill: false },
-  { icon: Heart, label: 'Wishlist', path: '/wishlist', fill: false },
   { icon: ShoppingCart, label: 'Cart', path: '/cart', fill: false },
   { icon: User, label: 'Profile', path: '/account', fill: false },
 ];
@@ -24,6 +24,39 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
   const location = useLocation();
   const cartCount = useCartCount();
   const isHomePage = location.pathname === '/';
+  const [isAiEnabled, setIsAiEnabled] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchAiState = async () => {
+      const { data } = await supabase
+        .from('store_settings')
+        .select('value')
+        .eq('key', 'ai_assistant')
+        .maybeSingle();
+
+      if (!mounted) return;
+      setIsAiEnabled(Boolean((data?.value as { enabled?: boolean } | null)?.enabled));
+    };
+
+    void fetchAiState();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const mobileNavItems = useMemo(() => {
+    if (!isAiEnabled) return baseMobileNavItems;
+
+    return [
+      baseMobileNavItems[0],
+      baseMobileNavItems[1],
+      { icon: Sparkles, label: 'AI', path: '/ai-assistant', fill: false, isAiLauncher: true },
+      baseMobileNavItems[2],
+      baseMobileNavItems[3],
+    ];
+  }, [isAiEnabled]);
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-background">
@@ -36,30 +69,49 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border lg:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
         <div className="flex items-center justify-around h-[60px]">
           {mobileNavItems.map((item) => {
-            const isActive = location.pathname === item.path || 
-              (item.path !== '/' && location.pathname.startsWith(item.path));
+            const isActive = !('isAiLauncher' in item) && (
+              location.pathname === item.path ||
+              (item.path !== '/' && location.pathname.startsWith(item.path))
+            );
             const isCart = item.path === '/cart';
+
+            if ('isAiLauncher' in item && item.isAiLauncher) {
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('ai-assistant:open'))}
+                  className="flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors relative text-muted-foreground"
+                >
+                  <span className="relative">
+                    <item.icon className="h-[22px] w-[22px]" />
+                  </span>
+                  <span className="text-[10px] font-medium">{item.label}</span>
+                </button>
+              );
+            }
+
             return (
               <Link
                 key={item.label}
                 to={item.path}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors relative",
-                  isActive ? "text-primary" : "text-muted-foreground"
+                  'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors relative',
+                  isActive ? 'text-primary' : 'text-muted-foreground'
                 )}
               >
                 {isActive && (
                   <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-b-full bg-primary" />
                 )}
                 <span className="relative">
-                  <item.icon className={cn("h-[22px] w-[22px]", isActive && "fill-primary/15")} />
+                  <item.icon className={cn('h-[22px] w-[22px]', isActive && 'fill-primary/15')} />
                   {isCart && cartCount > 0 && (
                     <span className="absolute -top-1.5 -right-2 h-4 min-w-[16px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center">
                       {cartCount}
                     </span>
                   )}
                 </span>
-                <span className={cn("text-[10px] font-medium", isActive && "font-semibold")}>{item.label}</span>
+                <span className={cn('text-[10px] font-medium', isActive && 'font-semibold')}>{item.label}</span>
               </Link>
             );
           })}
