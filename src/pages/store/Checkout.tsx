@@ -303,7 +303,7 @@ export default function CheckoutPage() {
       .from('store_settings')
       .select('value')
       .eq('key', 'checkout')
-      .single();
+      .maybeSingle();
     if (settingsData?.value) {
       const cs = settingsData.value as unknown as CheckoutSettings;
       setCheckoutSettings(cs);
