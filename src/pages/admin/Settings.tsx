@@ -1075,6 +1075,17 @@ export default function AdminSettings() {
                 </div>
               )}
 
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <Label className="text-base font-medium">Show "Only X Left" on Product Page</Label>
+                  <p className="text-sm text-muted-foreground">Display "Only X left" text on the product detail page when stock is below the low stock threshold</p>
+                </div>
+                <Switch
+                  checked={storefrontDisplay.show_low_stock_text_on_product_page}
+                  onCheckedChange={(checked) => setStorefrontDisplay({ ...storefrontDisplay, show_low_stock_text_on_product_page: checked })}
+                />
+              </div>
+
               <Button
                 onClick={() => handleSave('storefront_display', storefrontDisplay as unknown as Record<string, unknown>)}
                 disabled={isSaving === 'storefront_display'}
