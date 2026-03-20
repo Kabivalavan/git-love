@@ -97,6 +97,21 @@ export default function ProductDetailPage() {
   const { getProductOffer } = useGlobalStore();
   const { addToCart } = useCartMutations();
 
+  // Fetch storefront display settings for low stock text
+  const { data: lowStockSettings } = useQuery({
+    queryKey: ['storefront-display-settings'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('store_settings')
+        .select('value')
+        .eq('key', 'storefront_display')
+        .single();
+      return (data?.value as any) || { show_low_stock_badge: false, low_stock_threshold: 5, show_low_stock_text_on_product_page: false };
+    },
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
   // ⚡ SINGLE RPC CALL — replaces 5 separate queries
   const { data: pageData, isLoading, error: pageError } = useProductPageData(slug);
 
