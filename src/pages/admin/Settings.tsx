@@ -205,6 +205,9 @@ export default function AdminSettings() {
           case 'ai_assistant':
             setAiAssistant({ ...aiAssistant, ...(value as any) });
             break;
+          case 'return_settings':
+            setReturnSettings(prev => ({ ...prev, ...(value as any) }));
+            break;
         }
       });
     }
