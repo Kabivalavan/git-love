@@ -146,7 +146,10 @@ export default function AdminActivityLog() {
           <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold">
             {(l.profile?.full_name?.[0] || l.profile?.email?.[0] || '?').toUpperCase()}
           </div>
-          <span className="text-sm truncate">{l.profile?.full_name || l.profile?.email || 'Unknown'}</span>
+          <div className="flex flex-col">
+            <span className="text-sm truncate">{l.profile?.full_name || l.profile?.email || 'Unknown'}</span>
+            <Badge variant="outline" className="text-[9px] w-fit px-1 py-0">Admin</Badge>
+          </div>
         </div>
       ),
     },
