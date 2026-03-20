@@ -748,10 +748,10 @@ export default function AdminProducts() {
                       Quick Add {formData.productType === 'footwear' ? 'Shoe' : 'Clothing'} Sizes
                     </Button>
                   )}
-                  <Button
+                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setVariantForms([...variantForms, { name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0', image_url: '' }])}
+                    onClick={() => setVariantForms([...variantForms, { name: '', sku: '', price: '', cost_price: '', tax_rate: '', stock_quantity: '0', image_url: '', is_returnable: true }])}
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Add Variant
