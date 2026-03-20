@@ -76,6 +76,7 @@ export default function CheckoutPage() {
   const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
   const holdExpiryHandledRef = useRef(false);
+  const isPageUnloadRef = useRef(false);
   const [newAddress, setNewAddress] = useState({
     full_name: '',
     mobile_number: '',
