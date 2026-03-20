@@ -67,9 +67,7 @@ export default function CustomerAuth() {
           return;
         }
 
-        const authEmail = formData.mobileNumber.includes('@') ? formData.mobileNumber : formData.mobileNumber;
-        // For login, try mobile-as-email first (legacy), then actual email
-        const { error } = await signIn(formData.mobileNumber, formData.password);
+        const { error } = await signIn(formData.email, formData.password);
         if (error) {
           toast({ title: 'Login failed', description: 'Invalid mobile number or password', variant: 'destructive' });
         } else {
