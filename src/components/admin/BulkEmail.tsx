@@ -29,6 +29,7 @@ export function BulkEmail() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -115,6 +116,10 @@ export function BulkEmail() {
         .replace(/\{\{email\}\}/g, customer.email || '')
         .replace(/\n/g, '<br>');
 
+      const imageHtml = imageUrl.trim()
+        ? `<div style="margin:16px 0;text-align:center"><img src="${imageUrl.trim()}" alt="Email Image" style="max-width:100%;height:auto;border-radius:12px;display:block;margin:0 auto" /></div>`
+        : '';
+
       try {
         const res = await fetch(
           `https://riqjidlyjyhfpgnjtbqi.supabase.co/functions/v1/send-smtp-email`,
@@ -124,11 +129,22 @@ export function BulkEmail() {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${session.access_token}`,
             },
-            body: JSON.stringify({
-              to: customer.email,
-              subject: personalizedSubject,
-              html: `<div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#333;max-width:600px;margin:0 auto;padding:24px">${personalizedBody}</div>`,
-            }),
+             body: JSON.stringify({
+               to: customer.email,
+               subject: personalizedSubject,
+               html: `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb">
+  <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:28px 24px;text-align:center">
+    <h1 style="color:#ffffff;font-size:20px;margin:0;font-weight:700;letter-spacing:-0.3px">${personalizedSubject}</h1>
+  </div>
+  <div style="padding:28px 24px">
+    ${imageHtml}
+    <div style="font-size:15px;line-height:1.7;color:#374151">${personalizedBody}</div>
+  </div>
+  <div style="padding:16px 24px;background:#f9fafb;text-align:center;border-top:1px solid #e5e7eb">
+    <p style="margin:0;font-size:12px;color:#9ca3af">You received this email because you're a valued customer.</p>
+  </div>
+</div>`,
+             }),
           }
         );
 
@@ -190,6 +206,20 @@ export function BulkEmail() {
               <p className="text-[10px] text-muted-foreground mt-1">
                 Variables: <code>{'{{name}}'}</code>, <code>{'{{email}}'}</code>
               </p>
+            </div>
+            <div>
+              <Label className="text-xs">Image URL (optional)</Label>
+              <Input
+                value={imageUrl}
+                onChange={e => setImageUrl(e.target.value)}
+                placeholder="https://example.com/promo-banner.jpg"
+                className="mt-1"
+              />
+              {imageUrl.trim() && (
+                <div className="mt-2 rounded-lg overflow-hidden border border-border">
+                  <img src={imageUrl} alt="Preview" className="w-full h-32 object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                </div>
+              )}
             </div>
 
             {isSending && (

@@ -88,7 +88,7 @@ export default function HomePage() {
         <HeroBannerShimmer />
       ) : banners.length > 0 ? (
         <section className="relative">
-          <div className="relative overflow-hidden aspect-[2/1] sm:aspect-[2.5/1] lg:aspect-[3/1]">
+          <div className="relative overflow-hidden aspect-[16/7] sm:aspect-[2.5/1] lg:aspect-[3/1] bg-muted">
             {banners.map((banner, index) => {
               const isFirst = index === 0;
               return (
@@ -97,7 +97,7 @@ export default function HomePage() {
                     <ResponsiveImage
                       src={banner.media_url_mobile || banner.media_url}
                       alt={banner.title}
-                      className="w-full h-full object-cover block sm:hidden"
+                      className="w-full h-full object-contain block sm:hidden"
                       widths={[320, 480, 640, 800]}
                       sizes="100vw"
                       loading={isFirst ? 'eager' : 'lazy'}
@@ -108,7 +108,7 @@ export default function HomePage() {
                     <ResponsiveImage
                       src={banner.media_url_tablet || banner.media_url}
                       alt={banner.title}
-                      className="w-full h-full object-cover hidden sm:block"
+                      className="w-full h-full object-contain hidden sm:block"
                       widths={[768, 1024, 1280, 1600, 1920]}
                       sizes="100vw"
                       loading={isFirst ? 'eager' : 'lazy'}
