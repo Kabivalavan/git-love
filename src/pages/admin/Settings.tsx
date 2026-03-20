@@ -394,7 +394,7 @@ export default function AdminSettings() {
   return (
     <AdminLayout title="Settings" description="Configure your store settings">
       <Tabs defaultValue="store" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-10 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-11 lg:w-auto lg:inline-grid">
           <TabsTrigger value="store" className="gap-2">
             <Store className="h-4 w-4" />
             <span className="hidden sm:inline">Store</span>
