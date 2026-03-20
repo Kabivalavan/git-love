@@ -316,6 +316,7 @@ export default function CheckoutPage() {
     }
 
     dataLoadedRef.current = true;
+    sessionStorage.setItem(CHECKOUT_DATA_LOADED_KEY, '1');
     setIsLoading(false);
   };
 
