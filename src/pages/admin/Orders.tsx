@@ -67,7 +67,7 @@ export default function AdminOrders() {
   const fetchOrdersFn = useCallback(async (from: number, to: number) => {
     const { data, error, count } = await supabase
       .from('orders')
-      .select('*, order_items(*)', { count: 'exact' })
+      .select('*, order_items:order_items(id, product_name, variant_name, quantity)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to);
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
