@@ -1115,7 +1115,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
                   <XAxis type="number" tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} tick={{ fontSize: 11 }} />
                   <YAxis dataKey={yKey} type="category" width={140} tick={{ fontSize: 11 }} />
                   <Tooltip formatter={(v: number) => fmt(v)} contentStyle={CustomTooltipStyle} />
-                  <Bar dataKey={xKey} fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey={xKey} fill={COLORS[0]} radius={[0, 4, 4, 0]} />
                 </BarChart>
               ) : type === 'bar' ? (
                 <BarChart data={chartData}>
