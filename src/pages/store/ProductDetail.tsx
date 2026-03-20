@@ -525,7 +525,11 @@ export default function ProductDetailPage() {
                 <Undo2 className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-semibold text-foreground">Easy Returns</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">7-day return & exchange policy. No questions asked.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {selectedVariant && (selectedVariant as any).is_returnable === false
+                      ? 'This variant is not returnable (final sale)'
+                      : '7-day return & exchange policy. No questions asked.'}
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3 p-3.5">
