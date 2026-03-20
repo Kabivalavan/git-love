@@ -70,11 +70,12 @@ export default function AdminDashboard() {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
 
-      const [ordersRes, productsRes, customersRes, analyticsRes] = await Promise.all([
+      const [ordersRes, productsRes, customersRes, analyticsRes, returnsRes] = await Promise.all([
         supabase.from('orders').select('*').order('created_at', { ascending: false }),
         supabase.from('products').select('*'),
         supabase.from('profiles').select('id'),
         supabase.from('analytics_events').select('id').eq('event_type', 'page_view').gte('created_at', weekAgo.toISOString()),
+        supabase.from('returns').select('id', { count: 'exact', head: true }).eq('status', 'requested' as any),
       ]);
 
       const ordersData = (ordersRes.data || []) as unknown as Order[];
