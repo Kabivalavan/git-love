@@ -271,7 +271,6 @@ export default function CheckoutPage() {
         .select('*, product:products(*), variant:product_variants(*), bundle_id, bundle_name')
         .eq('cart_id', cart.id);
       setCartItems((items || []) as CartItemWithProduct[]);
-
     }
 
     const { data: addressesData } = await supabase
@@ -298,6 +297,7 @@ export default function CheckoutPage() {
       }
     }
 
+    dataLoadedRef.current = true;
     setIsLoading(false);
   };
 

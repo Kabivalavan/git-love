@@ -117,6 +117,7 @@ export default function AdminSettings() {
   const [storefrontDisplay, setStorefrontDisplay] = useState({
     show_low_stock_badge: false,
     low_stock_threshold: 5,
+    show_low_stock_text_on_product_page: false,
   });
   const [aiAssistant, setAiAssistant] = useState({
     enabled: false,
