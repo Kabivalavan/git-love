@@ -308,9 +308,19 @@ export function AIAssistantWidget() {
 
   if (!config?.enabled) return null;
 
+  // Listen for open event from mobile bottom nav
+  useEffect(() => {
+    const handleOpen = () => {
+      setIsOpen(true);
+      if (!sessionStarted) startSession();
+    };
+    window.addEventListener('ai-assistant:open', handleOpen);
+    return () => window.removeEventListener('ai-assistant:open', handleOpen);
+  }, [sessionStarted, startSession]);
+
   return (
     <>
-      {/* Small round floating button */}
+      {/* Floating button - desktop only (mobile uses bottom nav) */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -328,7 +338,8 @@ export function AIAssistantWidget() {
               "hover:shadow-xl hover:scale-110",
               "transition-all duration-300",
               "flex items-center justify-center",
-              "bottom-20 right-4 lg:bottom-6 lg:right-6"
+              "hidden lg:flex",
+              "bottom-6 right-6"
             )}
             title={assistantName}
           >
