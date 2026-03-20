@@ -402,8 +402,8 @@ export default function AdminDashboard() {
                 <StatCard title="WEEK SALES" value={`₹${stats?.weekSales.toLocaleString() || '0'}`} icon={<CreditCard className="h-5 w-5" />} />
               </div>
 
-              {/* Tables */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Tables + Live Widget */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card>
                   <CardHeader><CardTitle className="text-base font-semibold">Recent Orders</CardTitle></CardHeader>
                   <CardContent>
@@ -418,6 +418,51 @@ export default function AdminDashboard() {
                   </CardHeader>
                   <CardContent>
                     <DataTable<Product> columns={productColumns} data={lowStockProducts} emptyMessage="No low stock items" getRowId={(p) => p.id} />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-green-500" /> Live Storefront
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                          <Activity className="h-5 w-5 text-green-500" />
+                        </div>
+                        <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 animate-pulse" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold">{liveViewers}</p>
+                        <p className="text-xs text-muted-foreground">Active visitors now</p>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">Today's Page Views</span>
+                        </div>
+                        <span className="font-semibold">{todayPageViews.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">Active Sessions</span>
+                        </div>
+                        <span className="font-semibold">{activeSessions}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">Conversion Rate</span>
+                        </div>
+                        <span className="font-semibold">{(stats?.conversionRate || 0).toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground text-center">Auto-refreshes every 15s</p>
                   </CardContent>
                 </Card>
               </div>
