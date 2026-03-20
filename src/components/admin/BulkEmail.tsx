@@ -116,6 +116,10 @@ export function BulkEmail() {
         .replace(/\{\{email\}\}/g, customer.email || '')
         .replace(/\n/g, '<br>');
 
+      const imageHtml = imageUrl.trim()
+        ? `<div style="margin:16px 0;text-align:center"><img src="${imageUrl.trim()}" alt="Email Image" style="max-width:100%;height:auto;border-radius:12px;display:block;margin:0 auto" /></div>`
+        : '';
+
       try {
         const res = await fetch(
           `https://riqjidlyjyhfpgnjtbqi.supabase.co/functions/v1/send-smtp-email`,
