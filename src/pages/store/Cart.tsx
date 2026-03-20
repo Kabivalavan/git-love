@@ -118,6 +118,7 @@ export default function CartPage() {
     setCouponCode(coupon.code);
     setCopiedCouponId(coupon.id);
     setTimeout(() => setCopiedCouponId(null), 1500);
+    // Only copy the code — do NOT auto-apply
   };
 
   const subtotal = cartItems.reduce((sum, item) => {

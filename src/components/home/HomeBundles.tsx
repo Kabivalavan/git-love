@@ -45,9 +45,9 @@ export default function HomeBundles() {
         <section className="container mx-auto px-4 py-6 md:py-10">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg md:text-2xl font-bold text-foreground">Bundle Deals</h2>
-            <span className="text-sm font-medium text-primary flex items-center gap-1">
+            <Link to="/bundles" className="text-sm font-medium text-primary flex items-center gap-1">
               View All <ChevronRight className="h-3.5 w-3.5" />
-            </span>
+            </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {bundles.map((bundle: any) => {
