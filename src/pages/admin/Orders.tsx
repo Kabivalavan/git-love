@@ -604,6 +604,10 @@ export default function AdminOrders() {
     o.order_number.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const uniqueFilteredOrders = Array.from(
+    new Map(filteredOrders.map(order => [order.id, order])).values()
+  );
+
   // Order detail view
   if (selectedOrder) {
     const address = getAddress();
@@ -926,11 +930,11 @@ export default function AdminOrders() {
             <div key={i} className="animate-pulse bg-muted rounded-lg h-40" />
           ))}
         </div>
-      ) : filteredOrders.length === 0 ? (
+      ) : uniqueFilteredOrders.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">No orders found.</CardContent></Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {filteredOrders.map((order) => {
+          {uniqueFilteredOrders.map((order) => {
             const items = (order as any).order_items || [];
             return (
               <Card
