@@ -1124,7 +1124,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
                   <YAxis tickFormatter={(v) => typeof v === 'number' && v > 1000 ? `₹${(v/1000).toFixed(0)}k` : v} tick={{ fontSize: 11 }} />
                   <Tooltip formatter={(v: number) => typeof v === 'number' && v > 100 ? fmt(v) : v} contentStyle={CustomTooltipStyle} />
                   <Legend />
-                  <Bar dataKey={yKey} fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name={yLabel || yKey} />
+                  <Bar dataKey={yKey} fill={COLORS[0]} radius={[4, 4, 0, 0]} name={yLabel || yKey} />
                 </BarChart>
               ) : type === 'bar-stacked' ? (
                 <BarChart data={chartData}>
