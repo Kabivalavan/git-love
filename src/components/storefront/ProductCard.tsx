@@ -157,6 +157,10 @@ export const ProductCard = React.memo(React.forwardRef<HTMLDivElement, ProductCa
     >
       {/* Image */}
       <Link to={`/product/${product.slug}`} className="block relative aspect-square overflow-hidden bg-muted">
+        {/* Low stock red dot indicator */}
+        {isLowStock && !isOutOfStock && (
+          <span className="absolute top-2 right-2 z-10 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse shadow-sm" title="Low stock" />
+        )}
         <ResponsiveImage
           src={primaryImage}
           alt={product.name}

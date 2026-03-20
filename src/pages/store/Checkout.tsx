@@ -227,6 +227,7 @@ export default function CheckoutPage() {
 
       holdExpiryHandledRef.current = true;
       setHoldExpiresAt(null);
+      localStorage.removeItem(HOLD_EXPIRY_STORAGE_KEY);
 
       void (async () => {
         await releaseActiveCheckoutHold();
