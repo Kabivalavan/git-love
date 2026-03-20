@@ -161,6 +161,17 @@ export default function CheckoutPage() {
     }
   }, [user, navigate]);
 
+  useEffect(() => {
+    const markUnload = () => {
+      isPageUnloadRef.current = true;
+    };
+
+    window.addEventListener('beforeunload', markUnload);
+    return () => {
+      window.removeEventListener('beforeunload', markUnload);
+    };
+  }, []);
+
   // Place stock hold when cart items load and release it when user leaves checkout
   // Persist expiry in localStorage so external tab switches don't reset the timer
   useEffect(() => {
@@ -168,6 +179,7 @@ export default function CheckoutPage() {
 
     let isCancelled = false;
     holdExpiryHandledRef.current = false;
+    isPageUnloadRef.current = false;
 
     const reserveStockForCheckout = async () => {
       // Check if a valid hold already exists from a previous mount (e.g. tab switch)
@@ -208,10 +220,12 @@ export default function CheckoutPage() {
 
     void reserveStockForCheckout();
 
-    // Only release hold on unmount if navigating INTERNALLY (not tab switch)
-    // We detect this: if document is visible at unmount time, user navigated away internally
     return () => {
       isCancelled = true;
+
+      // Skip releasing hold for page refresh/full reload; keep timer continuity
+      if (isPageUnloadRef.current) return;
+
       if (document.visibilityState === 'visible') {
         // Internal navigation — release hold
         setHoldExpiresAt(null);
