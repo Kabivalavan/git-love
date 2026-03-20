@@ -50,6 +50,7 @@ export default function ProductsPage() {
   const categorySlug = categorySlugParam || searchParams.get('category') || '';
   const isFeatured = searchParams.get('featured') === 'true';
   const isBestseller = searchParams.get('bestseller') === 'true';
+  const subSlugParam = searchParams.get('sub') || '';
 
   // Categories (cached globally)
   const { data: categories = [] } = useQuery({
