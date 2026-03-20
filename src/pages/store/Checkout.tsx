@@ -57,14 +57,17 @@ function CheckoutTimer({ expiresAt }: { expiresAt: number }) {
   );
 }
 
+const CHECKOUT_DATA_LOADED_KEY = 'checkout_data_loaded';
+
 export default function CheckoutPage() {
   const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
-  const [isLoading, setIsLoading] = useState(true);
+  // Start as not loading if data was already loaded (tab switch scenario)
+  const [isLoading, setIsLoading] = useState(() => !sessionStorage.getItem(CHECKOUT_DATA_LOADED_KEY));
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-  const dataLoadedRef = useRef(false);
+  const dataLoadedRef = useRef(!!sessionStorage.getItem(CHECKOUT_DATA_LOADED_KEY));
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings>({
     cod_enabled: true,
