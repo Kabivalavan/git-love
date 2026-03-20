@@ -1179,7 +1179,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
                   <XAxis dataKey="x" name="Units Sold" tick={{ fontSize: 11 }} label={{ value: 'Units Sold', position: 'insideBottom', offset: -10, fontSize: 11 }} />
                   <YAxis dataKey="y" name="Stock" tick={{ fontSize: 11 }} label={{ value: 'Current Stock', angle: -90, position: 'insideLeft', fontSize: 11 }} />
                   <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={CustomTooltipStyle} formatter={(v, name) => [v, name]} />
-                  <Scatter data={chartData} fill="hsl(var(--primary))" fillOpacity={0.7} />
+                  <Scatter data={chartData} fill={COLORS[4]} fillOpacity={0.7} />
                 </ScatterChart>
               ) : null}
             </ResponsiveContainer>
