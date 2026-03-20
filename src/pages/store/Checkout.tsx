@@ -524,6 +524,29 @@ export default function CheckoutPage() {
           },
         });
 
+        // Fire order confirmation email trigger
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            fetch(`https://riqjidlyjyhfpgnjtbqi.supabase.co/functions/v1/email-triggers`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+              body: JSON.stringify({
+                trigger: 'order_created',
+                data: {
+                  email: user.email,
+                  customer_name: address.full_name,
+                  order_number: orderNumber,
+                  order_items: cartItems.map(i => `${i.product.name} x${i.quantity}`).join(', '),
+                  order_total: String(total.toFixed(0)),
+                  delivery_address: `${address.address_line1}, ${address.city} - ${address.pincode}`,
+                  tracking_url: `${window.location.origin}/account/order/${order.id}`,
+                },
+              }),
+            }).catch(() => {});
+          }
+        } catch {}
+
         await clearCartAndRedirect(orderNumber);
       } else if (paymentMethod === 'online') {
         initiatePayment({
