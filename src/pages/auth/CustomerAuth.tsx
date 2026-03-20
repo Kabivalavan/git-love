@@ -163,6 +163,17 @@ export default function CustomerAuth() {
                   {errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
                 </div>
               )}
+              {isLogin && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="loginEmail" className="text-xs font-medium text-white/80">Email Address</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+                    <Input id="loginEmail" name="email" type="email" placeholder="Enter your email address" value={formData.email} onChange={handleChange} className="pl-9 h-10 bg-white/10 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-primary" />
+                  </div>
+                  {errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
+                </div>
+              )}
+              {!isLogin && (
               <div className="space-y-1.5">
                 <Label htmlFor="mobileNumber" className="text-xs font-medium text-white/80">Mobile Number</Label>
                 <div className="relative">
@@ -171,6 +182,7 @@ export default function CustomerAuth() {
                 </div>
                 {errors.mobileNumber && <p className="text-xs text-red-400">{errors.mobileNumber}</p>}
               </div>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="password" className="text-xs font-medium text-white/80">Password</Label>
                 <div className="relative">
