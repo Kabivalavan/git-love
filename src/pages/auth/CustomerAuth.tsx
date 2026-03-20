@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { ShoppingBag, ArrowLeft, Phone, Lock, User as UserIcon, Mail } from 'lucide-react';
 
 const loginSchema = z.object({
-  mobileNumber: z.string().regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number'),
+  email: z.string().email('Enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
