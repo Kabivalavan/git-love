@@ -91,8 +91,14 @@ export default function ProductsPage() {
     loadProducts(0, true);
   }, [filterKey]);
 
+  // Read sub query param for auto-selecting subcategory
+  const subSlugParam = searchParams.get('sub') || '';
+
   useEffect(() => {
-    setSelectedSubCategory(null);
+    // When category changes, reset sub selection unless URL has a sub param
+    if (!subSlugParam) {
+      setSelectedSubCategory(null);
+    }
   }, [categorySlug]);
 
   // Sub-categories
@@ -102,14 +108,24 @@ export default function ProductsPage() {
       if (parentCat) {
         supabase.from('categories').select('*').eq('is_active', true)
           .eq('parent_id', parentCat.id).order('sort_order')
-          .then(({ data }) => setSubCategories((data || []) as Category[]));
+          .then(({ data }) => {
+            const subs = (data || []) as Category[];
+            setSubCategories(subs);
+            // Auto-select subcategory from URL param
+            if (subSlugParam) {
+              const matchedSub = subs.find(s => s.slug === subSlugParam);
+              if (matchedSub) {
+                setSelectedSubCategory(matchedSub.id);
+              }
+            }
+          });
       } else {
         setSubCategories([]);
       }
     } else {
       setSubCategories([]);
     }
-  }, [categorySlug, categories]);
+  }, [categorySlug, categories, subSlugParam]);
 
   const loadProducts = useCallback(async (page: number, isInitial: boolean) => {
     const from = page * ITEMS_PER_PAGE;

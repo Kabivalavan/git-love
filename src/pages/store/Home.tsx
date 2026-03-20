@@ -108,7 +108,7 @@ export default function HomePage() {
                     <ResponsiveImage
                       src={banner.media_url_tablet || banner.media_url}
                       alt={banner.title}
-                      className="w-full h-full object-cover hidden sm:block"
+                      className="w-full h-full object-contain hidden sm:block"
                       widths={[768, 1024, 1280, 1600, 1920]}
                       sizes="100vw"
                       loading={isFirst ? 'eager' : 'lazy'}

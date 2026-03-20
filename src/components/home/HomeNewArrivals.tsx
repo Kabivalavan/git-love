@@ -61,7 +61,7 @@ export default function HomeNewArrivals() {
               </Button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-              {products.slice(0, 8).map((product) => {
+              {products.slice(0, 6).map((product) => {
                 const stats = reviewStats[product.id];
                 return (
                   <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} onAddToWishlist={handleAddToWishlist} productOffer={getProductOffer(product)} lowStockSettings={storefrontDisplay} avgRating={stats?.avg_rating || 0} reviewCount={stats?.review_count || 0} />
