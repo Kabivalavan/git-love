@@ -61,6 +61,7 @@ export default function AdminOrders() {
   const [searchQuery, setSearchQuery] = useState('');
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
   const [customerPhone, setCustomerPhone] = useState('');
+  const [returnedItems, setReturnedItems] = useState<Record<string, number>>({});
   const { toast } = useToast();
   const { log } = useActivityLog();
 
