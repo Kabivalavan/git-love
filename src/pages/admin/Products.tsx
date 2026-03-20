@@ -53,6 +53,7 @@ interface VariantForm {
   tax_rate: string;
   stock_quantity: string;
   image_url: string;
+  is_returnable: boolean;
 }
 
 export default function AdminProducts() {
