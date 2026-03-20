@@ -148,6 +148,8 @@ const AppRoutes = () => (
       <Route path="/account" element={<Suspense fallback={<StorefrontLayout><StorefrontLoadingFallback /></StorefrontLayout>}><AccountPage /></Suspense>}>
         <Route index element={<Suspense fallback={<StorefrontLoadingFallback />}><MyOrdersPage /></Suspense>} />
         <Route path="order/:orderId" element={<Suspense fallback={<StorefrontLoadingFallback />}><OrderTrackingPage /></Suspense>} />
+        <Route path="returns" element={<Suspense fallback={<StorefrontLoadingFallback />}><MyReturnsPage /></Suspense>} />
+        <Route path="return/:orderId" element={<Suspense fallback={<StorefrontLoadingFallback />}><ReturnRequestPage /></Suspense>} />
         <Route path="addresses" element={<Suspense fallback={<StorefrontLoadingFallback />}><SavedAddressesPage /></Suspense>} />
         <Route path="profile" element={<Suspense fallback={<StorefrontLoadingFallback />}><ProfileSettingsPage /></Suspense>} />
       </Route>
