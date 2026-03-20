@@ -100,6 +100,7 @@ export default function AdminDashboard() {
         todaySales, weekSales, totalOrders: ordersData.length, newOrders, processingOrders, deliveredOrders,
         totalProducts: productsData.length, lowStockProducts: lowStock.length, totalCustomers: customersData.length,
         avgOrderValue, conversionRate, codOrders, onlineOrders: ordersData.length - codOrders,
+        returnRequests: returnsRes.count || 0,
       });
 
       const dailySales: Record<string, { date: string; revenue: number; orders: number }> = {};
