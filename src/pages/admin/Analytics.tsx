@@ -188,18 +188,16 @@ export default function AdminAnalytics() {
 
       const productViewsList = Array.from(productViewsMap.entries())
         .map(([product_id, views]) => ({ product_id, product_name: productNames[product_id] || 'Unknown', views }))
-        .sort((a, b) => b.views - a.views)
-        .slice(0, 15);
+        .sort((a, b) => b.views - a.views);
 
-      // Most ordered
+      // Most ordered - show ALL products
       const orderedMap = new Map<string, number>();
       orderItemsList.forEach(item => {
         orderedMap.set(item.product_name, (orderedMap.get(item.product_name) || 0) + item.quantity);
       });
       const mostOrdered = Array.from(orderedMap.entries())
         .map(([product_name, total_orders]) => ({ product_name, total_orders }))
-        .sort((a, b) => b.total_orders - a.total_orders)
-        .slice(0, 15);
+        .sort((a, b) => b.total_orders - a.total_orders);
 
       // Daily views + visitors
       const dailyMap = new Map<string, { views: number; visitors: Set<string> }>();
