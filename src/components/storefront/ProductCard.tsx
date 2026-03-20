@@ -70,7 +70,7 @@ export const ProductCard = React.memo(React.forwardRef<HTMLDivElement, ProductCa
 }: ProductCardProps, ref) {
   const queryClient = useQueryClient();
   const isOutOfStock = product.stock_quantity <= 0;
-  const isLowStock = lowStockSettings?.show_low_stock_badge && product.stock_quantity > 0 && product.stock_quantity <= lowStockSettings.low_stock_threshold;
+  const isLowStock = lowStockSettings?.show_low_stock_badge && product.stock_quantity > 0 && product.stock_quantity <= (lowStockSettings.low_stock_threshold || 5);
   const displayPrice = productOffer?.discountedPrice ?? product.price;
   const originalPrice = productOffer && productOffer.discountAmount > 0 ? product.price : null;
   const hasDiscount = productOffer ? productOffer.discountAmount > 0 : false;
