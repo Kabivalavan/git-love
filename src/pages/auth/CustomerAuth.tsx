@@ -88,8 +88,8 @@ export default function CustomerAuth() {
           return;
         }
 
-        const authEmail = mobileToEmail(formData.mobileNumber);
-        const { error } = await signUp(authEmail, formData.password, formData.mobileNumber, formData.fullName, formData.email);
+        // Use the actual email for auth account creation
+        const { error } = await signUp(formData.email, formData.password, formData.mobileNumber, formData.fullName, formData.email);
 
         if (error) {
           if (error.message?.includes('already registered') || error.message?.includes('already been registered')) {
