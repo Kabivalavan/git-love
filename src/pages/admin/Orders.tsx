@@ -87,16 +87,21 @@ export default function AdminOrders() {
   };
 
   const fetchOrderDetails = async (orderId: string) => {
-    const [itemsRes, deliveryRes, paymentsRes] = await Promise.all([
-      supabase.from('order_items').select('*').eq('order_id', orderId),
-      supabase.from('deliveries').select('*').eq('order_id', orderId).single(),
-      supabase.from('payments').select('*').eq('order_id', orderId),
-    ]);
-    setOrderItems((itemsRes.data || []) as unknown as OrderItem[]);
-    const del = deliveryRes.data as unknown as Delivery || null;
-    setDelivery(del);
-    setDeliveryEdit(del ? { ...del } : {});
-    setPayments((paymentsRes.data || []) as unknown as Payment[]);
+    try {
+      const [itemsRes, deliveryRes, paymentsRes] = await Promise.all([
+        supabase.from('order_items').select('*').eq('order_id', orderId),
+        supabase.from('deliveries').select('*').eq('order_id', orderId).maybeSingle(),
+        supabase.from('payments').select('*').eq('order_id', orderId),
+      ]);
+      setOrderItems((itemsRes.data || []) as unknown as OrderItem[]);
+      const del = (deliveryRes.data as unknown as Delivery) || null;
+      setDelivery(del);
+      setDeliveryEdit(del ? { ...del } : {});
+      setPayments((paymentsRes.data || []) as unknown as Payment[]);
+    } catch (e) {
+      console.error('Failed to fetch order details:', e);
+      toast({ title: 'Error loading order details', variant: 'destructive' });
+    }
   };
 
   const handleRowClick = (order: Order) => {
