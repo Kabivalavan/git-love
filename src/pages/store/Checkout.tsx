@@ -233,6 +233,7 @@ export default function CheckoutPage() {
         // Internal navigation — release hold
         setHoldExpiresAt(null);
         localStorage.removeItem(HOLD_EXPIRY_STORAGE_KEY);
+        sessionStorage.removeItem(CHECKOUT_DATA_LOADED_KEY);
         void releaseActiveCheckoutHold();
       }
       // If hidden (tab switch / external), keep the hold alive
