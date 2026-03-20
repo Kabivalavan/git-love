@@ -744,6 +744,11 @@ export default function AdminOrders() {
                                       <Badge className="text-[10px] mt-0.5 bg-secondary text-secondary-foreground">{item.variant_name}</Badge>
                                     )}
                                     <p className="text-xs text-muted-foreground mt-0.5">SKU: {item.sku || 'N/A'} · Qty: {item.quantity} × ₹{Number(item.price).toFixed(2)}</p>
+                                    {returnedItems[item.id] && (
+                                      <Badge className="text-[10px] mt-1 bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                                        ↩ {returnedItems[item.id]} returned
+                                      </Badge>
+                                    )}
                                   </div>
                                   <p className="font-semibold text-sm">₹{Number(item.total).toFixed(2)}</p>
                                 </div>
