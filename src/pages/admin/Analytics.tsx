@@ -372,18 +372,29 @@ export default function AdminAnalytics() {
                   <div className="flex items-end gap-1 h-40">
                     {data.dailyViews.map((d, i) => {
                       const maxViews = Math.max(...data.dailyViews.map(v => v.views), 1);
-                      const height = (d.views / maxViews) * 100;
+                      const maxVisitors = Math.max(...data.dailyViews.map(v => v.visitors), 1);
+                      const viewHeight = (d.views / maxViews) * 100;
+                      const visitorHeight = (d.visitors / maxVisitors) * 100;
                       return (
-                        <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground">{d.views}</span>
-                          <div className="w-full bg-primary/80 rounded-t-sm transition-all" style={{ height: `${Math.max(height, 4)}%` }} />
+                        <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                          {/* Tooltip */}
+                          <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-popover border border-border rounded-md px-2 py-1 text-[10px] shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
+                            <div className="font-semibold">{d.date}</div>
+                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{background:'#3B82F6'}} /> {d.views} views</div>
+                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{background:'#10B981'}} /> {d.visitors} visitors</div>
+                          </div>
+                          <div className="w-full flex gap-[1px] items-end" style={{height: '100%'}}>
+                            <div className="flex-1 rounded-t-sm transition-all" style={{ height: `${Math.max(viewHeight, 4)}%`, background: '#3B82F6' }} />
+                            <div className="flex-1 rounded-t-sm transition-all" style={{ height: `${Math.max(visitorHeight, 4)}%`, background: '#10B981' }} />
+                          </div>
                           <span className="text-[9px] text-muted-foreground truncate w-full text-center">{d.date}</span>
                         </div>
                       );
                     })}
                   </div>
                   <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-primary/80" /> Page Views</span>
+                    <span className="flex items-center gap-1"><div className="w-3 h-3 rounded" style={{background:'#3B82F6'}} /> Page Views</span>
+                    <span className="flex items-center gap-1"><div className="w-3 h-3 rounded" style={{background:'#10B981'}} /> Unique Visitors</span>
                   </div>
                 </CardContent>
               </Card>
