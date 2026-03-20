@@ -92,8 +92,6 @@ export default function ProductsPage() {
     loadProducts(0, true);
   }, [filterKey]);
 
-  // Read sub query param for auto-selecting subcategory
-  const subSlugParam = searchParams.get('sub') || '';
 
   useEffect(() => {
     // When category changes, reset sub selection unless URL has a sub param
