@@ -58,6 +58,8 @@ const WishlistPage = lazy(() => import('./pages/store/Wishlist'));
 const BundleDetailPage = lazy(() => import('./pages/store/BundleDetail'));
 const CategoriesPage = lazy(() => import('./pages/store/Categories'));
 const AllBundlesPage = lazy(() => import('./pages/store/AllBundles'));
+const ReturnRequestPage = lazy(() => import('./pages/store/ReturnRequest'));
+const MyReturnsPage = lazy(() => import('./pages/store/MyReturns'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
