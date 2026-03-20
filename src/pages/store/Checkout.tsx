@@ -64,6 +64,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [isLoading, setIsLoading] = useState(true);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const dataLoadedRef = useRef(false);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings>({
     cod_enabled: true,
