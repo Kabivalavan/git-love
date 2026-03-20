@@ -306,11 +306,21 @@ export function AIAssistantWidget() {
     }
   };
 
+  // Listen for open event from mobile bottom nav
+  useEffect(() => {
+    const handleOpen = () => {
+      setIsOpen(true);
+      if (!sessionStarted) startSession();
+    };
+    window.addEventListener('ai-assistant:open', handleOpen);
+    return () => window.removeEventListener('ai-assistant:open', handleOpen);
+  }, [sessionStarted, startSession]);
+
   if (!config?.enabled) return null;
 
   return (
     <>
-      {/* Small round floating button */}
+      {/* Floating button - desktop only (mobile uses bottom nav) */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -328,7 +338,8 @@ export function AIAssistantWidget() {
               "hover:shadow-xl hover:scale-110",
               "transition-all duration-300",
               "flex items-center justify-center",
-              "bottom-20 right-4 lg:bottom-6 lg:right-6"
+              "hidden lg:flex",
+              "bottom-6 right-6"
             )}
             title={assistantName}
           >
@@ -348,8 +359,9 @@ export function AIAssistantWidget() {
             className={cn(
               "fixed z-[9999] flex flex-col",
               "bg-card border border-border rounded-2xl shadow-2xl overflow-hidden",
-              "bottom-20 right-4 lg:bottom-6 lg:right-6",
-              "w-[360px] max-w-[calc(100vw-32px)] h-[520px] max-h-[calc(100vh-120px)]"
+              "bottom-[76px] right-4 lg:bottom-6 lg:right-6",
+              "w-[360px] max-w-[calc(100vw-32px)]",
+              "h-[calc(100vh-160px)] max-h-[520px] lg:h-[520px] lg:max-h-[calc(100vh-120px)]"
             )}
           >
             {/* Header */}

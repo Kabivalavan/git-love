@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { ShoppingBag, ArrowLeft, Phone, Lock, User as UserIcon, Mail } from 'lucide-react';
 
 const loginSchema = z.object({
-  mobileNumber: z.string().regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number'),
+  email: z.string().email('Enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
@@ -47,7 +47,7 @@ export default function CustomerAuth() {
     setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  const mobileToEmail = (mobile: string) => `${mobile.replace(/[^0-9]/g, '')}@mobile.user`;
+  // Use actual email for auth instead of mobile-derived email
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,10 +67,9 @@ export default function CustomerAuth() {
           return;
         }
 
-        const authEmail = mobileToEmail(formData.mobileNumber);
-        const { error } = await signIn(authEmail, formData.password);
+        const { error } = await signIn(formData.email, formData.password);
         if (error) {
-          toast({ title: 'Login failed', description: 'Invalid mobile number or password', variant: 'destructive' });
+          toast({ title: 'Login failed', description: 'Invalid email or password', variant: 'destructive' });
         } else {
           toast({ title: 'Welcome back!' });
           navigate('/');
@@ -87,8 +86,8 @@ export default function CustomerAuth() {
           return;
         }
 
-        const authEmail = mobileToEmail(formData.mobileNumber);
-        const { error } = await signUp(authEmail, formData.password, formData.mobileNumber, formData.fullName, formData.email);
+        // Use the actual email for auth account creation
+        const { error } = await signUp(formData.email, formData.password, formData.mobileNumber, formData.fullName, formData.email);
 
         if (error) {
           if (error.message?.includes('already registered') || error.message?.includes('already been registered')) {
@@ -139,7 +138,7 @@ export default function CustomerAuth() {
               {isLogin ? 'Welcome Back' : 'Create Account'}
             </CardTitle>
             <CardDescription className="text-white/60 text-sm">
-              {isLogin ? 'Sign in with your mobile number' : 'Start shopping in minutes'}
+              {isLogin ? 'Sign in with your email' : 'Start shopping in minutes'}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-2">
@@ -164,6 +163,17 @@ export default function CustomerAuth() {
                   {errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
                 </div>
               )}
+              {isLogin && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="loginEmail" className="text-xs font-medium text-white/80">Email Address</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+                    <Input id="loginEmail" name="email" type="email" placeholder="Enter your email address" value={formData.email} onChange={handleChange} className="pl-9 h-10 bg-white/10 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-primary" />
+                  </div>
+                  {errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
+                </div>
+              )}
+              {!isLogin && (
               <div className="space-y-1.5">
                 <Label htmlFor="mobileNumber" className="text-xs font-medium text-white/80">Mobile Number</Label>
                 <div className="relative">
@@ -172,6 +182,7 @@ export default function CustomerAuth() {
                 </div>
                 {errors.mobileNumber && <p className="text-xs text-red-400">{errors.mobileNumber}</p>}
               </div>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="password" className="text-xs font-medium text-white/80">Password</Label>
                 <div className="relative">

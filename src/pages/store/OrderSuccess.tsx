@@ -153,7 +153,7 @@ export default function OrderSuccessPage() {
               className="flex flex-col sm:flex-row gap-3 justify-center"
             >
               <Button asChild>
-                <Link to="/account/orders">
+                <Link to="/account">
                   <Package className="h-4 w-4 mr-2" />
                   Track Order
                 </Link>

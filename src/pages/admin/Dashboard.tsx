@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { AdminLayout, StatCard } from '@/components/admin/AdminLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,6 +19,8 @@ import {
   RotateCcw,
   XCircle,
   PackageX,
+  Eye,
+  Activity,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -56,13 +58,115 @@ export default function AdminDashboard() {
   const [salesChart, setSalesChart] = useState<any[]>([]);
   const [orderStatusChart, setOrderStatusChart] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [liveViewers, setLiveViewers] = useState(0);
+  const [todayPageViews, setTodayPageViews] = useState(0);
+  const [activeSessions, setActiveSessions] = useState(0);
   const { profile } = useAuth();
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+
+      const [ordersRes, productsRes, customersRes, analyticsRes] = await Promise.all([
+        supabase.from('orders').select('*').order('created_at', { ascending: false }),
+        supabase.from('products').select('*'),
+        supabase.from('profiles').select('id'),
+        supabase.from('analytics_events').select('id').eq('event_type', 'page_view').gte('created_at', weekAgo.toISOString()),
+      ]);
+
+      const ordersData = (ordersRes.data || []) as unknown as Order[];
+      const productsData = (productsRes.data || []) as unknown as Product[];
+      const customersData = customersRes.data || [];
+      const pageViews = analyticsRes.data?.length || 0;
+
+      const todayOrders = ordersData.filter(o => new Date(o.created_at) >= today);
+      const todaySales = todayOrders.reduce((sum, o) => sum + Number(o.total), 0);
+      const weekOrders = ordersData.filter(o => new Date(o.created_at) >= weekAgo);
+      const weekSales = weekOrders.reduce((sum, o) => sum + Number(o.total), 0);
+      const newOrders = ordersData.filter(o => o.status === 'new').length;
+      const processingOrders = ordersData.filter(o => o.status === 'confirmed' || o.status === 'packed').length;
+      const deliveredOrders = ordersData.filter(o => o.status === 'delivered').length;
+      const lowStock = productsData.filter(p => p.stock_quantity <= p.low_stock_threshold);
+      const avgOrderValue = ordersData.length > 0 ? ordersData.reduce((s, o) => s + Number(o.total), 0) / ordersData.length : 0;
+      const codOrders = ordersData.filter(o => o.payment_method === 'cod').length;
+      const conversionRate = pageViews > 0 ? (weekOrders.length / pageViews) * 100 : 0;
+
+      setStats({
+        todaySales, weekSales, totalOrders: ordersData.length, newOrders, processingOrders, deliveredOrders,
+        totalProducts: productsData.length, lowStockProducts: lowStock.length, totalCustomers: customersData.length,
+        avgOrderValue, conversionRate, codOrders, onlineOrders: ordersData.length - codOrders,
+      });
+
+      const dailySales: Record<string, { date: string; revenue: number; orders: number }> = {};
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        dailySales[key] = { date: key, revenue: 0, orders: 0 };
+      }
+      ordersData.forEach(o => {
+        const key = new Date(o.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (dailySales[key]) {
+          dailySales[key].revenue += Number(o.total);
+          dailySales[key].orders += 1;
+        }
+      });
+      setSalesChart(Object.values(dailySales));
+
+      const statusCounts: Record<string, number> = {};
+      ordersData.forEach(o => { statusCounts[o.status] = (statusCounts[o.status] || 0) + 1; });
+      setOrderStatusChart(Object.entries(statusCounts).map(([name, value]) => ({
+        name: name.charAt(0).toUpperCase() + name.slice(1), value
+      })));
+
+      setRecentOrders(ordersData.slice(0, 5));
+      setLowStockProducts(lowStock.slice(0, 5));
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch live viewers (active sessions in last 5 minutes)
+  const fetchLiveViewers = useCallback(async () => {
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const [sessionsRes, todayViewsRes] = await Promise.all([
+      supabase.from('analytics_sessions').select('id', { count: 'exact', head: true }).gte('last_active_at', fiveMinAgo),
+      supabase.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'page_view').gte('created_at', todayStart.toISOString()),
+    ]);
+    
+    setActiveSessions(sessionsRes.count || 0);
+    setLiveViewers(sessionsRes.count || 0);
+    setTodayPageViews(todayViewsRes.count || 0);
+  }, []);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+    fetchLiveViewers();
 
-  const fetchDashboardData = async () => {
+    // Refresh live viewers every 15 seconds
+    const liveInterval = setInterval(fetchLiveViewers, 15000);
+
+    // Subscribe to realtime order changes to auto-update dashboard
+    const ordersChannel = supabase
+      .channel('dashboard-orders-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        fetchDashboardData();
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(liveInterval);
+      supabase.removeChannel(ordersChannel);
+    };
+  }, [fetchDashboardData, fetchLiveViewers]);
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -298,8 +402,8 @@ export default function AdminDashboard() {
                 <StatCard title="WEEK SALES" value={`₹${stats?.weekSales.toLocaleString() || '0'}`} icon={<CreditCard className="h-5 w-5" />} />
               </div>
 
-              {/* Tables */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Tables + Live Widget */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card>
                   <CardHeader><CardTitle className="text-base font-semibold">Recent Orders</CardTitle></CardHeader>
                   <CardContent>
@@ -314,6 +418,51 @@ export default function AdminDashboard() {
                   </CardHeader>
                   <CardContent>
                     <DataTable<Product> columns={productColumns} data={lowStockProducts} emptyMessage="No low stock items" getRowId={(p) => p.id} />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-green-500" /> Live Storefront
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                          <Activity className="h-5 w-5 text-green-500" />
+                        </div>
+                        <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 animate-pulse" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold">{liveViewers}</p>
+                        <p className="text-xs text-muted-foreground">Active visitors now</p>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">Today's Page Views</span>
+                        </div>
+                        <span className="font-semibold">{todayPageViews.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">Active Sessions</span>
+                        </div>
+                        <span className="font-semibold">{activeSessions}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">Conversion Rate</span>
+                        </div>
+                        <span className="font-semibold">{(stats?.conversionRate || 0).toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground text-center">Auto-refreshes every 15s</p>
                   </CardContent>
                 </Card>
               </div>
