@@ -47,6 +47,7 @@ interface DashboardStats {
   conversionRate: number;
   codOrders: number;
   onlineOrders: number;
+  returnRequests: number;
 }
 
 const COLORS = ['hsl(38, 92%, 50%)', 'hsl(280, 65%, 60%)', 'hsl(211, 100%, 50%)'];
@@ -70,11 +71,12 @@ export default function AdminDashboard() {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
 
-      const [ordersRes, productsRes, customersRes, analyticsRes] = await Promise.all([
+      const [ordersRes, productsRes, customersRes, analyticsRes, returnsRes] = await Promise.all([
         supabase.from('orders').select('*').order('created_at', { ascending: false }),
         supabase.from('products').select('*'),
         supabase.from('profiles').select('id'),
         supabase.from('analytics_events').select('id').eq('event_type', 'page_view').gte('created_at', weekAgo.toISOString()),
+        supabase.from('returns').select('id', { count: 'exact', head: true }).eq('status', 'requested' as any),
       ]);
 
       const ordersData = (ordersRes.data || []) as unknown as Order[];
@@ -98,6 +100,7 @@ export default function AdminDashboard() {
         todaySales, weekSales, totalOrders: ordersData.length, newOrders, processingOrders, deliveredOrders,
         totalProducts: productsData.length, lowStockProducts: lowStock.length, totalCustomers: customersData.length,
         avgOrderValue, conversionRate, codOrders, onlineOrders: ordersData.length - codOrders,
+        returnRequests: returnsRes.count || 0,
       });
 
       const dailySales: Record<string, { date: string; revenue: number; orders: number }> = {};
@@ -238,7 +241,7 @@ export default function AdminDashboard() {
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   <StatCard title="PENDING ORDERS" value={stats?.newOrders || 0} description="To Be Confirmed" icon={<ShoppingCart className="h-5 w-5" />} />
-                  <StatCard title="RETURN REQUESTS" value={0} description="To Be Reviewed" icon={<RotateCcw className="h-5 w-5" />} />
+                  <StatCard title="RETURN REQUESTS" value={stats?.returnRequests || 0} description="To Be Reviewed" icon={<RotateCcw className="h-5 w-5" />} />
                   <StatCard title="PENDING CANCEL REQUEST" value={0} description="To Be Processed" icon={<XCircle className="h-5 w-5" />} />
                   <StatCard title="YET TO RECEIVE PAYMENTS" value={`₹${stats?.todaySales.toLocaleString() || '0'}`} description="To Be Received" icon={<CreditCard className="h-5 w-5" />} />
                   <StatCard title="OUT OF STOCK ITEMS" value={stats?.lowStockProducts || 0} description="To Be Restocked" icon={<PackageX className="h-5 w-5" />} />

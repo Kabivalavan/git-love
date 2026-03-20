@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -86,7 +83,6 @@ export default function ReturnRequestPage() {
       setReturnSettings(settingsRes.data.value as unknown as ReturnSettings);
     }
 
-    // Collect already-returned item IDs
     const returned: string[] = [];
     (returnsRes.data || []).forEach((r: any) => {
       (r.return_items || []).forEach((ri: any) => { if (ri.order_item_id) returned.push(ri.order_item_id); });
@@ -184,185 +180,173 @@ export default function ReturnRequestPage() {
 
   if (isLoading) {
     return (
-      <StorefrontLayout>
-        <div className="container mx-auto px-4 py-8">
-          <div className="space-y-4">
-            {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />)}
-          </div>
-        </div>
-      </StorefrontLayout>
+      <div className="space-y-4">
+        {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />)}
+      </div>
     );
   }
 
   if (submitted) {
     return (
-      <StorefrontLayout>
-        <div className="container mx-auto px-4 py-12 max-w-lg text-center">
-          <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Return Request Submitted</h2>
-          <p className="text-muted-foreground mb-6">
-            Your return request has been submitted. You'll be notified once it's reviewed.
-          </p>
-          <div className="flex gap-3 justify-center">
-            <Button asChild variant="outline"><Link to="/account">My Orders</Link></Button>
-            <Button asChild><Link to="/account/returns">Track Returns</Link></Button>
-          </div>
+      <div className="py-12 max-w-lg mx-auto text-center">
+        <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Return Request Submitted</h2>
+        <p className="text-muted-foreground mb-6">
+          Your return request has been submitted. You'll be notified once it's reviewed.
+        </p>
+        <div className="flex gap-3 justify-center">
+          <Button asChild variant="outline"><Link to="/account">My Orders</Link></Button>
+          <Button asChild><Link to="/account/returns">Track Returns</Link></Button>
         </div>
-      </StorefrontLayout>
+      </div>
     );
   }
 
   if (!order || order.status !== 'delivered') {
     return (
-      <StorefrontLayout>
-        <div className="container mx-auto px-4 py-12 max-w-lg text-center">
-          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">Return Not Available</h2>
-          <p className="text-muted-foreground">Returns can only be raised for delivered orders.</p>
-          <Button asChild className="mt-4"><Link to="/account">Back to Orders</Link></Button>
-        </div>
-      </StorefrontLayout>
+      <div className="py-12 max-w-lg mx-auto text-center">
+        <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+        <h2 className="text-xl font-bold mb-2">Return Not Available</h2>
+        <p className="text-muted-foreground">Returns can only be raised for delivered orders.</p>
+        <Button asChild className="mt-4"><Link to="/account">Back to Orders</Link></Button>
+      </div>
     );
   }
 
   if (!isWithinWindow) {
     return (
-      <StorefrontLayout>
-        <div className="container mx-auto px-4 py-12 max-w-lg text-center">
-          <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">Return Window Expired</h2>
-          <p className="text-muted-foreground">
-            The {returnSettings.defaultReturnWindow}-day return window for this order has passed.
-          </p>
-          <Button asChild className="mt-4"><Link to="/account">Back to Orders</Link></Button>
-        </div>
-      </StorefrontLayout>
+      <div className="py-12 max-w-lg mx-auto text-center">
+        <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+        <h2 className="text-xl font-bold mb-2">Return Window Expired</h2>
+        <p className="text-muted-foreground">
+          The {returnSettings.defaultReturnWindow}-day return window for this order has passed.
+        </p>
+        <Button asChild className="mt-4"><Link to="/account">Back to Orders</Link></Button>
+      </div>
     );
   }
 
   const returnableItems = items.filter(i => !existingReturns.includes(i.id));
 
   return (
-    <StorefrontLayout>
-      <div className="container mx-auto px-4 py-6 max-w-2xl">
-        <Button variant="ghost" size="sm" asChild className="mb-4">
-          <Link to={`/account/order/${orderId}`}><ArrowLeft className="h-4 w-4 mr-1" /> Back to Order</Link>
-        </Button>
+    <div className="space-y-4">
+      <Button variant="ghost" size="sm" asChild>
+        <Link to={`/account/order/${orderId}`}><ArrowLeft className="h-4 w-4 mr-1" /> Back to Order</Link>
+      </Button>
 
-        <h1 className="text-2xl font-bold mb-1">Request Return / Refund</h1>
-        <p className="text-sm text-muted-foreground mb-6">Order {order.order_number}</p>
+      <h1 className="text-2xl font-bold mb-1">Request Return / Refund</h1>
+      <p className="text-sm text-muted-foreground mb-6">Order {order.order_number}</p>
 
-        {/* Step 1: Select Items */}
-        <Card className="mb-4">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">1. Select Items to Return</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {returnableItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground">All items from this order are already in a return request.</p>
-            ) : (
-              returnableItems.map(item => (
-                <div key={item.id} className="flex items-start gap-3 p-3 border rounded-lg">
-                  <Checkbox
-                    checked={selectedItems[item.id]?.selected || false}
-                    onCheckedChange={() => toggleItem(item.id, item)}
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{item.product_name}</p>
-                    {item.variant_name && <p className="text-xs text-muted-foreground">{item.variant_name}</p>}
-                    <p className="text-xs text-muted-foreground">₹{Number(item.price).toFixed(0)} × {item.quantity}</p>
-                  </div>
-                  {selectedItems[item.id]?.selected && item.quantity > 1 && (
-                    <Select
-                      value={String(selectedItems[item.id]?.qty || item.quantity)}
-                      onValueChange={v => setSelectedItems(prev => ({ ...prev, [item.id]: { ...prev[item.id], qty: Number(v) } }))}
-                    >
-                      <SelectTrigger className="w-20 h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: item.quantity }, (_, i) => i + 1).map(n => (
-                          <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+      {/* Step 1: Select Items */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">1. Select Items to Return</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {returnableItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">All items from this order are already in a return request.</p>
+          ) : (
+            returnableItems.map(item => (
+              <div key={item.id} className="flex items-start gap-3 p-3 border rounded-lg">
+                <Checkbox
+                  checked={selectedItems[item.id]?.selected || false}
+                  onCheckedChange={() => toggleItem(item.id, item)}
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{item.product_name}</p>
+                  {item.variant_name && <p className="text-xs text-muted-foreground">{item.variant_name}</p>}
+                  <p className="text-xs text-muted-foreground">₹{Number(item.price).toFixed(0)} × {item.quantity}</p>
                 </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Step 2: Reason */}
-        <Card className="mb-4">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">2. Select Reason</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Select value={reason} onValueChange={setReason}>
-              <SelectTrigger><SelectValue placeholder="Select a reason..." /></SelectTrigger>
-              <SelectContent>
-                {RETURN_REASONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            {reason === 'Other' && (
-              <Textarea placeholder="Please describe..." value={reasonDetails} onChange={e => setReasonDetails(e.target.value)} rows={3} />
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Step 3: Proof */}
-        <Card className="mb-4">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">3. Upload Proof Images {returnSettings.requireImageProof && <span className="text-destructive">*</span>}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              {proofImages.map((img, i) => (
-                <div key={i} className="relative aspect-square">
-                  <img src={img} alt="" className="w-full h-full object-cover rounded-lg border" />
-                  <button
-                    onClick={() => setProofImages(prev => prev.filter((_, idx) => idx !== i))}
-                    className="absolute -top-1 -right-1 bg-destructive text-white rounded-full h-5 w-5 flex items-center justify-center"
+                {selectedItems[item.id]?.selected && item.quantity > 1 && (
+                  <Select
+                    value={String(selectedItems[item.id]?.qty || item.quantity)}
+                    onValueChange={v => setSelectedItems(prev => ({ ...prev, [item.id]: { ...prev[item.id], qty: Number(v) } }))}
                   >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-primary hover:underline">
-              {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {isUploading ? 'Uploading...' : 'Upload Images'}
-              <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" disabled={isUploading} />
-            </label>
-          </CardContent>
-        </Card>
+                    <SelectTrigger className="w-20 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: item.quantity }, (_, i) => i + 1).map(n => (
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Summary & Submit */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm font-medium">Refund Amount</span>
-              <span className="text-lg font-bold">
-                ₹{Object.entries(selectedItems)
-                  .filter(([, v]) => v.selected)
-                  .reduce((sum, [id, { qty }]) => {
-                    const item = items.find(i => i.id === id);
-                    return sum + (item ? item.price * qty : 0);
-                  }, 0)
-                  .toFixed(0)}
-              </span>
-            </div>
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={handleSubmit}
-              disabled={isSubmitting || Object.values(selectedItems).filter(v => v.selected).length === 0}
-            >
-              {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              Submit Return Request
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    </StorefrontLayout>
+      {/* Step 2: Reason */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">2. Select Reason</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Select value={reason} onValueChange={setReason}>
+            <SelectTrigger><SelectValue placeholder="Select a reason..." /></SelectTrigger>
+            <SelectContent>
+              {RETURN_REASONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {reason === 'Other' && (
+            <Textarea placeholder="Please describe..." value={reasonDetails} onChange={e => setReasonDetails(e.target.value)} rows={3} />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Step 3: Proof */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">3. Upload Proof Images {returnSettings.requireImageProof && <span className="text-destructive">*</span>}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {proofImages.map((img, i) => (
+              <div key={i} className="relative aspect-square">
+                <img src={img} alt="" className="w-full h-full object-cover rounded-lg border" />
+                <button
+                  onClick={() => setProofImages(prev => prev.filter((_, idx) => idx !== i))}
+                  className="absolute -top-1 -right-1 bg-destructive text-white rounded-full h-5 w-5 flex items-center justify-center"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-primary hover:underline">
+            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {isUploading ? 'Uploading...' : 'Upload Images'}
+            <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" disabled={isUploading} />
+          </label>
+        </CardContent>
+      </Card>
+
+      {/* Summary & Submit */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium">Refund Amount</span>
+            <span className="text-lg font-bold">
+              ₹{Object.entries(selectedItems)
+                .filter(([, v]) => v.selected)
+                .reduce((sum, [id, { qty }]) => {
+                  const item = items.find(i => i.id === id);
+                  return sum + (item ? item.price * qty : 0);
+                }, 0)
+                .toFixed(0)}
+            </span>
+          </div>
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={handleSubmit}
+            disabled={isSubmitting || Object.values(selectedItems).filter(v => v.selected).length === 0}
+          >
+            {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            Submit Return Request
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -13,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useActivityLog } from '@/hooks/useActivityLog';
-import { RotateCcw, Search, Eye, Check, X, Truck, Package, DollarSign, Loader2, Image as ImageIcon } from 'lucide-react';
+import { RotateCcw, Search, Check, X, Truck, Package, DollarSign, Loader2, Image as ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
 
 type ReturnStatus = 'requested' | 'approved' | 'rejected' | 'in_transit' | 'received' | 'refunded' | 'completed';
@@ -50,17 +48,6 @@ interface ReturnItemRecord {
   variant_id: string | null;
 }
 
-const statusTabs: { value: ReturnStatus | 'all'; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'requested', label: 'Requested' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'in_transit', label: 'In Transit' },
-  { value: 'received', label: 'Received' },
-  { value: 'refunded', label: 'Refunded' },
-  { value: 'completed', label: 'Completed' },
-];
-
 const statusColors: Record<ReturnStatus, string> = {
   requested: 'bg-amber-100 text-amber-800',
   approved: 'bg-blue-100 text-blue-800',
@@ -74,8 +61,8 @@ const statusColors: Record<ReturnStatus, string> = {
 export default function AdminReturns() {
   const [returns, setReturns] = useState<ReturnRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedReturn, setSelectedReturn] = useState<ReturnRecord | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
@@ -97,7 +84,6 @@ export default function AdminReturns() {
 
     if (!data) { setIsLoading(false); return; }
 
-    // Fetch related data
     const orderIds = [...new Set(data.map(r => r.order_id))];
     const userIds = [...new Set(data.map(r => r.user_id))];
     const returnIds = data.map(r => r.id);
@@ -135,7 +121,7 @@ export default function AdminReturns() {
   useEffect(() => { fetchReturns(); }, [fetchReturns]);
 
   const filtered = returns.filter(r => {
-    if (activeTab !== 'all' && r.status !== activeTab) return false;
+    if (statusFilter !== 'all' && r.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
       return (
@@ -170,8 +156,12 @@ export default function AdminReturns() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
+      // Update order status to 'returned' when return is completed or refunded
+      if (status === 'refunded' || status === 'completed') {
+        await supabase.from('orders').update({ status: 'returned' as any }).eq('id', selectedReturn.order_id);
+      }
       toast({ title: 'Return updated', description: `Status changed to ${status}` });
-      log({ action: 'status_change', entityType: 'order', entityId: selectedReturn.id, details: { return_number: selectedReturn.return_number, new_status: status } });
+      log({ action: 'status_change', entityType: 'return', entityId: selectedReturn.id, details: { return_number: selectedReturn.return_number, new_status: status } });
       await fetchReturns();
       setIsDetailOpen(false);
     }
@@ -206,25 +196,33 @@ export default function AdminReturns() {
     if (itemCondition === 'good') {
       for (const item of selectedReturn.items || []) {
         if (item.variant_id) {
-          await supabase.rpc('release_stock_hold', { p_user_id: selectedReturn.user_id }); // cleanup
-          await supabase.from('product_variants').update({
-            stock_quantity: (await supabase.from('product_variants').select('stock_quantity').eq('id', item.variant_id).single()).data?.stock_quantity + item.quantity
-          } as any).eq('id', item.variant_id);
+          const { data: vd } = await supabase.from('product_variants').select('stock_quantity').eq('id', item.variant_id).single();
+          if (vd) {
+            await supabase.from('product_variants').update({
+              stock_quantity: (vd.stock_quantity || 0) + item.quantity
+            } as any).eq('id', item.variant_id);
+          }
         }
         if (item.product_id) {
-          await supabase.from('products').update({
-            stock_quantity: (await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single()).data?.stock_quantity + item.quantity
-          } as any).eq('id', item.product_id);
+          const { data: pd } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+          if (pd) {
+            await supabase.from('products').update({
+              stock_quantity: (pd.stock_quantity || 0) + item.quantity
+            } as any).eq('id', item.product_id);
+          }
         }
       }
     }
 
+    // Update order status to returned
+    await supabase.from('orders').update({ status: 'returned' as any }).eq('id', selectedReturn.order_id);
+
     await updateStatus('refunded', { item_condition: itemCondition });
-    log({ action: 'refund', entityType: 'order', entityId: selectedReturn.id, details: { refund_number: refundNumber, amount: totalAmount } });
+    log({ action: 'refund', entityType: 'return', entityId: selectedReturn.id, details: { refund_number: refundNumber, amount: totalAmount } });
   };
 
-  const tabCounts = statusTabs.reduce((acc, tab) => {
-    acc[tab.value] = tab.value === 'all' ? returns.length : returns.filter(r => r.status === tab.value).length;
+  const statusCounts = returns.reduce((acc, r) => {
+    acc[r.status] = (acc[r.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
@@ -238,70 +236,72 @@ export default function AdminReturns() {
             </h1>
             <p className="text-sm text-muted-foreground">Manage customer returns and process refunds</p>
           </div>
-        </div>
-
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search returns..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
-        </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="flex-wrap h-auto gap-1">
-            {statusTabs.map(tab => (
-              <TabsTrigger key={tab.value} value={tab.value} className="text-xs">
-                {tab.label}
-                {tabCounts[tab.value] > 0 && (
-                  <span className="ml-1.5 text-[10px] bg-muted-foreground/20 rounded-full px-1.5">{tabCounts[tab.value]}</span>
-                )}
-              </TabsTrigger>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {Object.entries(statusCounts).map(([status, count]) => (
+              <span key={status} className={`px-2 py-0.5 rounded-full font-medium ${statusColors[status as ReturnStatus] || ''}`}>
+                {status.replace('_', ' ')}: {count}
+              </span>
             ))}
-          </TabsList>
+          </div>
+        </div>
 
-          <TabsContent value={activeTab} className="mt-4">
-            {isLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />)}
-              </div>
-            ) : filtered.length === 0 ? (
-              <Card><CardContent className="py-12 text-center text-muted-foreground">No returns found</CardContent></Card>
-            ) : (
-              <div className="space-y-3">
-                {filtered.map(r => (
-                  <Card key={r.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openDetail(r)}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-1 min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-sm">{r.return_number}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[r.status]}`}>
-                              {r.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Order: {r.order?.order_number || '—'} • {r.profile?.full_name || 'Unknown'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{r.reason}</p>
-                          <p className="text-xs text-muted-foreground">{format(new Date(r.created_at), 'dd MMM yyyy, hh:mm a')}</p>
-                        </div>
-                        <div className="text-right space-y-1">
-                          <p className="font-semibold text-sm">
-                            ₹{(r.items || []).reduce((s, i) => s + i.price * i.quantity, 0).toFixed(0)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{(r.items || []).length} item(s)</p>
-                          {r.images && r.images.length > 0 && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <ImageIcon className="h-3 w-3" /> {r.images.length} proof(s)
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search returns..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              {(['requested', 'approved', 'rejected', 'in_transit', 'received', 'refunded', 'completed'] as ReturnStatus[]).map(s => (
+                <SelectItem key={s} value={s}>{s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />)}
+          </div>
+        ) : filtered.length === 0 ? (
+          <Card><CardContent className="py-12 text-center text-muted-foreground">No returns found</CardContent></Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map(r => (
+              <Card key={r.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openDetail(r)}>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm">{r.return_number}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[r.status]}`}>
+                      {r.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Order: {r.order?.order_number || '—'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{r.profile?.full_name || 'Unknown'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{r.reason}</p>
+                  <div className="flex items-center justify-between pt-1">
+                    <p className="font-semibold text-sm">
+                      ₹{(r.items || []).reduce((s, i) => s + i.price * i.quantity, 0).toFixed(0)}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{(r.items || []).length} item(s)</span>
+                      {r.images && r.images.length > 0 && (
+                        <span className="flex items-center gap-0.5"><ImageIcon className="h-3 w-3" />{r.images.length}</span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{format(new Date(r.created_at), 'dd MMM yyyy, hh:mm a')}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Detail Dialog */}
@@ -319,7 +319,6 @@ export default function AdminReturns() {
               </DialogHeader>
 
               <div className="space-y-4">
-                {/* Customer & Order Info */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-xs text-muted-foreground">Customer</Label>
@@ -337,14 +336,12 @@ export default function AdminReturns() {
 
                 <Separator />
 
-                {/* Reason */}
                 <div>
                   <Label className="text-xs text-muted-foreground">Return Reason</Label>
                   <p className="text-sm font-medium">{selectedReturn.reason}</p>
                   {selectedReturn.reason_details && <p className="text-xs text-muted-foreground mt-1">{selectedReturn.reason_details}</p>}
                 </div>
 
-                {/* Items */}
                 <div>
                   <Label className="text-xs text-muted-foreground">Return Items</Label>
                   <div className="space-y-2 mt-1">
@@ -363,7 +360,6 @@ export default function AdminReturns() {
                   </div>
                 </div>
 
-                {/* Proof Images */}
                 {selectedReturn.images && selectedReturn.images.length > 0 && (
                   <div>
                     <Label className="text-xs text-muted-foreground">Proof Images</Label>
@@ -374,14 +370,13 @@ export default function AdminReturns() {
                           src={img}
                           alt={`Proof ${i + 1}`}
                           className="w-full aspect-square object-cover rounded-lg cursor-pointer border"
-                          onClick={() => setImagePreview(img)}
+                          onClick={(e) => { e.stopPropagation(); setImagePreview(img); }}
                         />
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Refund Info */}
                 {selectedReturn.refund && (
                   <div className="p-3 bg-green-50 rounded-lg">
                     <Label className="text-xs text-muted-foreground">Refund</Label>
@@ -392,7 +387,6 @@ export default function AdminReturns() {
 
                 <Separator />
 
-                {/* Admin Notes */}
                 <div>
                   <Label>Admin Notes</Label>
                   <Textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)} placeholder="Internal notes..." rows={2} />
@@ -405,17 +399,12 @@ export default function AdminReturns() {
                       <Button className="flex-1" onClick={() => updateStatus('approved')} disabled={isProcessing}>
                         <Check className="h-4 w-4 mr-1" /> Approve
                       </Button>
-                      <Dialog>
-                        <Button variant="destructive" className="flex-1" onClick={() => {}} disabled={isProcessing}>
-                          <X className="h-4 w-4 mr-1" /> Reject
-                        </Button>
-                      </Dialog>
                     </div>
                     <div>
                       <Label>Reject Reason (if rejecting)</Label>
                       <Textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Reason for rejection..." rows={2} />
                       <Button variant="destructive" size="sm" className="mt-2" onClick={() => updateStatus('rejected', { reject_reason: rejectReason })} disabled={isProcessing || !rejectReason}>
-                        Confirm Reject
+                        <X className="h-4 w-4 mr-1" /> Confirm Reject
                       </Button>
                     </div>
                   </div>
