@@ -27,6 +27,7 @@ interface CartItemWithProduct extends CartItem {
 }
 
 const CHECKOUT_HOLD_WINDOW_MS = 2 * 60 * 1000;
+const HOLD_EXPIRY_STORAGE_KEY = 'checkout_hold_expires_at';
 
 function CheckoutTimer({ expiresAt }: { expiresAt: number }) {
   const [remaining, setRemaining] = useState(Math.max(0, expiresAt - Date.now()));
