@@ -6,7 +6,7 @@
  import { Separator } from '@/components/ui/separator';
  import { supabase } from '@/integrations/supabase/client';
  import { useAuth } from '@/hooks/useAuth';
-import { ArrowLeft, Package, Truck, CheckCircle, MapPin } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, MapPin, RotateCcw } from 'lucide-react';
  import type { Order, OrderItem, Delivery, ShippingAddress, OrderStatus } from '@/types/database';
  import { cn } from '@/lib/utils';
  
@@ -163,7 +163,24 @@ import { ArrowLeft, Package, Truck, CheckCircle, MapPin } from 'lucide-react';
               )}
             </CardContent>
           </Card>
-        )}
-      </div>
-    );
+         )}
+
+         {/* Return Button - only for delivered orders */}
+         {order.status === 'delivered' && (
+           <Card>
+             <CardContent className="py-4 flex items-center justify-between">
+               <div>
+                 <p className="font-medium text-sm">Need to return an item?</p>
+                 <p className="text-xs text-muted-foreground">Raise a return request for this order</p>
+               </div>
+               <Button variant="destructive" size="sm" asChild>
+                 <Link to={`/account/return/${order.id}`}>
+                   <RotateCcw className="h-4 w-4 mr-1" /> Return / Refund
+                 </Link>
+               </Button>
+             </CardContent>
+           </Card>
+         )}
+       </div>
+     );
 }

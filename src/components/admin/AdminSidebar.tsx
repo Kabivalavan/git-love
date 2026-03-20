@@ -28,6 +28,7 @@ import {
   Activity,
   Zap,
   MessageSquare,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -70,6 +71,7 @@ const sidebarEntries: SidebarEntry[] = [
     icon: ShoppingCart,
     items: [
       { path: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
+      { path: '/admin/returns', icon: RotateCcw, label: 'Returns' },
       { path: '/admin/deliveries', icon: Truck, label: 'Deliveries' },
       { path: '/admin/payments', icon: CreditCard, label: 'Payments' },
     ],

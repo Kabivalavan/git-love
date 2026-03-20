@@ -127,6 +127,16 @@ export default function AdminSettings() {
     button_text: '✨ Need help choosing?',
   });
   const [isSyncingProducts, setIsSyncingProducts] = useState(false);
+  const [returnSettings, setReturnSettings] = useState({
+    defaultReturnWindow: 7,
+    requireReason: true,
+    requireImageProof: true,
+    autoApprove: false,
+    pickupEnabled: true,
+    refundMode: 'original',
+    returnShippingCharges: 'customer',
+    restockingFee: 0,
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -194,6 +204,9 @@ export default function AdminSettings() {
             break;
           case 'ai_assistant':
             setAiAssistant({ ...aiAssistant, ...(value as any) });
+            break;
+          case 'return_settings':
+            setReturnSettings(prev => ({ ...prev, ...(value as any) }));
             break;
         }
       });
@@ -381,7 +394,7 @@ export default function AdminSettings() {
   return (
     <AdminLayout title="Settings" description="Configure your store settings">
       <Tabs defaultValue="store" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-10 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-11 lg:w-auto lg:inline-grid">
           <TabsTrigger value="store" className="gap-2">
             <Store className="h-4 w-4" />
             <span className="hidden sm:inline">Store</span>
@@ -421,6 +434,10 @@ export default function AdminSettings() {
           <TabsTrigger value="ai_assistant" className="gap-2">
             <Bot className="h-4 w-4" />
             <span className="hidden sm:inline">AI</span>
+          </TabsTrigger>
+          <TabsTrigger value="returns" className="gap-2">
+            <RotateCcw className="h-4 w-4" />
+            <span className="hidden sm:inline">Returns</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1542,6 +1559,94 @@ export default function AdminSettings() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Returns Settings */}
+        <TabsContent value="returns">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RotateCcw className="h-5 w-5" />
+                Return & Refund Settings
+              </CardTitle>
+              <CardDescription>Configure return policies and refund behavior</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Default Return Window (days)</Label>
+                  <Input type="number" min={0} max={90} value={returnSettings.defaultReturnWindow} onChange={e => setReturnSettings(prev => ({ ...prev, defaultReturnWindow: Number(e.target.value) }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Restocking Fee (%)</Label>
+                  <Input type="number" min={0} max={100} value={returnSettings.restockingFee} onChange={e => setReturnSettings(prev => ({ ...prev, restockingFee: Number(e.target.value) }))} />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Require Return Reason</Label>
+                    <p className="text-xs text-muted-foreground">Customer must select a reason</p>
+                  </div>
+                  <Switch checked={returnSettings.requireReason} onCheckedChange={v => setReturnSettings(prev => ({ ...prev, requireReason: v }))} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Require Proof Images</Label>
+                    <p className="text-xs text-muted-foreground">Mandatory image upload for fraud control</p>
+                  </div>
+                  <Switch checked={returnSettings.requireImageProof} onCheckedChange={v => setReturnSettings(prev => ({ ...prev, requireImageProof: v }))} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Auto-Approve Returns</Label>
+                    <p className="text-xs text-muted-foreground">Automatically approve without admin review</p>
+                  </div>
+                  <Switch checked={returnSettings.autoApprove} onCheckedChange={v => setReturnSettings(prev => ({ ...prev, autoApprove: v }))} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Pickup Enabled</Label>
+                    <p className="text-xs text-muted-foreground">Arrange pickup for returned items</p>
+                  </div>
+                  <Switch checked={returnSettings.pickupEnabled} onCheckedChange={v => setReturnSettings(prev => ({ ...prev, pickupEnabled: v }))} />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Refund Mode</Label>
+                  <Select value={returnSettings.refundMode} onValueChange={v => setReturnSettings(prev => ({ ...prev, refundMode: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="original">Original Payment Method</SelectItem>
+                      <SelectItem value="wallet">Store Wallet</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Return Shipping Charges</Label>
+                  <Select value={returnSettings.returnShippingCharges} onValueChange={v => setReturnSettings(prev => ({ ...prev, returnShippingCharges: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="customer">Customer Pays</SelectItem>
+                      <SelectItem value="store">Store Pays</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Button onClick={() => handleSave('return_settings', returnSettings as any)} disabled={isSaving === 'return_settings'}>
+                {isSaving === 'return_settings' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Save Return Settings
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </AdminLayout>

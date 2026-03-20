@@ -36,6 +36,7 @@ const AdminNotifications = lazy(() => import('./pages/admin/Notifications'));
 const AdminActivityLog = lazy(() => import('./pages/admin/ActivityLog'));
 const AdminConversionOptimization = lazy(() => import('./pages/admin/ConversionOptimization'));
 const AdminWhatsAppMarketing = lazy(() => import('./pages/admin/WhatsAppMarketing'));
+const AdminReturns = lazy(() => import('./pages/admin/Returns'));
 
 const ProductsPage = lazy(() => import('./pages/store/Products'));
 const ProductDetailPage = lazy(() => import('./pages/store/ProductDetail'));
@@ -57,6 +58,8 @@ const WishlistPage = lazy(() => import('./pages/store/Wishlist'));
 const BundleDetailPage = lazy(() => import('./pages/store/BundleDetail'));
 const CategoriesPage = lazy(() => import('./pages/store/Categories'));
 const AllBundlesPage = lazy(() => import('./pages/store/AllBundles'));
+const ReturnRequestPage = lazy(() => import('./pages/store/ReturnRequest'));
+const MyReturnsPage = lazy(() => import('./pages/store/MyReturns'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -145,6 +148,8 @@ const AppRoutes = () => (
       <Route path="/account" element={<Suspense fallback={<StorefrontLayout><StorefrontLoadingFallback /></StorefrontLayout>}><AccountPage /></Suspense>}>
         <Route index element={<Suspense fallback={<StorefrontLoadingFallback />}><MyOrdersPage /></Suspense>} />
         <Route path="order/:orderId" element={<Suspense fallback={<StorefrontLoadingFallback />}><OrderTrackingPage /></Suspense>} />
+        <Route path="returns" element={<Suspense fallback={<StorefrontLoadingFallback />}><MyReturnsPage /></Suspense>} />
+        <Route path="return/:orderId" element={<Suspense fallback={<StorefrontLoadingFallback />}><ReturnRequestPage /></Suspense>} />
         <Route path="addresses" element={<Suspense fallback={<StorefrontLoadingFallback />}><SavedAddressesPage /></Suspense>} />
         <Route path="profile" element={<Suspense fallback={<StorefrontLoadingFallback />}><ProfileSettingsPage /></Suspense>} />
       </Route>
@@ -170,6 +175,7 @@ const AppRoutes = () => (
       <Route path="/admin/activity-log" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminActivityLog /></Suspense></AdminRoute>} />
       <Route path="/admin/sales-boost" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminConversionOptimization /></Suspense></AdminRoute>} />
       <Route path="/admin/whatsapp-marketing" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminWhatsAppMarketing /></Suspense></AdminRoute>} />
+      <Route path="/admin/returns" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminReturns /></Suspense></AdminRoute>} />
       <Route path="*" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><NotFound /></Suspense>} />
     </Routes>
   </>
