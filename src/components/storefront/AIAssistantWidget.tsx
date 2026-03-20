@@ -359,8 +359,9 @@ export function AIAssistantWidget() {
             className={cn(
               "fixed z-[9999] flex flex-col",
               "bg-card border border-border rounded-2xl shadow-2xl overflow-hidden",
-              "bottom-20 right-4 lg:bottom-6 lg:right-6",
-              "w-[360px] max-w-[calc(100vw-32px)] h-[520px] max-h-[calc(100vh-120px)]"
+              "bottom-[76px] right-4 lg:bottom-6 lg:right-6",
+              "w-[360px] max-w-[calc(100vw-32px)]",
+              "h-[calc(100vh-160px)] max-h-[520px] lg:h-[520px] lg:max-h-[calc(100vh-120px)]"
             )}
           >
             {/* Header */}
