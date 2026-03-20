@@ -61,6 +61,7 @@ export default function AdminOrders() {
   const [searchQuery, setSearchQuery] = useState('');
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
   const [customerPhone, setCustomerPhone] = useState('');
+  const [returnedItems, setReturnedItems] = useState<Record<string, number>>({});
   const { toast } = useToast();
   const { log } = useActivityLog();
 
@@ -88,16 +89,27 @@ export default function AdminOrders() {
 
   const fetchOrderDetails = async (orderId: string) => {
     try {
-      const [itemsRes, deliveryRes, paymentsRes] = await Promise.all([
+      const [itemsRes, deliveryRes, paymentsRes, returnItemsRes] = await Promise.all([
         supabase.from('order_items').select('*').eq('order_id', orderId),
         supabase.from('deliveries').select('*').eq('order_id', orderId).maybeSingle(),
         supabase.from('payments').select('*').eq('order_id', orderId),
+        supabase.from('return_items').select('order_item_id, quantity, return_id').in(
+          'return_id',
+          (await supabase.from('returns').select('id').eq('order_id', orderId).not('status', 'eq', 'rejected')).data?.map(r => r.id) || []
+        ),
       ]);
       setOrderItems((itemsRes.data || []) as unknown as OrderItem[]);
       const del = (deliveryRes.data as unknown as Delivery) || null;
       setDelivery(del);
       setDeliveryEdit(del ? { ...del } : {});
       setPayments((paymentsRes.data || []) as unknown as Payment[]);
+
+      // Build returned items map: order_item_id -> qty returned
+      const riMap: Record<string, number> = {};
+      (returnItemsRes.data || []).forEach((ri: any) => {
+        riMap[ri.order_item_id] = (riMap[ri.order_item_id] || 0) + ri.quantity;
+      });
+      setReturnedItems(riMap);
     } catch (e) {
       console.error('Failed to fetch order details:', e);
       toast({ title: 'Error loading order details', variant: 'destructive' });
@@ -732,6 +744,11 @@ export default function AdminOrders() {
                                       <Badge className="text-[10px] mt-0.5 bg-secondary text-secondary-foreground">{item.variant_name}</Badge>
                                     )}
                                     <p className="text-xs text-muted-foreground mt-0.5">SKU: {item.sku || 'N/A'} · Qty: {item.quantity} × ₹{Number(item.price).toFixed(2)}</p>
+                                    {returnedItems[item.id] && (
+                                      <Badge className="text-[10px] mt-1 bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                                        ↩ {returnedItems[item.id]} returned
+                                      </Badge>
+                                    )}
                                   </div>
                                   <p className="font-semibold text-sm">₹{Number(item.total).toFixed(2)}</p>
                                 </div>
@@ -747,6 +764,11 @@ export default function AdminOrders() {
                                 <Badge className="text-[10px] mt-0.5 bg-secondary text-secondary-foreground">{item.variant_name}</Badge>
                               )}
                               <p className="text-xs text-muted-foreground mt-0.5">SKU: {item.sku || 'N/A'} · Qty: {item.quantity} × ₹{Number(item.price).toFixed(2)}</p>
+                              {returnedItems[item.id] && (
+                                <Badge className="text-[10px] mt-1 bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                                  ↩ {returnedItems[item.id]} returned
+                                </Badge>
+                              )}
                             </div>
                             <p className="font-semibold text-sm">₹{Number(item.total).toFixed(2)}</p>
                           </div>
@@ -980,6 +1002,9 @@ export default function AdminOrders() {
                       <span className="ml-1">
                         ({items.filter((i: any) => i.variant_name).map((i: any) => i.variant_name).join(', ')})
                       </span>
+                    )}
+                    {order.status === 'returned' && (
+                      <Badge className="ml-1 text-[9px] bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">↩ Returned</Badge>
                     )}
                   </div>
                 </CardContent>
