@@ -46,6 +46,7 @@ const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
 const FOOTWEAR_SIZES = ['5', '6', '7', '8', '9', '10', '11', '12'];
 
 interface VariantForm {
+  id?: string;
   name: string;
   sku: string;
   price: string;
@@ -149,7 +150,12 @@ export default function AdminProducts() {
 
   const handleRowClick = async (product: Product) => {
     // Fetch variants for detail panel
-    const { data: variants } = await supabase.from('product_variants').select('*').eq('product_id', product.id);
+    const { data: variants } = await supabase
+      .from('product_variants')
+      .select('*')
+      .eq('product_id', product.id)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
     setSelectedProduct({ ...product, variants: (variants || []) as unknown as ProductVariant[] });
     setIsDetailOpen(true);
   };
@@ -162,9 +168,12 @@ export default function AdminProducts() {
     const { data: variants } = await supabase
       .from('product_variants')
       .select('*')
-      .eq('product_id', selectedProduct.id);
+      .eq('product_id', selectedProduct.id)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
     
     const existingVariants = (variants || []).map(v => ({
+      id: v.id,
       name: v.name,
       sku: v.sku || '',
       price: v.price?.toString() || '',
@@ -264,6 +273,8 @@ export default function AdminProducts() {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
+
     if (!formData.name) {
       toast({ title: 'Error', description: 'Product name is required', variant: 'destructive' });
       return;
@@ -275,6 +286,20 @@ export default function AdminProducts() {
     }
 
     setIsSaving(true);
+
+    const toVariantPayload = (v: VariantForm, sortOrder: number) => ({
+      name: v.name,
+      sku: v.sku || null,
+      price: v.price ? parseFloat(v.price) : null,
+      cost_price: v.cost_price ? parseFloat(v.cost_price) : null,
+      tax_rate: v.tax_rate ? parseFloat(v.tax_rate) : 0,
+      mrp: null,
+      stock_quantity: parseInt(v.stock_quantity) || 0,
+      is_active: true,
+      sort_order: sortOrder,
+      image_url: v.image_url || null,
+      is_returnable: v.is_returnable,
+    });
 
     const slug = formData.slug || formData.name?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     // Use first variant's price as the product base price
@@ -332,23 +357,60 @@ export default function AdminProducts() {
         await supabase.from('product_images').insert(imageRecords);
       }
 
-      // Insert variants — use only filledVariants to avoid duplicates
-      const variantRecords = filledVariants.map((v, idx) => ({
-        product_id: productId,
-        name: v.name,
-        sku: v.sku || null,
-        price: v.price ? parseFloat(v.price) : null,
-        cost_price: v.cost_price ? parseFloat(v.cost_price) : null,
-        tax_rate: v.tax_rate ? parseFloat(v.tax_rate) : 0,
-        mrp: null,
-        stock_quantity: parseInt(v.stock_quantity) || 0,
-        is_active: true,
-        sort_order: idx,
-        image_url: v.image_url || null,
-        is_returnable: v.is_returnable,
-      }));
-      if (variantRecords.length > 0) {
-        await supabase.from('product_variants').insert(variantRecords as any);
+      // Upsert-like variant persistence to avoid duplicate multiplication on edits.
+      if (selectedProduct) {
+        const { data: existingVariantRows, error: existingVariantError } = await supabase
+          .from('product_variants')
+          .select('id')
+          .eq('product_id', productId);
+        if (existingVariantError) throw existingVariantError;
+
+        const existingIds = new Set((existingVariantRows || []).map((row) => row.id));
+        const orderedVariants = filledVariants.map((variant, sort_order) => ({ variant, sort_order }));
+        const toUpdate = orderedVariants.filter(({ variant }) => Boolean(variant.id) && existingIds.has(variant.id!));
+        const toInsert = orderedVariants.filter(({ variant }) => !variant.id || !existingIds.has(variant.id));
+        const keptIds = new Set(toUpdate.map(({ variant }) => variant.id!));
+        const toDeactivateIds = Array.from(existingIds).filter((id) => !keptIds.has(id));
+
+        if (toUpdate.length > 0) {
+          const updateResults = await Promise.all(
+            toUpdate.map(({ variant, sort_order }) =>
+              supabase
+                .from('product_variants')
+                .update(toVariantPayload(variant, sort_order))
+                .eq('id', variant.id!)
+            )
+          );
+          updateResults.forEach(({ error }) => {
+            if (error) throw error;
+          });
+        }
+
+        if (toDeactivateIds.length > 0) {
+          const { error: deactivateError } = await supabase
+            .from('product_variants')
+            .update({ is_active: false })
+            .in('id', toDeactivateIds);
+          if (deactivateError) throw deactivateError;
+        }
+
+        if (toInsert.length > 0) {
+          const insertPayload = toInsert.map(({ variant, sort_order }) => ({
+            product_id: productId,
+            ...toVariantPayload(variant, sort_order),
+          }));
+          const { error: insertError } = await supabase.from('product_variants').insert(insertPayload as any);
+          if (insertError) throw insertError;
+        }
+      } else {
+        const variantRecords = filledVariants.map((variant, sort_order) => ({
+          product_id: productId,
+          ...toVariantPayload(variant, sort_order),
+        }));
+        if (variantRecords.length > 0) {
+          const { error: insertError } = await supabase.from('product_variants').insert(variantRecords as any);
+          if (insertError) throw insertError;
+        }
       }
 
       log({ action: selectedProduct ? 'update' : 'create', entityType: 'product', entityId: productId, details: { name: formData.name } });
@@ -383,7 +445,7 @@ export default function AdminProducts() {
       key: 'sku',
       header: 'Variants / SKU',
       render: (p) => {
-        const variantCount = (p as any).variants?.length;
+        const variantCount = ((p as any).variants || []).filter((v: any) => v.is_active !== false).length;
         if (variantCount !== undefined && variantCount > 0) {
           return (
             <span className="text-xs text-muted-foreground">
@@ -763,7 +825,7 @@ export default function AdminProducts() {
               </p>
               <div className="space-y-4">
                 {variantForms.map((variant, index) => (
-                  <div key={index} className="border rounded-xl p-4 space-y-3 bg-muted/20">
+                  <div key={variant.id || `new-${index}`} className="border rounded-xl p-4 space-y-3 bg-muted/20">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-foreground">Variant {index + 1}{index === 0 ? ' (Default — auto-selected on product page)' : ''}</span>
                       {variantForms.length > 1 && (
@@ -978,7 +1040,7 @@ export default function AdminProducts() {
                     {variantForms.map((variant, index) => {
                       if (!variant.name.trim()) return null;
                       return (
-                        <div key={index} className="border rounded-xl p-3 space-y-2 bg-muted/20">
+                        <div key={variant.id || `image-${index}`} className="border rounded-xl p-3 space-y-2 bg-muted/20">
                           <p className="text-xs font-semibold text-foreground">{variant.name}</p>
                           {variant.image_url ? (
                             <div className="relative aspect-square rounded-lg overflow-hidden bg-muted">
