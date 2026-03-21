@@ -81,10 +81,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch all active products with images and categories
+    // Fetch all active products with images, categories, and variants
     const { data: products, error: prodErr } = await supabase
       .from("products")
-      .select("id, name, slug, description, short_description, price, mrp, category_id, badge, categories(name), product_images(image_url, is_primary)")
+      .select(`
+        id, name, slug, description, short_description, price, mrp,
+        category_id, badge, sku, barcode, stock_quantity, low_stock_threshold,
+        shipping_weight, tax_rate, variant_required, is_featured, is_bestseller,
+        content_sections,
+        categories(name),
+        product_images(image_url, is_primary, sort_order),
+        product_variants(id, name, sku, price, mrp, stock_quantity, is_active, attributes, image_url, sort_order)
+      `)
       .eq("is_active", true)
       .order("sort_order");
 
@@ -104,12 +112,29 @@ Deno.serve(async (req) => {
     const mappedProducts = (products || []).map((p: any) => {
       const primaryImage = p.product_images?.find((img: any) => img.is_primary);
       const firstImage = p.product_images?.[0];
+
+      // Map variants
+      const variants = (p.product_variants || [])
+        .filter((v: any) => v.is_active)
+        .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
+        .map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          sku: v.sku,
+          price: v.price,
+          mrp: v.mrp,
+          stockQuantity: v.stock_quantity,
+          attributes: v.attributes,
+          imageUrl: v.image_url,
+        }));
+
       return {
         externalId: p.id,
         name: p.name,
         slug: p.slug,
         category: p.categories?.name || null,
         description: p.short_description || p.description || "",
+        shortDescription: p.short_description || "",
         price: p.price,
         currency: "INR",
         imageUrl: primaryImage?.image_url || firstImage?.image_url || null,
@@ -117,6 +142,20 @@ Deno.serve(async (req) => {
           ? `${storeUrl}/product/${p.slug}`
           : `/product/${p.slug}`,
         concerns: p.badge ? [p.badge] : [],
+        tags: [],
+        badge: p.badge,
+        sku: p.sku,
+        barcode: p.barcode,
+        mrp: p.mrp,
+        stockQuantity: p.stock_quantity,
+        lowStockThreshold: p.low_stock_threshold,
+        shippingWeight: p.shipping_weight,
+        taxRate: p.tax_rate,
+        variantRequired: p.variant_required,
+        isFeatured: p.is_featured,
+        isBestseller: p.is_bestseller,
+        contentSections: p.content_sections,
+        variants,
         attributes: { mrp: p.mrp },
       };
     });

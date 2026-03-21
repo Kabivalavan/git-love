@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Send, Sparkles, ChevronRight, Star, ShoppingCart, RotateCcw, MessageCircle } from 'lucide-react';
+import { X, Sparkles, ChevronRight, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,8 +18,11 @@ interface AIConfig {
 interface Question {
   id: string;
   questionText: string;
+  helperText?: string;
   options: string[];
   inputType: 'single_select' | 'multi_select';
+  branchKey?: string;
+  showWhen?: Record<string, string | string[]>;
 }
 
 interface Recommendation {
@@ -72,12 +75,27 @@ function fireWidgetEvent(
   }).catch(() => {});
 }
 
+/** Filters questions based on branching logic */
+function getVisibleQuestions(allQuestions: Question[], branches: Record<string, string[]>): Question[] {
+  return allQuestions.filter((q) => {
+    if (!q.showWhen) return true;
+    return Object.keys(q.showWhen).every((key) => {
+      const expected = Array.isArray(q.showWhen![key]) ? q.showWhen![key] : [q.showWhen![key]];
+      const actual = branches[key] || [];
+      return actual.some((answer) =>
+        (expected as string[]).some((value) => String(value).toLowerCase() === String(answer).toLowerCase())
+      );
+    });
+  });
+}
+
 export function AIAssistantWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<MessageType[]>([]);
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
+  const [visibleStep, setVisibleStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
+  const [branches, setBranches] = useState<Record<string, string[]>>({});
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [localSessionId, setLocalSessionId] = useState<string | null>(null);
@@ -180,16 +198,18 @@ export function AIAssistantWidget() {
       });
       const data = await res.json();
       const q = (data.questions || []) as Question[];
-      setQuestions(q);
-      setCurrentStep(0);
+      setAllQuestions(q);
+      setVisibleStep(0);
       setAnswers({});
+      setBranches({});
 
       updateSession({ questions: q });
 
+      const visible = getVisibleQuestions(q, {});
       setMessages(prev => [
         prev[0],
-        ...(q.length > 0
-          ? [{ role: 'assistant' as const, type: 'question' as const, question: q[0], stepIndex: 0, totalSteps: q.length }]
+        ...(visible.length > 0
+          ? [{ role: 'assistant' as const, type: 'question' as const, question: visible[0], stepIndex: 0, totalSteps: visible.length }]
           : [{ role: 'assistant' as const, type: 'error' as const, text: 'No questions available right now.' }]),
       ]);
     } catch {
@@ -211,11 +231,16 @@ export function AIAssistantWidget() {
   };
 
   const handleContinue = useCallback(async () => {
-    if (selectedOptions.length === 0 || currentStep >= questions.length) return;
+    const visible = getVisibleQuestions(allQuestions, branches);
+    if (selectedOptions.length === 0 || visibleStep >= visible.length) return;
 
-    const q = questions[currentStep];
+    const q = visible[visibleStep];
     const newAnswers = { ...answers, [q.id]: selectedOptions };
+    const newBranches = { ...branches };
+    if (q.branchKey) newBranches[q.branchKey] = [...selectedOptions];
+
     setAnswers(newAnswers);
+    setBranches(newBranches);
 
     setMessages(prev => [
       ...prev,
@@ -225,17 +250,21 @@ export function AIAssistantWidget() {
 
     updateSession({ answers: newAnswers });
 
-    const nextStep = currentStep + 1;
-    setCurrentStep(nextStep);
+    const nextStep = visibleStep + 1;
+    setVisibleStep(nextStep);
 
-    if (nextStep < questions.length) {
+    // Recalculate visible questions with updated branches
+    const nextVisible = getVisibleQuestions(allQuestions, newBranches);
+
+    if (nextStep < nextVisible.length) {
       setTimeout(() => {
         setMessages(prev => [
           ...prev,
-          { role: 'assistant', type: 'question', question: questions[nextStep], stepIndex: nextStep, totalSteps: questions.length },
+          { role: 'assistant', type: 'question', question: nextVisible[nextStep], stepIndex: nextStep, totalSteps: nextVisible.length },
         ]);
       }, 400);
     } else {
+      // Submit answers
       setMessages(prev => [
         ...prev,
         { role: 'assistant', type: 'thinking', text: 'Analyzing your preferences...' },
@@ -264,7 +293,6 @@ export function AIAssistantWidget() {
           completed_at: new Date().toISOString(),
         });
 
-        // Track recommendation_viewed on external API
         fireWidgetEvent(config!.api_base, config!.site_id, 'recommendation_viewed', data.sessionId || null, {
           count: recs.length,
           productIds: recs.map((r: any) => r.externalId || r.name).filter(Boolean),
@@ -283,13 +311,14 @@ export function AIAssistantWidget() {
         ]);
       }
     }
-  }, [selectedOptions, currentStep, questions, answers, config, user, updateSession]);
+  }, [selectedOptions, visibleStep, allQuestions, answers, branches, config, user, updateSession]);
 
   const handleRestart = () => {
     setMessages([]);
-    setQuestions([]);
-    setCurrentStep(0);
+    setAllQuestions([]);
+    setVisibleStep(0);
     setAnswers({});
+    setBranches({});
     setSelectedOptions([]);
     setSessionStarted(false);
     setLocalSessionId(null);
@@ -297,7 +326,6 @@ export function AIAssistantWidget() {
 
   const handleProductClick = (url: string) => {
     updateSession({ clicked_product_url: url });
-    // Track product_clicked on external API
     if (config?.api_base && config?.site_id) {
       fireWidgetEvent(config.api_base, config.site_id, 'product_clicked', null, {
         productUrl: url,
@@ -501,6 +529,9 @@ function MessageBubble({ message, selectedOptions, onOptionSelect, onContinue, o
               Step {message.stepIndex + 1} of {message.totalSteps}
             </p>
             <p className="text-sm font-medium text-foreground">{q.questionText}</p>
+            {q.helperText && (
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{q.helperText}</p>
+            )}
           </div>
         </div>
 
