@@ -138,7 +138,7 @@ export default function ProductDetailPage() {
     setCurrentImageIndex(0);
     setQuantity(1);
     setSelectedVariant(null);
-    setVisibleReviewCount(5);
+    setVisibleReviewCount(4);
   }, [slug]);
 
   useEffect(() => {
