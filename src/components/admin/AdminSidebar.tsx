@@ -96,6 +96,7 @@ const sidebarEntries: SidebarEntry[] = [
   },
   { path: '/admin/sales-boost', icon: Zap, label: 'Sales Boost' },
   { path: '/admin/reports', icon: BarChart3, label: 'Reports' },
+  { path: '/admin/reports2', icon: BarChart3, label: 'Analytics Dashboard' },
   { path: '/admin/expenses', icon: Receipt, label: 'Expenses' },
   { path: '/admin/activity-log', icon: Activity, label: 'Activity Log' },
   { path: '/admin/settings', icon: Settings, label: 'Settings' },

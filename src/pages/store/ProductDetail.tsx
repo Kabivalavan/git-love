@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy, Home, Package, Check, MapPin, Undo2 } from 'lucide-react';
+import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy, Home, Package, Check, MapPin, Undo2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
@@ -86,7 +86,7 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
-  const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', comment: '' });
+  const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', comment: '', images: [] as string[] });
   const [visibleReviewCount, setVisibleReviewCount] = useState(5);
   const [couponsExpanded, setCouponsExpanded] = useState(false);
   const [showStickyBar, setShowStickyBar] = useState(false);
@@ -229,7 +229,7 @@ export default function ProductDetailPage() {
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
     else {
       toast({ title: 'Review submitted', description: 'Thank you for your feedback!' });
-      setReviewForm({ rating: 5, title: '', comment: '' });
+      setReviewForm({ rating: 5, title: '', comment: '', images: [] });
       queryClient.invalidateQueries({ queryKey: ['product-page', slug] });
     }
     setIsSubmittingReview(false);
@@ -646,6 +646,45 @@ export default function ProductDetailPage() {
               </div>
               <Input placeholder="Review title (optional)" value={reviewForm.title} onChange={(e) => setReviewForm({ ...reviewForm, title: e.target.value })} />
               <Textarea placeholder="Your review..." value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} rows={3} />
+              
+              {/* Image upload */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1 block">Add Photos (optional)</label>
+                <div className="flex flex-wrap gap-2">
+                  {reviewForm.images.map((img, idx) => (
+                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-border">
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => setReviewForm({ ...reviewForm, images: reviewForm.images.filter((_, i) => i !== idx) })}
+                        className="absolute top-0 right-0 bg-destructive text-destructive-foreground rounded-bl-md p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {reviewForm.images.length < 5 && (
+                    <label className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-primary transition-colors">
+                      <Plus className="h-5 w-5 text-muted-foreground" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const ext = file.name.split('.').pop();
+                          const path = `reviews/${crypto.randomUUID()}.${ext}`;
+                          const { error } = await supabase.storage.from('products').upload(path, file);
+                          if (error) { toast({ title: 'Upload failed', description: error.message, variant: 'destructive' }); return; }
+                          const { data: urlData } = supabase.storage.from('products').getPublicUrl(path);
+                          setReviewForm(prev => ({ ...prev, images: [...prev.images, urlData.publicUrl] }));
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
               <Button onClick={handleSubmitReview} disabled={isSubmittingReview} className="rounded-xl">
                 {isSubmittingReview ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                 Submit Review
