@@ -725,7 +725,7 @@ export default function ProductDetailPage() {
             </div>
           ))}
           {reviews.length > visibleReviewCount && (
-            <Button variant="ghost" className="w-full mt-2" onClick={() => setVisibleReviewCount(prev => prev + 10)}>
+            <Button variant="ghost" className="w-full mt-2" onClick={() => setVisibleReviewCount(prev => prev + 4)}>
               Show More Reviews ({reviews.length - visibleReviewCount} remaining)
             </Button>
           )}
