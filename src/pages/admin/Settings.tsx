@@ -1438,6 +1438,7 @@ export default function AdminSettings() {
                     checked={(aiAssistant as any).show_popup || false}
                     onCheckedChange={(checked) => setAiAssistant({ ...aiAssistant, show_popup: checked } as any)}
                   />
+                </div>
 
                 <Separator />
 
