@@ -1429,6 +1429,17 @@ export default function AdminSettings() {
                   />
                 </div>
 
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <Label className="text-base font-medium">Show Discovery Popup</Label>
+                    <p className="text-sm text-muted-foreground">Show a timed popup nudge on mobile to encourage AI usage (7s initial, then every 2min)</p>
+                  </div>
+                  <Switch
+                    checked={(aiAssistant as any).show_popup || false}
+                    onCheckedChange={(checked) => setAiAssistant({ ...aiAssistant, show_popup: checked } as any)}
+                  />
+                </div>
+
                 <Separator />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

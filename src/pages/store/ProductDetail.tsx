@@ -87,7 +87,7 @@ export default function ProductDetailPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', comment: '', images: [] as string[] });
-  const [visibleReviewCount, setVisibleReviewCount] = useState(5);
+  const [visibleReviewCount, setVisibleReviewCount] = useState(4);
   const [couponsExpanded, setCouponsExpanded] = useState(false);
   const [showStickyBar, setShowStickyBar] = useState(false);
   const buyNowRef = useRef<HTMLButtonElement>(null);
@@ -138,7 +138,7 @@ export default function ProductDetailPage() {
     setCurrentImageIndex(0);
     setQuantity(1);
     setSelectedVariant(null);
-    setVisibleReviewCount(5);
+    setVisibleReviewCount(4);
   }, [slug]);
 
   useEffect(() => {
@@ -367,29 +367,39 @@ export default function ProductDetailPage() {
                 <Badge className="absolute top-3 right-3 bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))] border-0 rounded-lg text-xs">{product.badge}</Badge>
               )}
             </div>
-            {images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin md:grid md:grid-cols-6 md:overflow-visible">
-                {images.map((img, index) => (
-                  <button
-                    key={img.id}
-                    onClick={() => setCurrentImageIndex(index)}
-                    className={cn(
-                      "w-16 h-16 md:w-full md:aspect-square rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all",
-                      index === currentImageIndex ? 'border-primary shadow-md' : 'border-border opacity-70 hover:opacity-100'
-                    )}
-                  >
-                    <ResponsiveImage
-                      src={img.image_url}
-                      alt={`${product.name} image ${index + 1}`}
-                      className="w-full h-full object-cover"
-                      widths={[64, 96, 128]}
-                      sizes="64px"
-                      loading="lazy"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
+            {images.length > 1 && (() => {
+              const maxVisible = 6;
+              const visibleImages = images.slice(0, maxVisible);
+              const extraCount = images.length - maxVisible;
+              return (
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin md:grid md:grid-cols-6 md:overflow-visible">
+                  {visibleImages.map((img, index) => (
+                    <button
+                      key={img.id}
+                      onClick={() => setCurrentImageIndex(index)}
+                      className={cn(
+                        "w-16 h-16 md:w-full md:aspect-square rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all relative",
+                        index === currentImageIndex ? 'border-primary shadow-md' : 'border-border opacity-70 hover:opacity-100'
+                      )}
+                    >
+                      <ResponsiveImage
+                        src={img.image_url}
+                        alt={`${product.name} image ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        widths={[64, 96, 128]}
+                        sizes="64px"
+                        loading="lazy"
+                      />
+                      {index === maxVisible - 1 && extraCount > 0 && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl">
+                          <span className="text-white font-bold text-sm">+{extraCount}</span>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Product Info */}
@@ -701,11 +711,21 @@ export default function ProductDetailPage() {
               </div>
               {review.title && <p className="font-semibold text-sm text-foreground">{review.title}</p>}
               {review.comment && <p className="text-sm text-muted-foreground mt-0.5">{review.comment}</p>}
+              {/* Review images */}
+              {(review as any).images && Array.isArray((review as any).images) && (review as any).images.length > 0 && (
+                <div className="flex gap-2 mt-2">
+                  {((review as any).images as string[]).map((img, idx) => (
+                    <a key={idx} href={img} target="_blank" rel="noopener noreferrer" className="w-14 h-14 rounded-lg overflow-hidden border border-border flex-shrink-0">
+                      <img src={img} alt="Review" className="w-full h-full object-cover" />
+                    </a>
+                  ))}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground mt-1">{new Date(review.created_at).toLocaleDateString()}</p>
             </div>
           ))}
           {reviews.length > visibleReviewCount && (
-            <Button variant="ghost" className="w-full mt-2" onClick={() => setVisibleReviewCount(prev => prev + 10)}>
+            <Button variant="ghost" className="w-full mt-2" onClick={() => setVisibleReviewCount(prev => prev + 4)}>
               Show More Reviews ({reviews.length - visibleReviewCount} remaining)
             </Button>
           )}

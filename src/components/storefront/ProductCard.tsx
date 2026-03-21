@@ -226,9 +226,9 @@ export const ProductCard = React.memo(React.forwardRef<HTMLDivElement, ProductCa
             <span className="text-[11px] text-muted-foreground line-through">₹{Number(originalPrice).toFixed(0)}</span>
           )}
           {avgRating > 0 && (
-            <div className="flex items-center gap-0.5 bg-primary/10 rounded-md px-1.5 py-0.5 ml-auto">
-              <Star className="h-3 w-3 fill-primary text-primary" />
-              <span className="text-[11px] font-semibold text-primary">{avgRating.toFixed(1)}</span>
+            <div className="flex items-center gap-0.5 bg-amber-50 dark:bg-amber-500/10 rounded-md px-1.5 py-0.5 ml-auto">
+              <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+              <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">{avgRating.toFixed(1)}</span>
               <span className="text-[10px] text-muted-foreground">({reviewCount})</span>
             </div>
           )}
