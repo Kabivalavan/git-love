@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Loader2, Users, CheckCircle, XCircle, Search, Image as ImageIcon } from 'lucide-react';
+import { Send, Loader2, Users, CheckCircle, XCircle, Search, Image as ImageIcon, AlertTriangle } from 'lucide-react';
 
 interface Customer {
   user_id: string;
@@ -34,11 +34,23 @@ export function BulkWhatsApp() {
   const [isSending, setIsSending] = useState(false);
   const [results, setResults] = useState<SendResult[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [waConnected, setWaConnected] = useState<boolean | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchCustomers();
+    checkWhatsAppConnection();
   }, []);
+
+  const checkWhatsAppConnection = async () => {
+    const { data } = await supabase.from('store_settings').select('value').eq('key', 'whatsapp').maybeSingle();
+    if (data?.value) {
+      const v = data.value as any;
+      setWaConnected(!!(v.api_token && v.phone_number_id));
+    } else {
+      setWaConnected(false);
+    }
+  };
 
   const fetchCustomers = async () => {
     setIsLoading(true);
@@ -131,6 +143,22 @@ export function BulkWhatsApp() {
 
   const sentCount = results.filter(r => r.status === 'sent').length;
   const failedCount = results.filter(r => r.status === 'failed').length;
+
+  if (waConnected === false) {
+    return (
+      <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+        <CardContent className="p-6 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-foreground">WhatsApp Business API Not Connected</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Go to <strong>Settings → WhatsApp</strong> to connect your WhatsApp Business API before sending bulk messages.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">

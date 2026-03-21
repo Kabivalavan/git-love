@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Mail, Loader2, Users, CheckCircle, XCircle, Search } from 'lucide-react';
+import { Mail, Loader2, Users, CheckCircle, XCircle, Search, AlertTriangle } from 'lucide-react';
 
 interface Customer {
   user_id: string;
@@ -36,11 +36,23 @@ export function BulkEmail() {
   const [results, setResults] = useState<SendResult[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [progress, setProgress] = useState({ sent: 0, total: 0 });
+  const [smtpConnected, setSmtpConnected] = useState<boolean | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchCustomers();
+    checkSmtpConnection();
   }, []);
+
+  const checkSmtpConnection = async () => {
+    const { data } = await supabase.from('store_settings').select('value').eq('key', 'smtp_config').maybeSingle();
+    if (data?.value) {
+      const v = data.value as any;
+      setSmtpConnected(!!(v.host && v.username && v.password));
+    } else {
+      setSmtpConnected(false);
+    }
+  };
 
   const fetchCustomers = async () => {
     setIsLoading(true);
@@ -173,6 +185,22 @@ export function BulkEmail() {
 
   const sentCount = results.filter(r => r.status === 'sent').length;
   const failedCount = results.filter(r => r.status === 'failed').length;
+
+  if (smtpConnected === false) {
+    return (
+      <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+        <CardContent className="p-6 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-foreground">Email SMTP Not Configured</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Go to <strong>Settings → Email</strong> to configure your SMTP server before sending bulk emails.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">
