@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Mail, Loader2, Users, CheckCircle, XCircle, Search } from 'lucide-react';
+import { Mail, Loader2, Users, CheckCircle, XCircle, Search, AlertTriangle } from 'lucide-react';
 
 interface Customer {
   user_id: string;
