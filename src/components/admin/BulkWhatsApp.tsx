@@ -144,6 +144,22 @@ export function BulkWhatsApp() {
   const sentCount = results.filter(r => r.status === 'sent').length;
   const failedCount = results.filter(r => r.status === 'failed').length;
 
+  if (waConnected === false) {
+    return (
+      <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+        <CardContent className="p-6 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-foreground">WhatsApp Business API Not Connected</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Go to <strong>Settings → WhatsApp</strong> to connect your WhatsApp Business API before sending bulk messages.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid md:grid-cols-2 gap-4">
