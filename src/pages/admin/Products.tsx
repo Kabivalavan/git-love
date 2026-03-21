@@ -310,8 +310,11 @@ export default function AdminProducts() {
         const { error } = await supabase.from('products').update(productData).eq('id', selectedProduct.id);
         if (error) throw error;
         productId = selectedProduct.id;
-        await supabase.from('product_images').delete().eq('product_id', productId);
-        await supabase.from('product_variants').delete().eq('product_id', productId);
+        // Delete old images and variants BEFORE re-inserting
+        await Promise.all([
+          supabase.from('product_images').delete().eq('product_id', productId),
+          supabase.from('product_variants').delete().eq('product_id', productId),
+        ]);
       } else {
         const { data, error } = await supabase.from('products').insert([productData]).select().single();
         if (error) throw error;
@@ -329,27 +332,23 @@ export default function AdminProducts() {
         await supabase.from('product_images').insert(imageRecords);
       }
 
-      // Insert variants
-      if (variantForms.length > 0) {
-        const variantRecords = variantForms
-          .filter(v => v.name.trim())
-          .map((v, idx) => ({
-            product_id: productId,
-            name: v.name,
-            sku: v.sku || null,
-            price: v.price ? parseFloat(v.price) : null,
-            cost_price: v.cost_price ? parseFloat(v.cost_price) : null,
-            tax_rate: v.tax_rate ? parseFloat(v.tax_rate) : 0,
-            mrp: null,
-            stock_quantity: parseInt(v.stock_quantity) || 0,
-            is_active: true,
-            sort_order: idx,
-            image_url: v.image_url || null,
-            is_returnable: v.is_returnable,
-          }));
-        if (variantRecords.length > 0) {
-          await supabase.from('product_variants').insert(variantRecords as any);
-        }
+      // Insert variants — use only filledVariants to avoid duplicates
+      const variantRecords = filledVariants.map((v, idx) => ({
+        product_id: productId,
+        name: v.name,
+        sku: v.sku || null,
+        price: v.price ? parseFloat(v.price) : null,
+        cost_price: v.cost_price ? parseFloat(v.cost_price) : null,
+        tax_rate: v.tax_rate ? parseFloat(v.tax_rate) : 0,
+        mrp: null,
+        stock_quantity: parseInt(v.stock_quantity) || 0,
+        is_active: true,
+        sort_order: idx,
+        image_url: v.image_url || null,
+        is_returnable: v.is_returnable,
+      }));
+      if (variantRecords.length > 0) {
+        await supabase.from('product_variants').insert(variantRecords as any);
       }
 
       log({ action: selectedProduct ? 'update' : 'create', entityType: 'product', entityId: productId, details: { name: formData.name } });
