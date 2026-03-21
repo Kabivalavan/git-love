@@ -367,29 +367,39 @@ export default function ProductDetailPage() {
                 <Badge className="absolute top-3 right-3 bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))] border-0 rounded-lg text-xs">{product.badge}</Badge>
               )}
             </div>
-            {images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin md:grid md:grid-cols-6 md:overflow-visible">
-                {images.map((img, index) => (
-                  <button
-                    key={img.id}
-                    onClick={() => setCurrentImageIndex(index)}
-                    className={cn(
-                      "w-16 h-16 md:w-full md:aspect-square rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all",
-                      index === currentImageIndex ? 'border-primary shadow-md' : 'border-border opacity-70 hover:opacity-100'
-                    )}
-                  >
-                    <ResponsiveImage
-                      src={img.image_url}
-                      alt={`${product.name} image ${index + 1}`}
-                      className="w-full h-full object-cover"
-                      widths={[64, 96, 128]}
-                      sizes="64px"
-                      loading="lazy"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
+            {images.length > 1 && (() => {
+              const maxVisible = 6;
+              const visibleImages = images.slice(0, maxVisible);
+              const extraCount = images.length - maxVisible;
+              return (
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin md:grid md:grid-cols-6 md:overflow-visible">
+                  {visibleImages.map((img, index) => (
+                    <button
+                      key={img.id}
+                      onClick={() => setCurrentImageIndex(index)}
+                      className={cn(
+                        "w-16 h-16 md:w-full md:aspect-square rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all relative",
+                        index === currentImageIndex ? 'border-primary shadow-md' : 'border-border opacity-70 hover:opacity-100'
+                      )}
+                    >
+                      <ResponsiveImage
+                        src={img.image_url}
+                        alt={`${product.name} image ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        widths={[64, 96, 128]}
+                        sizes="64px"
+                        loading="lazy"
+                      />
+                      {index === maxVisible - 1 && extraCount > 0 && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl">
+                          <span className="text-white font-bold text-sm">+{extraCount}</span>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Product Info */}
