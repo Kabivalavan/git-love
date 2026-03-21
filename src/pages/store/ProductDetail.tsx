@@ -711,6 +711,16 @@ export default function ProductDetailPage() {
               </div>
               {review.title && <p className="font-semibold text-sm text-foreground">{review.title}</p>}
               {review.comment && <p className="text-sm text-muted-foreground mt-0.5">{review.comment}</p>}
+              {/* Review images */}
+              {(review as any).images && Array.isArray((review as any).images) && (review as any).images.length > 0 && (
+                <div className="flex gap-2 mt-2">
+                  {((review as any).images as string[]).map((img, idx) => (
+                    <a key={idx} href={img} target="_blank" rel="noopener noreferrer" className="w-14 h-14 rounded-lg overflow-hidden border border-border flex-shrink-0">
+                      <img src={img} alt="Review" className="w-full h-full object-cover" />
+                    </a>
+                  ))}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground mt-1">{new Date(review.created_at).toLocaleDateString()}</p>
             </div>
           ))}
