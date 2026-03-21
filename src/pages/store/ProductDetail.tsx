@@ -646,6 +646,45 @@ export default function ProductDetailPage() {
               </div>
               <Input placeholder="Review title (optional)" value={reviewForm.title} onChange={(e) => setReviewForm({ ...reviewForm, title: e.target.value })} />
               <Textarea placeholder="Your review..." value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} rows={3} />
+              
+              {/* Image upload */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1 block">Add Photos (optional)</label>
+                <div className="flex flex-wrap gap-2">
+                  {reviewForm.images.map((img, idx) => (
+                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-border">
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => setReviewForm({ ...reviewForm, images: reviewForm.images.filter((_, i) => i !== idx) })}
+                        className="absolute top-0 right-0 bg-destructive text-destructive-foreground rounded-bl-md p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {reviewForm.images.length < 5 && (
+                    <label className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-primary transition-colors">
+                      <Plus className="h-5 w-5 text-muted-foreground" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const ext = file.name.split('.').pop();
+                          const path = `reviews/${crypto.randomUUID()}.${ext}`;
+                          const { error } = await supabase.storage.from('products').upload(path, file);
+                          if (error) { toast({ title: 'Upload failed', description: error.message, variant: 'destructive' }); return; }
+                          const { data: urlData } = supabase.storage.from('products').getPublicUrl(path);
+                          setReviewForm(prev => ({ ...prev, images: [...prev.images, urlData.publicUrl] }));
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
               <Button onClick={handleSubmitReview} disabled={isSubmittingReview} className="rounded-xl">
                 {isSubmittingReview ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                 Submit Review

@@ -217,24 +217,20 @@ export const ProductCard = React.memo(React.forwardRef<HTMLDivElement, ProductCa
           <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{product.short_description}</p>
         )}
 
-        {/* Rating */}
-        {avgRating > 0 && (
-          <div className="flex items-center gap-1 mt-1.5">
-            <div className="flex items-center gap-0.5 bg-primary/10 rounded-md px-1.5 py-0.5">
-              <Star className="h-3 w-3 fill-primary text-primary" />
-              <span className="text-[11px] font-semibold text-primary">{avgRating.toFixed(1)}</span>
-            </div>
-            <span className="text-[10px] text-muted-foreground">({reviewCount})</span>
-          </div>
-        )}
-
-        {/* Price */}
-        <div className="flex items-baseline gap-1.5 mt-2">
+        {/* Price + Rating */}
+        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
           <span className={cn("font-bold text-foreground", variant === 'compact' ? "text-sm" : "text-base")}>
             ₹{priceWhole}
           </span>
           {hasDiscount && originalPrice && (
             <span className="text-[11px] text-muted-foreground line-through">₹{Number(originalPrice).toFixed(0)}</span>
+          )}
+          {avgRating > 0 && (
+            <div className="flex items-center gap-0.5 bg-primary/10 rounded-md px-1.5 py-0.5 ml-auto">
+              <Star className="h-3 w-3 fill-primary text-primary" />
+              <span className="text-[11px] font-semibold text-primary">{avgRating.toFixed(1)}</span>
+              <span className="text-[10px] text-muted-foreground">({reviewCount})</span>
+            </div>
           )}
         </div>
 

@@ -468,7 +468,7 @@ export default function ProductsPage() {
                 <Button onClick={clearFilters}>Clear Filters</Button>
               </div>
             ) : viewMode === 'grid' ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {products.map((product) => (
                   <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} productOffer={getProductOffer(product)} avgRating={reviewStats[product.id]?.avgRating || 0} reviewCount={reviewStats[product.id]?.reviewCount || 0} />
                 ))}

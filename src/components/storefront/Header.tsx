@@ -93,7 +93,7 @@ export function Header() {
             {/* Right actions */}
             <div className="flex items-center gap-1 ml-auto">
               {user && (
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-primary-foreground hover:bg-primary-foreground/10" asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-primary-foreground hover:bg-primary-foreground/10 hidden lg:flex" asChild>
                   <Link to="/wishlist"><Heart className="h-5 w-5" /></Link>
                 </Button>
               )}
@@ -105,6 +105,13 @@ export function Header() {
                   )}
                 </Link>
               </Button>
+              {user && (
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-primary-foreground hover:bg-primary-foreground/10 hidden lg:flex" asChild>
+                  <Link to="/account">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  </Link>
+                </Button>
+              )}
             </div>
           </div>
 
