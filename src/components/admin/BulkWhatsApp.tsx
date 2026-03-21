@@ -34,11 +34,23 @@ export function BulkWhatsApp() {
   const [isSending, setIsSending] = useState(false);
   const [results, setResults] = useState<SendResult[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [waConnected, setWaConnected] = useState<boolean | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchCustomers();
+    checkWhatsAppConnection();
   }, []);
+
+  const checkWhatsAppConnection = async () => {
+    const { data } = await supabase.from('store_settings').select('value').eq('key', 'whatsapp').maybeSingle();
+    if (data?.value) {
+      const v = data.value as any;
+      setWaConnected(!!(v.api_token && v.phone_number_id));
+    } else {
+      setWaConnected(false);
+    }
+  };
 
   const fetchCustomers = async () => {
     setIsLoading(true);
