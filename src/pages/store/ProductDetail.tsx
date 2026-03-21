@@ -86,7 +86,7 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
-  const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', comment: '' });
+  const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', comment: '', images: [] as string[] });
   const [visibleReviewCount, setVisibleReviewCount] = useState(5);
   const [couponsExpanded, setCouponsExpanded] = useState(false);
   const [showStickyBar, setShowStickyBar] = useState(false);
