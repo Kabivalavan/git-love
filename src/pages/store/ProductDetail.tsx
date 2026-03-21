@@ -229,7 +229,7 @@ export default function ProductDetailPage() {
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
     else {
       toast({ title: 'Review submitted', description: 'Thank you for your feedback!' });
-      setReviewForm({ rating: 5, title: '', comment: '' });
+      setReviewForm({ rating: 5, title: '', comment: '', images: [] });
       queryClient.invalidateQueries({ queryKey: ['product-page', slug] });
     }
     setIsSubmittingReview(false);
