@@ -36,11 +36,23 @@ export function BulkEmail() {
   const [results, setResults] = useState<SendResult[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [progress, setProgress] = useState({ sent: 0, total: 0 });
+  const [smtpConnected, setSmtpConnected] = useState<boolean | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchCustomers();
+    checkSmtpConnection();
   }, []);
+
+  const checkSmtpConnection = async () => {
+    const { data } = await supabase.from('store_settings').select('value').eq('key', 'smtp_config').maybeSingle();
+    if (data?.value) {
+      const v = data.value as any;
+      setSmtpConnected(!!(v.host && v.username && v.password));
+    } else {
+      setSmtpConnected(false);
+    }
+  };
 
   const fetchCustomers = async () => {
     setIsLoading(true);
