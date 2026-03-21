@@ -177,6 +177,7 @@ const AppRoutes = () => (
       <Route path="/admin/sales-boost" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminConversionOptimization /></Suspense></AdminRoute>} />
       <Route path="/admin/whatsapp-marketing" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminWhatsAppMarketing /></Suspense></AdminRoute>} />
       <Route path="/admin/returns" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminReturns /></Suspense></AdminRoute>} />
+      <Route path="/admin/reports2" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminReports2 /></Suspense></AdminRoute>} />
       <Route path="*" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><NotFound /></Suspense>} />
     </Routes>
   </>
