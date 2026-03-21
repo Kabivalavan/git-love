@@ -321,7 +321,7 @@ export default function ProductDetailPage() {
         image={images[0]?.image_url}
         jsonLd={productJsonLd}
       />
-      <div className="container mx-auto px-4 py-4 md:py-6 max-w-full overflow-hidden">
+      <div className="mx-auto w-full max-w-[1440px] px-4 py-4 md:px-6 md:py-6 overflow-hidden">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-3 mb-4">
           <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center flex-shrink-0 hover:bg-muted transition-colors">
@@ -337,9 +337,9 @@ export default function ProductDetailPage() {
         </nav>
 
         {/* Product Hero */}
-        <div className="grid md:grid-cols-2 gap-6 md:gap-10 mb-8">
+        <div className="grid gap-6 md:gap-8 lg:gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] items-start mb-8">
           {/* Images */}
-          <div className="space-y-3 min-w-0 md:self-start md:sticky md:top-20" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
+          <div className="space-y-3 min-w-0">
             <div className="relative aspect-square bg-muted rounded-2xl overflow-hidden w-full">
               <ResponsiveImage
                 src={currentImage}
@@ -368,13 +368,13 @@ export default function ProductDetailPage() {
               )}
             </div>
             {images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin md:grid md:grid-cols-6 md:overflow-visible">
                 {images.map((img, index) => (
                   <button
                     key={img.id}
                     onClick={() => setCurrentImageIndex(index)}
                     className={cn(
-                      "w-16 h-16 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all",
+                      "w-16 h-16 md:w-full md:aspect-square rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all",
                       index === currentImageIndex ? 'border-primary shadow-md' : 'border-border opacity-70 hover:opacity-100'
                     )}
                   >
@@ -393,7 +393,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Product Info */}
-          <div className="space-y-4 min-w-0">
+          <div className="space-y-4 min-w-0 lg:pr-1">
             <div className="flex items-start gap-3">
               <div className="flex-1">
                 <h1 className="text-xl md:text-2xl font-bold text-foreground leading-tight">{product.name}</h1>
