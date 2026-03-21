@@ -89,75 +89,88 @@ export default function Reports2() {
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [deliveryFilter, setDeliveryFilter] = useState<string>('all');
 
-  const { from, to } = getDateRange(dateRange);
-  const prev = getPrevRange(dateRange);
-  const fromStr = from.toISOString();
-  const toStr = to.toISOString();
-  const prevFromStr = prev.from.toISOString();
-  const prevToStr = prev.to.toISOString();
-  const fromDate = format(from, 'yyyy-MM-dd');
-  const toDate = format(to, 'yyyy-MM-dd');
+  const { from, to } = useMemo(() => getDateRange(dateRange), [dateRange]);
+  const prev = useMemo(() => getPrevRange(dateRange), [dateRange]);
+  const fromStr = useMemo(() => from.toISOString(), [from]);
+  const toStr = useMemo(() => to.toISOString(), [to]);
+  const prevFromStr = useMemo(() => prev.from.toISOString(), [prev]);
+  const prevToStr = useMemo(() => prev.to.toISOString(), [prev]);
+  const fromDate = useMemo(() => format(from, 'yyyy-MM-dd'), [from]);
+  const toDate = useMemo(() => format(to, 'yyyy-MM-dd'), [to]);
 
   // Single consolidated query for all dashboard data
   const { data: dashData, isLoading } = useQuery({
-    queryKey: ['r2-all', fromStr, toStr, prevFromStr, prevToStr, fromDate, toDate],
+    queryKey: ['r2-all', dateRange, fromDate, toDate],
     queryFn: async () => {
       const [
-        ordersRes, prevOrdersRes, expensesRes, deliveriesRes, paymentsRes, refundsRes, profilesRes,
+        ordersRes,
+        prevOrdersRes,
+        expensesRes,
+        deliveriesRes,
+        paymentsRes,
+        refundsRes,
+        profilesRes,
+        orderItemsRes,
       ] = await Promise.all([
         supabase.from('orders')
           .select('id, total, subtotal, discount, shipping_charge, tax, status, payment_status, payment_method, created_at, user_id')
-          .gte('created_at', fromStr).lte('created_at', toStr).order('created_at', { ascending: true }),
+          .gte('created_at', fromStr)
+          .lte('created_at', toStr)
+          .order('created_at', { ascending: true }),
         supabase.from('orders')
           .select('id, total, payment_status, payment_method')
-          .gte('created_at', prevFromStr).lte('created_at', prevToStr),
+          .gte('created_at', prevFromStr)
+          .lte('created_at', prevToStr),
         supabase.from('expenses')
           .select('amount, category, date')
-          .gte('date', fromDate).lte('date', toDate),
+          .gte('date', fromDate)
+          .lte('date', toDate),
         supabase.from('deliveries')
           .select('id, status, order_id, created_at')
-          .gte('created_at', fromStr).lte('created_at', toStr),
+          .gte('created_at', fromStr)
+          .lte('created_at', toStr),
         supabase.from('payments')
           .select('id, amount, status, method, order_id, created_at')
-          .gte('created_at', fromStr).lte('created_at', toStr),
+          .gte('created_at', fromStr)
+          .lte('created_at', toStr),
         supabase.from('refunds')
           .select('id, amount, status, created_at')
-          .gte('created_at', fromStr).lte('created_at', toStr),
+          .gte('created_at', fromStr)
+          .lte('created_at', toStr),
         supabase.from('profiles')
           .select('id, user_id, full_name, created_at')
-          .gte('created_at', fromStr).lte('created_at', toStr),
+          .gte('created_at', fromStr)
+          .lte('created_at', toStr),
+        supabase.from('order_items')
+          .select('order_id, product_name, product_id, quantity, total, price, created_at')
+          .gte('created_at', fromStr)
+          .lte('created_at', toStr),
       ]);
 
-      const orders = ordersRes.data || [];
-      const orderIds = orders.map(o => o.id);
+      const firstError = [
+        ordersRes.error,
+        prevOrdersRes.error,
+        expensesRes.error,
+        deliveriesRes.error,
+        paymentsRes.error,
+        refundsRes.error,
+        profilesRes.error,
+        orderItemsRes.error,
+      ].find(Boolean);
 
-      // Fetch order items only if there are orders
-      let orderItems: any[] = [];
-      if (orderIds.length > 0) {
-        // Batch in chunks of 50 to avoid URL limits
-        const chunks: string[][] = [];
-        for (let i = 0; i < orderIds.length; i += 50) {
-          chunks.push(orderIds.slice(i, i + 50));
-        }
-        const itemResults = await Promise.all(
-          chunks.map(chunk =>
-            supabase.from('order_items')
-              .select('product_name, product_id, quantity, total, price')
-              .in('order_id', chunk)
-          )
-        );
-        orderItems = itemResults.flatMap(r => r.data || []);
+      if (firstError) {
+        throw firstError;
       }
 
       return {
-        orders,
+        orders: ordersRes.data || [],
         prevOrders: prevOrdersRes.data || [],
         expenses: expensesRes.data || [],
         deliveries: deliveriesRes.data || [],
         payments: paymentsRes.data || [],
         refunds: refundsRes.data || [],
         customers: profilesRes.data || [],
-        orderItems,
+        orderItems: orderItemsRes.data || [],
       };
     },
     staleTime: 60_000,
@@ -221,7 +234,10 @@ export default function Reports2() {
     const totalDays = Object.keys(revenueByDay).length || 1;
     const dailyExpense = totalExpenses / totalDays;
     const revenueTrend = Object.entries(revenueByDay).map(([date, d]) => ({
-      date, revenue: Math.round(d.revenue), profit: Math.round(d.profit - dailyExpense), orders: d.orders,
+      date,
+      revenue: Math.round(d.revenue),
+      profit: Math.round(d.profit - dailyExpense),
+      orders: d.orders,
     }));
 
     // Order funnel
@@ -236,8 +252,10 @@ export default function Reports2() {
     ];
 
     // Top products
+    const filteredOrderIds = new Set(fo.map((order) => order.id));
+    const filteredOrderItems = orderItems.filter((item: any) => filteredOrderIds.has(item.order_id));
     const productMap: Record<string, { name: string; qty: number; revenue: number }> = {};
-    orderItems.forEach((item: any) => {
+    filteredOrderItems.forEach((item: any) => {
       const key = item.product_id || item.product_name;
       if (!productMap[key]) productMap[key] = { name: item.product_name, qty: 0, revenue: 0 };
       productMap[key].qty += Number(item.quantity || 0);
@@ -291,12 +309,30 @@ export default function Reports2() {
     if (totalRevenue > 0 && totalDiscount > totalRevenue * 0.15) insights.push(`🎯 Discounts are ${((totalDiscount / totalRevenue) * 100).toFixed(0)}% of revenue — review discount strategy`);
 
     return {
-      totalRevenue, totalOrders, avgOrderValue, profit, totalExpenses, totalDiscount,
-      codPct, onlinePct, pendingDeliveries, codPendingAmount,
-      revenueChange, ordersChange, aovChange,
-      revenueTrend, funnelData, topProducts, topCustomers, paymentSplit,
-      expenseDist, delStatusMap, paymentsReceived, refundTotal,
-      insights, paidRevenue,
+      totalRevenue,
+      totalOrders,
+      avgOrderValue,
+      profit,
+      totalExpenses,
+      totalDiscount,
+      codPct,
+      onlinePct,
+      pendingDeliveries,
+      codPendingAmount,
+      revenueChange,
+      ordersChange,
+      aovChange,
+      revenueTrend,
+      funnelData,
+      topProducts,
+      topCustomers,
+      paymentSplit,
+      expenseDist,
+      delStatusMap,
+      paymentsReceived,
+      refundTotal,
+      insights,
+      paidRevenue,
     };
   }, [filteredOrders, prevOrders, orderItems, expenses, customers, deliveries, payments, refunds]);
 
