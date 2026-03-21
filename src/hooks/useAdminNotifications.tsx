@@ -23,7 +23,6 @@ function loadNotifications(): AdminNotification[] {
 }
 
 function saveNotifications(items: AdminNotification[]) {
-  // Keep max 100
   const trimmed = items.slice(0, 100);
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed)); } catch {}
 }
@@ -59,20 +58,19 @@ export function useAdminNotifications() {
     };
     const updated = [newNotif, ...notificationsRef.current];
     notificationsRef.current = updated;
-    setNotifications(updated);
+    setNotifications([...updated]);
     saveNotifications(updated);
   }, []);
 
   const markAllRead = useCallback(() => {
     const updated = notificationsRef.current.map(n => ({ ...n, read: true }));
     notificationsRef.current = updated;
-    setNotifications(updated);
+    setNotifications([...updated]);
     saveNotifications(updated);
   }, []);
 
   const markSectionSeen = useCallback((section: string) => {
     setLastSeen(section);
-    // Recalc counts
     computeUnreadCounts(notificationsRef.current);
   }, []);
 
@@ -97,16 +95,18 @@ export function useAdminNotifications() {
     setUnreadCounts(counts);
   }, []);
 
-  // Compute counts whenever notifications change
   useEffect(() => {
     computeUnreadCounts(notifications);
   }, [notifications, computeUnreadCounts]);
 
-  // Subscribe to realtime
+  // Subscribe to realtime with robust channel setup
   useEffect(() => {
+    console.log('[AdminNotifications] Setting up realtime subscriptions...');
+    
     const ordersChannel = supabase
-      .channel('admin-orders-realtime')
+      .channel('admin-notif-orders')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+        console.log('[AdminNotifications] New order detected:', payload.new);
         const order = payload.new as any;
         addNotification({
           type: 'new_order',
@@ -129,11 +129,14 @@ export function useAdminNotifications() {
           });
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[AdminNotifications] Orders channel status:', status);
+      });
 
     const profilesChannel = supabase
-      .channel('admin-profiles-realtime')
+      .channel('admin-notif-profiles')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'profiles' }, (payload) => {
+        console.log('[AdminNotifications] New customer detected:', payload.new);
         const profile = payload.new as any;
         addNotification({
           type: 'new_customer',
@@ -143,11 +146,14 @@ export function useAdminNotifications() {
           metadata: { user_id: profile.user_id },
         });
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[AdminNotifications] Profiles channel status:', status);
+      });
 
     const paymentsChannel = supabase
-      .channel('admin-payments-realtime')
+      .channel('admin-notif-payments')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payments' }, (payload) => {
+        console.log('[AdminNotifications] New payment detected:', payload.new);
         const payment = payload.new as any;
         addNotification({
           type: 'payment',
@@ -157,9 +163,12 @@ export function useAdminNotifications() {
           metadata: { payment_id: payment.id },
         });
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[AdminNotifications] Payments channel status:', status);
+      });
 
     return () => {
+      console.log('[AdminNotifications] Cleaning up channels');
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(profilesChannel);
       supabase.removeChannel(paymentsChannel);
