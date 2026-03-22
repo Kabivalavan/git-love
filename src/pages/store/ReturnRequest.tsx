@@ -226,7 +226,31 @@ export default function ReturnRequestPage() {
     );
   }
 
-  const returnableItems = items.filter(i => !existingReturns.includes(i.id));
+  // Filter items: not already returned AND check variant/product returnable status
+  const [variantReturnableMap, setVariantReturnableMap] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const fetchReturnability = async () => {
+      const variantIds = items.filter(i => i.variant_id).map(i => i.variant_id!);
+      if (variantIds.length > 0) {
+        const { data } = await supabase
+          .from('product_variants')
+          .select('id, is_returnable')
+          .in('id', variantIds);
+        const map: Record<string, boolean> = {};
+        (data || []).forEach((v: any) => { map[v.id] = v.is_returnable !== false; });
+        setVariantReturnableMap(map);
+      }
+    };
+    if (items.length > 0) fetchReturnability();
+  }, [items]);
+
+  const returnableItems = items.filter(i => {
+    if (existingReturns.includes(i.id)) return false;
+    // Check if variant is returnable
+    if (i.variant_id && variantReturnableMap[i.variant_id] === false) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-4">
