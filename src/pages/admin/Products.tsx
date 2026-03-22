@@ -329,7 +329,7 @@ export default function AdminProducts() {
       is_bestseller: formData.is_bestseller ?? false,
       badge: formData.badge || null,
       sort_order: formData.sort_order ?? 0,
-      content_sections: (formData.contentSections || []) as unknown as import('@/integrations/supabase/types').Json,
+      content_sections: [...(formData.contentSections || []), { _meta_product_type: formData.productType || 'general' }] as unknown as import('@/integrations/supabase/types').Json,
       variant_required: (formData as any).variant_required || false,
     };
 
