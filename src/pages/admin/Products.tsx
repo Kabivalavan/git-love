@@ -341,10 +341,8 @@ export default function AdminProducts() {
         if (error) throw error;
         productId = selectedProduct.id;
         // Delete old images and variants BEFORE re-inserting
-        await Promise.all([
-          supabase.from('product_images').delete().eq('product_id', productId),
-          supabase.from('product_variants').delete().eq('product_id', productId),
-        ]);
+        await supabase.from('product_images').delete().eq('product_id', productId);
+        await supabase.from('product_variants').delete().eq('product_id', productId);
       } else {
         const { data, error } = await supabase.from('products').insert([productData]).select().single();
         if (error) throw error;
@@ -362,60 +360,14 @@ export default function AdminProducts() {
         await supabase.from('product_images').insert(imageRecords);
       }
 
-      // Upsert-like variant persistence to avoid duplicate multiplication on edits.
-      if (selectedProduct) {
-        const { data: existingVariantRows, error: existingVariantError } = await supabase
-          .from('product_variants')
-          .select('id')
-          .eq('product_id', productId);
-        if (existingVariantError) throw existingVariantError;
-
-        const existingIds = new Set((existingVariantRows || []).map((row) => row.id));
-        const orderedVariants = filledVariants.map((variant, sort_order) => ({ variant, sort_order }));
-        const toUpdate = orderedVariants.filter(({ variant }) => Boolean(variant.id) && existingIds.has(variant.id!));
-        const toInsert = orderedVariants.filter(({ variant }) => !variant.id || !existingIds.has(variant.id));
-        const keptIds = new Set(toUpdate.map(({ variant }) => variant.id!));
-        const toDeactivateIds = Array.from(existingIds).filter((id) => !keptIds.has(id));
-
-        if (toUpdate.length > 0) {
-          const updateResults = await Promise.all(
-            toUpdate.map(({ variant, sort_order }) =>
-              supabase
-                .from('product_variants')
-                .update(toVariantPayload(variant, sort_order))
-                .eq('id', variant.id!)
-            )
-          );
-          updateResults.forEach(({ error }) => {
-            if (error) throw error;
-          });
-        }
-
-        if (toDeactivateIds.length > 0) {
-          const { error: deactivateError } = await supabase
-            .from('product_variants')
-            .update({ is_active: false })
-            .in('id', toDeactivateIds);
-          if (deactivateError) throw deactivateError;
-        }
-
-        if (toInsert.length > 0) {
-          const insertPayload = toInsert.map(({ variant, sort_order }) => ({
-            product_id: productId,
-            ...toVariantPayload(variant, sort_order),
-          }));
-          const { error: insertError } = await supabase.from('product_variants').insert(insertPayload as any);
-          if (insertError) throw insertError;
-        }
-      } else {
-        const variantRecords = filledVariants.map((variant, sort_order) => ({
-          product_id: productId,
-          ...toVariantPayload(variant, sort_order),
-        }));
-        if (variantRecords.length > 0) {
-          const { error: insertError } = await supabase.from('product_variants').insert(variantRecords as any);
-          if (insertError) throw insertError;
-        }
+      // Insert all variants fresh (old ones were deleted above for edits)
+      const variantRecords = filledVariants.map((variant, sort_order) => ({
+        product_id: productId,
+        ...toVariantPayload(variant, sort_order),
+      }));
+      if (variantRecords.length > 0) {
+        const { error: insertError } = await supabase.from('product_variants').insert(variantRecords as any);
+        if (insertError) throw insertError;
       }
 
       log({ action: selectedProduct ? 'update' : 'create', entityType: 'product', entityId: productId, details: { name: formData.name } });
