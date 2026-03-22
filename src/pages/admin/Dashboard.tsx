@@ -141,12 +141,15 @@ export default function AdminDashboard() {
     todayStart.setHours(0, 0, 0, 0);
     
     const [sessionsRes, todayViewsRes] = await Promise.all([
-      supabase.from('analytics_sessions').select('id', { count: 'exact', head: true }).gte('last_active_at', fiveMinAgo),
+      // Count UNIQUE visitors (distinct visitor_id) active in last 5 minutes
+      supabase.from('analytics_sessions').select('visitor_id').gte('last_active_at', fiveMinAgo),
       supabase.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'page_view').gte('created_at', todayStart.toISOString()),
     ]);
     
-    setActiveSessions(sessionsRes.count || 0);
-    setLiveViewers(sessionsRes.count || 0);
+    // Deduplicate by visitor_id
+    const uniqueVisitors = new Set((sessionsRes.data || []).map((s: any) => s.visitor_id)).size;
+    setActiveSessions(uniqueVisitors);
+    setLiveViewers(uniqueVisitors);
     setTodayPageViews(todayViewsRes.count || 0);
   }, []);
 

@@ -505,6 +505,14 @@ export default function CheckoutPage() {
         delivery_charge: shippingCharge,
       });
 
+      // Increment coupon used_count and insert coupon_usage record
+      if (appliedCoupon) {
+        await Promise.all([
+          supabase.from('coupons').update({ used_count: (appliedCoupon.used_count ?? 0) + 1 }).eq('id', appliedCoupon.id),
+          supabase.from('coupon_usage').insert({ coupon_id: appliedCoupon.id, user_id: user.id, order_id: order.id }),
+        ]);
+      }
+
       if (paymentMethod === 'cod') {
         await supabase.from('payments').insert({
           order_id: order.id,

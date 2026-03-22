@@ -66,7 +66,6 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
   const [showAiPopup, setShowAiPopup] = useState(false);
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const hasShownInitial = useRef(false);
 
   const { data: aiConfig } = useQuery({
     queryKey: ['ai-assistant-enabled-config'],
@@ -91,14 +90,19 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
 
   const dismissPopup = useCallback(() => setShowAiPopup(false), []);
 
-  // AI popup timing: show after 7s on page visit, then every 2min
+  // AI popup timing: show ONCE per session after 7s, then every 2min
   useEffect(() => {
     if (!isAiEnabled || !aiPopupEnabled) return;
     if (window.innerWidth > 1024) return;
 
-    if (!hasShownInitial.current) {
-      hasShownInitial.current = true;
-      popupTimerRef.current = setTimeout(() => setShowAiPopup(true), 7000);
+    const AI_POPUP_SHOWN_KEY = 'ai_popup_shown_session';
+    const alreadyShown = sessionStorage.getItem(AI_POPUP_SHOWN_KEY);
+
+    if (!alreadyShown) {
+      popupTimerRef.current = setTimeout(() => {
+        setShowAiPopup(true);
+        sessionStorage.setItem(AI_POPUP_SHOWN_KEY, '1');
+      }, 7000);
     }
 
     intervalRef.current = setInterval(() => setShowAiPopup(true), 2 * 60 * 1000);

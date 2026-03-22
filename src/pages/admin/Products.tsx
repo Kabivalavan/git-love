@@ -184,26 +184,30 @@ export default function AdminProducts() {
       is_returnable: (v as any).is_returnable !== false,
     }));
     
-    // Detect product type from variants
+    // Detect product type: first check stored metadata, then heuristic fallback
+    const contentSections = (selectedProduct as any).content_sections as ContentSection[] || [];
     let detectedType = 'general';
-    if (existingVariants.length > 0) {
+    const metaSection = (contentSections as any[]).find((s: any) => s?._meta_product_type);
+    if (metaSection) {
+      detectedType = metaSection._meta_product_type;
+    } else if (existingVariants.length > 0) {
       const names = existingVariants.map(v => v.name.toUpperCase());
       if (names.some(n => CLOTHING_SIZES.includes(n))) detectedType = 'clothing';
       else if (names.some(n => FOOTWEAR_SIZES.includes(n))) detectedType = 'footwear';
     }
-    const contentSections = (selectedProduct as any).content_sections as ContentSection[] || [];
+    // Filter out meta sections for display
+    const displaySections = contentSections.filter((s: any) => !s?._meta_product_type);
 
     // Determine parent/sub category
     const catId = selectedProduct.category_id || '';
     const catObj = categories.find(c => c.id === catId);
     if (catObj?.parent_id) {
-      // It's a child category — set parent and sub separately
       setFormParentCategoryId(catObj.parent_id);
     } else {
       setFormParentCategoryId(catId);
     }
 
-    setFormData({ ...selectedProduct, imageUrls, productType: detectedType, contentSections, variant_required: (selectedProduct as any).variant_required || false } as any);
+    setFormData({ ...selectedProduct, imageUrls, productType: detectedType, contentSections: displaySections, variant_required: (selectedProduct as any).variant_required || false } as any);
     // Always ensure at least 1 variant
     setVariantForms(existingVariants.length > 0 ? existingVariants : [defaultVariant()]);
     setIsDetailOpen(false);
@@ -301,7 +305,8 @@ export default function AdminProducts() {
       is_returnable: v.is_returnable,
     });
 
-    const slug = formData.slug || formData.name?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    // Always regenerate slug from name (auto-update on name change)
+    const slug = formData.name?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || formData.slug || '';
     // Use first variant's price as the product base price
     const firstVariantPrice = filledVariants[0]?.price ? parseFloat(filledVariants[0].price) : 0;
     const productData = {
@@ -324,7 +329,7 @@ export default function AdminProducts() {
       is_bestseller: formData.is_bestseller ?? false,
       badge: formData.badge || null,
       sort_order: formData.sort_order ?? 0,
-      content_sections: (formData.contentSections || []) as unknown as import('@/integrations/supabase/types').Json,
+      content_sections: [...(formData.contentSections || []), { _meta_product_type: formData.productType || 'general' }] as unknown as import('@/integrations/supabase/types').Json,
       variant_required: (formData as any).variant_required || false,
     };
 
@@ -336,10 +341,8 @@ export default function AdminProducts() {
         if (error) throw error;
         productId = selectedProduct.id;
         // Delete old images and variants BEFORE re-inserting
-        await Promise.all([
-          supabase.from('product_images').delete().eq('product_id', productId),
-          supabase.from('product_variants').delete().eq('product_id', productId),
-        ]);
+        await supabase.from('product_images').delete().eq('product_id', productId);
+        await supabase.from('product_variants').delete().eq('product_id', productId);
       } else {
         const { data, error } = await supabase.from('products').insert([productData]).select().single();
         if (error) throw error;
@@ -357,60 +360,14 @@ export default function AdminProducts() {
         await supabase.from('product_images').insert(imageRecords);
       }
 
-      // Upsert-like variant persistence to avoid duplicate multiplication on edits.
-      if (selectedProduct) {
-        const { data: existingVariantRows, error: existingVariantError } = await supabase
-          .from('product_variants')
-          .select('id')
-          .eq('product_id', productId);
-        if (existingVariantError) throw existingVariantError;
-
-        const existingIds = new Set((existingVariantRows || []).map((row) => row.id));
-        const orderedVariants = filledVariants.map((variant, sort_order) => ({ variant, sort_order }));
-        const toUpdate = orderedVariants.filter(({ variant }) => Boolean(variant.id) && existingIds.has(variant.id!));
-        const toInsert = orderedVariants.filter(({ variant }) => !variant.id || !existingIds.has(variant.id));
-        const keptIds = new Set(toUpdate.map(({ variant }) => variant.id!));
-        const toDeactivateIds = Array.from(existingIds).filter((id) => !keptIds.has(id));
-
-        if (toUpdate.length > 0) {
-          const updateResults = await Promise.all(
-            toUpdate.map(({ variant, sort_order }) =>
-              supabase
-                .from('product_variants')
-                .update(toVariantPayload(variant, sort_order))
-                .eq('id', variant.id!)
-            )
-          );
-          updateResults.forEach(({ error }) => {
-            if (error) throw error;
-          });
-        }
-
-        if (toDeactivateIds.length > 0) {
-          const { error: deactivateError } = await supabase
-            .from('product_variants')
-            .update({ is_active: false })
-            .in('id', toDeactivateIds);
-          if (deactivateError) throw deactivateError;
-        }
-
-        if (toInsert.length > 0) {
-          const insertPayload = toInsert.map(({ variant, sort_order }) => ({
-            product_id: productId,
-            ...toVariantPayload(variant, sort_order),
-          }));
-          const { error: insertError } = await supabase.from('product_variants').insert(insertPayload as any);
-          if (insertError) throw insertError;
-        }
-      } else {
-        const variantRecords = filledVariants.map((variant, sort_order) => ({
-          product_id: productId,
-          ...toVariantPayload(variant, sort_order),
-        }));
-        if (variantRecords.length > 0) {
-          const { error: insertError } = await supabase.from('product_variants').insert(variantRecords as any);
-          if (insertError) throw insertError;
-        }
+      // Insert all variants fresh (old ones were deleted above for edits)
+      const variantRecords = filledVariants.map((variant, sort_order) => ({
+        product_id: productId,
+        ...toVariantPayload(variant, sort_order),
+      }));
+      if (variantRecords.length > 0) {
+        const { error: insertError } = await supabase.from('product_variants').insert(variantRecords as any);
+        if (insertError) throw insertError;
       }
 
       log({ action: selectedProduct ? 'update' : 'create', entityType: 'product', entityId: productId, details: { name: formData.name } });
