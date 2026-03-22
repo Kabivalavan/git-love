@@ -66,7 +66,6 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
   const [showAiPopup, setShowAiPopup] = useState(false);
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const hasShownInitial = useRef(false);
 
   const { data: aiConfig } = useQuery({
     queryKey: ['ai-assistant-enabled-config'],
