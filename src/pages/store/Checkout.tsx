@@ -17,6 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRazorpay } from '@/hooks/useRazorpay';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
+import { validateCouponForUser } from '@/lib/coupon-validation';
 import type { Address, CartItem, Product, PaymentMethod, CheckoutSettings, Coupon } from '@/types/database';
 
 interface CartItemWithProduct extends CartItem {
@@ -125,44 +126,55 @@ export default function CheckoutPage() {
       if (!dataLoadedRef.current) {
         fetchData();
       }
-      // Load and validate coupon from cart
-      const savedCoupon = localStorage.getItem('applied_coupon');
-      if (savedCoupon) {
-        try {
-          const coupon = JSON.parse(savedCoupon) as Coupon;
-          if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
-            localStorage.removeItem('applied_coupon');
-          } else {
-            // Validate coupon still exists and is active in DB
-            supabase
-              .from('coupons')
-              .select('*')
-              .eq('id', coupon.id)
-              .eq('is_active', true)
-              .single()
-              .then(({ data, error }) => {
-                if (error || !data) {
-                  localStorage.removeItem('applied_coupon');
-                  setAppliedCoupon(null);
-                } else {
-                  const validCoupon = data as unknown as Coupon;
-                  if (validCoupon.end_date && new Date(validCoupon.end_date) < new Date()) {
-                    localStorage.removeItem('applied_coupon');
-                    setAppliedCoupon(null);
-                  } else {
-                    setAppliedCoupon(validCoupon);
-                  }
-                }
-              });
-          }
-        } catch {
-          localStorage.removeItem('applied_coupon');
-        }
-      }
     } else {
       navigate('/auth');
     }
   }, [user, navigate]);
+
+  useEffect(() => {
+    if (!user || cartItems.length === 0) return;
+
+    const savedCoupon = localStorage.getItem('applied_coupon');
+    if (!savedCoupon) {
+      setAppliedCoupon(null);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const validateSavedCoupon = async () => {
+      try {
+        const saved = JSON.parse(savedCoupon) as Coupon;
+        const currentSubtotal = cartItems.reduce((sum, item) => sum + ((item.variant?.price ?? item.product.price) * item.quantity), 0);
+        const { coupon } = await validateCouponForUser({
+          couponId: saved.id,
+          userId: user.id,
+          subtotal: currentSubtotal,
+        });
+
+        if (isCancelled) return;
+
+        if (!coupon) {
+          localStorage.removeItem('applied_coupon');
+          setAppliedCoupon(null);
+          return;
+        }
+
+        setAppliedCoupon(coupon);
+        localStorage.setItem('applied_coupon', JSON.stringify(coupon));
+      } catch {
+        if (isCancelled) return;
+        localStorage.removeItem('applied_coupon');
+        setAppliedCoupon(null);
+      }
+    };
+
+    void validateSavedCoupon();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user, cartItems]);
 
   useEffect(() => {
     const markUnload = () => {
@@ -376,6 +388,20 @@ export default function CheckoutPage() {
     setIsSavingAddress(false);
   };
 
+  const registerCouponUsage = async (couponId: string, orderId: string) => {
+    if (!user) return false;
+    const { error } = await supabase
+      .from('coupon_usage')
+      .insert({ coupon_id: couponId, user_id: user.id, order_id: orderId });
+
+    if (error) {
+      console.error('Failed to register coupon usage', error);
+      return false;
+    }
+
+    return true;
+  };
+
   const placeOrder = async () => {
     if (!user || !selectedAddress || cartItems.length === 0) return;
 
@@ -424,13 +450,33 @@ export default function CheckoutPage() {
       const orderNumber = orderNumberData || `ORD${Date.now()}`;
 
       const subtotal = cartItems.reduce((sum, item) => sum + ((item.variant?.price ?? item.product.price) * item.quantity), 0);
+
+      let validCoupon: Coupon | null = null;
+      if (appliedCoupon) {
+        const { coupon, error } = await validateCouponForUser({
+          couponId: appliedCoupon.id,
+          userId: user.id,
+          subtotal,
+        });
+
+        if (!coupon || error) {
+          localStorage.removeItem('applied_coupon');
+          setAppliedCoupon(null);
+          toast({ title: 'Coupon invalid', description: error || 'Please apply a valid coupon again', variant: 'destructive' });
+          setIsPlacingOrder(false);
+          return;
+        }
+
+        validCoupon = coupon;
+      }
+
       const orderOfferDiscount = calculateCartDiscount(
         cartItems.map(item => ({ product: item.product, quantity: item.quantity }))
       );
-      const orderCouponDiscount = appliedCoupon
-        ? appliedCoupon.type === 'percentage'
-          ? Math.min((subtotal * appliedCoupon.value) / 100, appliedCoupon.max_discount || Infinity)
-          : appliedCoupon.value
+      const orderCouponDiscount = validCoupon
+        ? validCoupon.type === 'percentage'
+          ? Math.min((subtotal * validCoupon.value) / 100, validCoupon.max_discount || Infinity)
+          : validCoupon.value
         : 0;
       const orderTotalDiscount = orderOfferDiscount.totalDiscount + orderCouponDiscount;
       const freeThreshold = checkoutSettings.free_shipping_threshold;
@@ -448,8 +494,8 @@ export default function CheckoutPage() {
           payment_method: paymentMethod,
           subtotal,
           discount: orderTotalDiscount,
-          coupon_id: appliedCoupon?.id || null,
-          coupon_code: appliedCoupon?.code || null,
+          coupon_id: validCoupon?.id || null,
+          coupon_code: validCoupon?.code || null,
           tax: 0,
           shipping_charge: shippingCharge,
           total,
@@ -505,15 +551,11 @@ export default function CheckoutPage() {
         delivery_charge: shippingCharge,
       });
 
-      // Increment coupon used_count and insert coupon_usage record
-      if (appliedCoupon) {
-        await Promise.all([
-          supabase.from('coupons').update({ used_count: (appliedCoupon.used_count ?? 0) + 1 }).eq('id', appliedCoupon.id),
-          supabase.from('coupon_usage').insert({ coupon_id: appliedCoupon.id, user_id: user.id, order_id: order.id }),
-        ]);
-      }
-
       if (paymentMethod === 'cod') {
+        if (validCoupon) {
+          await registerCouponUsage(validCoupon.id, order.id);
+        }
+
         await supabase.from('payments').insert({
           order_id: order.id,
           amount: total,
@@ -565,6 +607,10 @@ export default function CheckoutPage() {
           customerEmail: user.email || undefined,
           customerPhone: address.mobile_number,
           onSuccess: async () => {
+            if (validCoupon) {
+              await registerCouponUsage(validCoupon.id, order.id);
+            }
+
             trackEvent('order_completed', {
               metadata: {
                 order_id: order.id,
