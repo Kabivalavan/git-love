@@ -305,7 +305,8 @@ export default function AdminProducts() {
       is_returnable: v.is_returnable,
     });
 
-    const slug = formData.slug || formData.name?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    // Always regenerate slug from name (auto-update on name change)
+    const slug = formData.name?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || formData.slug || '';
     // Use first variant's price as the product base price
     const firstVariantPrice = filledVariants[0]?.price ? parseFloat(filledVariants[0].price) : 0;
     const productData = {
