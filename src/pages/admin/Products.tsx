@@ -184,26 +184,30 @@ export default function AdminProducts() {
       is_returnable: (v as any).is_returnable !== false,
     }));
     
-    // Detect product type from variants
+    // Detect product type: first check stored metadata, then heuristic fallback
+    const contentSections = (selectedProduct as any).content_sections as ContentSection[] || [];
     let detectedType = 'general';
-    if (existingVariants.length > 0) {
+    const metaSection = (contentSections as any[]).find((s: any) => s?._meta_product_type);
+    if (metaSection) {
+      detectedType = metaSection._meta_product_type;
+    } else if (existingVariants.length > 0) {
       const names = existingVariants.map(v => v.name.toUpperCase());
       if (names.some(n => CLOTHING_SIZES.includes(n))) detectedType = 'clothing';
       else if (names.some(n => FOOTWEAR_SIZES.includes(n))) detectedType = 'footwear';
     }
-    const contentSections = (selectedProduct as any).content_sections as ContentSection[] || [];
+    // Filter out meta sections for display
+    const displaySections = contentSections.filter((s: any) => !s?._meta_product_type);
 
     // Determine parent/sub category
     const catId = selectedProduct.category_id || '';
     const catObj = categories.find(c => c.id === catId);
     if (catObj?.parent_id) {
-      // It's a child category — set parent and sub separately
       setFormParentCategoryId(catObj.parent_id);
     } else {
       setFormParentCategoryId(catId);
     }
 
-    setFormData({ ...selectedProduct, imageUrls, productType: detectedType, contentSections, variant_required: (selectedProduct as any).variant_required || false } as any);
+    setFormData({ ...selectedProduct, imageUrls, productType: detectedType, contentSections: displaySections, variant_required: (selectedProduct as any).variant_required || false } as any);
     // Always ensure at least 1 variant
     setVariantForms(existingVariants.length > 0 ? existingVariants : [defaultVariant()]);
     setIsDetailOpen(false);
