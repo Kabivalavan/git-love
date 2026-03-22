@@ -15,6 +15,7 @@ import { useCartQuery, useCartMutations, type CartItemWithProduct } from '@/hook
 import { useCheckoutSettings } from '@/hooks/useProductQuery';
 import { CartValueOptimizer } from '@/components/storefront/CartValueOptimizer';
 import { cn } from '@/lib/utils';
+import { validateCouponForUser } from '@/lib/coupon-validation';
 import type { Product, Coupon, ProductVariant } from '@/types/database';
 
 export default function CartPage() {
@@ -55,24 +56,22 @@ export default function CartPage() {
   };
 
   const applyCoupon = async () => {
-    if (!couponCode.trim()) return;
+    if (!couponCode.trim() || !user) return;
     setIsApplyingCoupon(true);
-    const { data: coupon, error } = await supabase
-      .from('coupons').select('*').eq('code', couponCode.toUpperCase()).eq('is_active', true).single();
-    if (error || !coupon) {
-      toast({ title: 'Invalid coupon', description: 'This coupon code is not valid', variant: 'destructive' });
+    const { coupon, error } = await validateCouponForUser({
+      couponCode,
+      userId: user.id,
+      subtotal,
+    });
+
+    if (!coupon || error) {
+      toast({ title: 'Invalid coupon', description: error || 'This coupon code is not valid', variant: 'destructive' });
     } else {
-      const couponData = coupon as unknown as Coupon;
-      if (couponData.end_date && new Date(couponData.end_date) < new Date()) {
-        toast({ title: 'Coupon expired', description: 'This coupon has expired', variant: 'destructive' });
-      } else if (couponData.min_order_value && subtotal < couponData.min_order_value) {
-        toast({ title: 'Minimum order not met', description: `Minimum order value is ₹${couponData.min_order_value}`, variant: 'destructive' });
-      } else {
-        setAppliedCoupon(couponData);
-        localStorage.setItem('applied_coupon', JSON.stringify(couponData));
-        toast({ title: 'Coupon applied', description: `Coupon ${couponData.code} applied successfully` });
-      }
+      setAppliedCoupon(coupon);
+      localStorage.setItem('applied_coupon', JSON.stringify(coupon));
+      toast({ title: 'Coupon applied', description: `Coupon ${coupon.code} applied successfully` });
     }
+
     setIsApplyingCoupon(false);
   };
 
