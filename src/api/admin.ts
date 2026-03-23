@@ -399,6 +399,16 @@ export async function fetchAdminOffers() {
   return data || [];
 }
 
+export async function fetchAdminOffersPaginated(from: number, to: number) {
+  const { data, error, count } = await supabase
+    .from('offers')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+  if (error) throw error;
+  return { data: data || [], count: count || 0 };
+}
+
 // ─── Expenses ───
 export async function fetchAdminExpenses() {
   const { data, error } = await supabase
