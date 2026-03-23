@@ -61,8 +61,8 @@ const statusColors: Record<ReturnStatus, string> = {
 };
 
 export default function AdminReturns() {
-  const [returns, setReturns] = useState<ReturnRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: returns = [], isLoading } = useAdminReturns();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedReturn, setSelectedReturn] = useState<ReturnRecord | null>(null);
@@ -77,50 +77,7 @@ export default function AdminReturns() {
   const { toast } = useToast();
   const { log } = useActivityLog();
 
-  const fetchReturns = useCallback(async () => {
-    setIsLoading(true);
-    const { data } = await supabase
-      .from('returns')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (!data) { setIsLoading(false); return; }
-
-    const orderIds = [...new Set(data.map(r => r.order_id))];
-    const userIds = [...new Set(data.map(r => r.user_id))];
-    const returnIds = data.map(r => r.id);
-
-    const [ordersRes, profilesRes, itemsRes, refundsRes] = await Promise.all([
-      supabase.from('orders').select('id, order_number, total, payment_method').in('id', orderIds),
-      supabase.from('profiles').select('user_id, full_name, email, mobile_number').in('user_id', userIds),
-      supabase.from('return_items').select('*').in('return_id', returnIds),
-      supabase.from('refunds').select('*').in('return_id', returnIds),
-    ]);
-
-    const ordersMap = new Map((ordersRes.data || []).map(o => [o.id, o]));
-    const profilesMap = new Map((profilesRes.data || []).map(p => [p.user_id, p]));
-    const itemsMap = new Map<string, ReturnItemRecord[]>();
-    (itemsRes.data || []).forEach(item => {
-      const list = itemsMap.get(item.return_id) || [];
-      list.push(item as any);
-      itemsMap.set(item.return_id, list);
-    });
-    const refundsMap = new Map((refundsRes.data || []).map(r => [r.return_id, r]));
-
-    const enriched: ReturnRecord[] = data.map(r => ({
-      ...r,
-      images: (r.images as any) || [],
-      order: ordersMap.get(r.order_id) as any,
-      profile: profilesMap.get(r.user_id) as any,
-      items: itemsMap.get(r.id) || [],
-      refund: refundsMap.get(r.id) as any || null,
-    }));
-
-    setReturns(enriched);
-    setIsLoading(false);
-  }, []);
-
-  useEffect(() => { fetchReturns(); }, [fetchReturns]);
+  const refetchReturns = () => queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.returns });
 
   const filtered = returns.filter(r => {
     if (statusFilter !== 'all' && r.status !== statusFilter) return false;
