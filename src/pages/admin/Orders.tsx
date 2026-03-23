@@ -17,6 +17,7 @@ import type { Order, OrderItem, OrderStatus, ShippingAddress, Delivery, Delivery
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import jsPDF from 'jspdf';
 import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
+import { fetchOrders as fetchOrdersApi, fetchOrderDetails as fetchOrderDetailsApi } from '@/api/admin';
 
 const ORDER_STATUSES: OrderStatus[] = ['new', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled', 'returned'];
 const DELIVERY_STATUSES: DeliveryStatus[] = ['pending', 'assigned', 'picked', 'in_transit', 'delivered', 'failed'];
