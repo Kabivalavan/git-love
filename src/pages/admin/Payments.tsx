@@ -33,11 +33,11 @@ interface Payment {
 }
 
 const PAYMENT_STATUSES = [
-  { value: 'pending', label: 'Pending', color: 'secondary' },
-  { value: 'paid', label: 'Paid', color: 'default' },
-  { value: 'failed', label: 'Failed', color: 'destructive' },
-  { value: 'refunded', label: 'Refunded', color: 'destructive' },
-  { value: 'partial', label: 'Partial', color: 'secondary' },
+  { value: 'pending', label: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
+  { value: 'paid', label: 'Paid', color: 'bg-green-100 text-green-800' },
+  { value: 'failed', label: 'Failed', color: 'bg-red-100 text-red-800' },
+  { value: 'refunded', label: 'Refunded', color: 'bg-purple-100 text-purple-800' },
+  { value: 'partial', label: 'Partial', color: 'bg-orange-100 text-orange-800' },
 ];
 
 const PAYMENT_METHODS = [
