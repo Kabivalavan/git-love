@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useActivityLog } from '@/hooks/useActivityLog';
 import { RotateCcw, Search, Check, X, Truck, Package, DollarSign, Loader2, Image as ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { useAdminReturns, ADMIN_KEYS } from '@/hooks/useAdminQueries';
 
 type ReturnStatus = 'requested' | 'approved' | 'rejected' | 'in_transit' | 'received' | 'refunded' | 'completed';
 
