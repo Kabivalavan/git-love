@@ -26,7 +26,7 @@ export default function AdminDashboard() {
   const { data: liveData } = useAdminLiveViewers();
 
   // Realtime: invalidate dashboard cache on order changes (no direct refetch)
-  useAdminRealtimeInvalidation(['orders'], [ADMIN_KEYS.dashboard]);
+  useAdminRealtimeInvalidation(['orders'], [[...ADMIN_KEYS.dashboard]]);
 
   const stats = dashboardData?.stats || null;
   const salesChart = dashboardData?.salesChart || [];
