@@ -72,6 +72,16 @@ export async function fetchAdminProducts() {
   }));
 }
 
+export async function fetchAdminProductsPaginated(from: number, to: number) {
+  const { data, error, count } = await supabase
+    .from('products')
+    .select('*, category:categories(*), images:product_images(*), variants:product_variants(*)', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+  if (error) throw error;
+  return { data: (data || []) as unknown as Product[], count: count || 0 };
+}
+
 export async function fetchProductVariants(productId: string) {
   const { data, error } = await supabase
     .from('product_variants')
