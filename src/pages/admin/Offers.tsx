@@ -154,7 +154,6 @@ export default function AdminOffers() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<FormData>({});
   const { log } = useActivityLog();
-  const { log } = useActivityLog();
 
   const fetchVariantsForProduct = async (productId: string) => {
     const { data } = await supabase.from('product_variants').select('id, name, product_id').eq('product_id', productId).eq('is_active', true).order('sort_order');

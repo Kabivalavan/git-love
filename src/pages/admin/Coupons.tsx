@@ -110,7 +110,6 @@ export default function AdminCoupons() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Coupon> & { start_date_local?: string; end_date_local?: string }>({});
   const { log } = useActivityLog();
-  const { log } = useActivityLog();
   const deactivatedCouponIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
