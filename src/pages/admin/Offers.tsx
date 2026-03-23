@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
@@ -213,7 +214,7 @@ export default function AdminOffers() {
       toast({ title: 'Success', description: 'Offer deleted successfully' });
       log({ action: 'delete', entityType: 'offer', entityId: selectedOffer.id, details: { name: selectedOffer.name, type: selectedOffer.type, value: selectedOffer.value } });
       setIsDetailOpen(false);
-      fetchOffers();
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.offers });
     }
     setIsDeleting(false);
   };
@@ -265,7 +266,7 @@ export default function AdminOffers() {
         toast({ title: 'Success', description: 'Offer updated successfully' });
         log({ action: 'update', entityType: 'offer', entityId: selectedOffer.id, details: { name: formData.name, type: formData.type, value: formData.value } });
         setIsFormOpen(false);
-        fetchOffers();
+        queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.offers });
       }
     } else {
       const { error } = await supabase.from('offers').insert([offerData]);
@@ -275,7 +276,7 @@ export default function AdminOffers() {
         toast({ title: 'Success', description: 'Offer created successfully' });
         log({ action: 'create', entityType: 'offer', details: { name: formData.name, type: formData.type, value: formData.value } });
         setIsFormOpen(false);
-        fetchOffers();
+        queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.offers });
       }
     }
     setIsSaving(false);
