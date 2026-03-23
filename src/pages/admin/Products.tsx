@@ -107,6 +107,8 @@ export default function AdminProducts() {
     [ADMIN_KEYS.products as unknown as string[]]
   );
 
+  const refreshProducts = () => { fetchInitial(); };
+
   const handleRowClick = async (product: Product) => {
     const variants = await fetchProductVariants(product.id);
     setSelectedProduct({ ...product, variants: variants as unknown as ProductVariant[] });
