@@ -1726,19 +1726,20 @@ function WhatsAppSettings() {
   const [waStatus, setWaStatus] = useState<{ connected: boolean; display_name?: string }>({ connected: false });
   const [isConnecting, setIsConnecting] = useState(false);
   const { toast } = useToast();
+  const { data: settingsData } = useAdminStoreSettings();
 
   useEffect(() => {
-    // Use the parent's cached store settings instead of direct fetch
-    const fetchFromCache = async () => {
-      const { data } = await supabase.from('store_settings').select('value').eq('key', 'whatsapp').single();
-      if (data?.value) {
-        const v = data.value as any;
-        setWaConfig({ api_url: v.api_url || 'https://graph.facebook.com/v21.0', api_token: v.api_token || '', phone_number_id: v.phone_number_id || '' });
-        setWaStatus({ connected: v.connected || false, display_name: v.display_name });
-      }
-    };
-    fetchFromCache();
-  }, []);
+    const waSetting = settingsData?.find((item) => item.key === 'whatsapp');
+    if (!waSetting?.value) return;
+
+    const v = waSetting.value as any;
+    setWaConfig({
+      api_url: v.api_url || 'https://graph.facebook.com/v21.0',
+      api_token: v.api_token || '',
+      phone_number_id: v.phone_number_id || '',
+    });
+    setWaStatus({ connected: v.connected || false, display_name: v.display_name });
+  }, [settingsData]);
 
   const testConnection = async () => {
     setIsConnecting(true);

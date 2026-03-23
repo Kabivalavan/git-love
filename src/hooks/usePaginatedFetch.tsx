@@ -4,7 +4,20 @@ import { useInfiniteScroll } from './useInfiniteScroll';
 interface UsePaginatedFetchOptions<T> {
   pageSize?: number;
   fetchFn: (from: number, to: number) => Promise<{ data: T[]; count: number }>;
+  cacheKey?: string;
+  cacheTimeMs?: number;
 }
+
+type CachedPage<T> = {
+  items: T[];
+  totalCount: number;
+  hasMore: boolean;
+  page: number;
+  updatedAt: number;
+};
+
+const paginatedCache = new Map<string, CachedPage<unknown>>();
+const inFlightInitialRequests = new Map<string, Promise<{ data: unknown[]; count: number }>>();
 
 function dedupeById<T>(list: T[]): T[] {
   const seen = new Set<string>();
@@ -20,6 +33,8 @@ function dedupeById<T>(list: T[]): T[] {
 export function usePaginatedFetch<T>({
   pageSize = 30,
   fetchFn,
+  cacheKey,
+  cacheTimeMs = 2 * 60 * 1000,
 }: UsePaginatedFetchOptions<T>) {
   const [items, setItems] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,40 +50,99 @@ export function usePaginatedFetch<T>({
     setIsLoading(true);
     pageRef.current = 0;
     setHasMore(false);
+
     try {
-      const { data, count } = await fetchFn(0, pageSize - 1);
+      if (cacheKey) {
+        const cached = paginatedCache.get(cacheKey) as CachedPage<T> | undefined;
+        if (cached && Date.now() - cached.updatedAt < cacheTimeMs) {
+          setItems(cached.items);
+          setTotalCount(cached.totalCount);
+          setHasMore(cached.hasMore);
+          pageRef.current = cached.page;
+          return;
+        }
+      }
+
+      const loadInitial = async () => fetchFn(0, pageSize - 1);
+      let request: Promise<{ data: T[]; count: number }>;
+
+      if (cacheKey) {
+        const inFlight = inFlightInitialRequests.get(cacheKey) as Promise<{ data: T[]; count: number }> | undefined;
+        if (inFlight) {
+          request = inFlight;
+        } else {
+          request = loadInitial();
+          inFlightInitialRequests.set(cacheKey, request as Promise<{ data: unknown[]; count: number }>);
+        }
+      } else {
+        request = loadInitial();
+      }
+
+      const { data, count } = await request;
       const uniqueData = dedupeById(data);
+      const nextHasMore = uniqueData.length < count;
+
       setItems(uniqueData);
       setTotalCount(count);
-      setHasMore(uniqueData.length < count);
+      setHasMore(nextHasMore);
       pageRef.current = 1;
+
+      if (cacheKey) {
+        paginatedCache.set(cacheKey, {
+          items: uniqueData,
+          totalCount: count,
+          hasMore: nextHasMore,
+          page: 1,
+          updatedAt: Date.now(),
+        });
+      }
+
+      if (cacheKey && inFlightInitialRequests.get(cacheKey) === request) {
+        inFlightInitialRequests.delete(cacheKey);
+      }
     } catch {
       // handled by caller
     } finally {
       isFetchingRef.current = false;
       setIsLoading(false);
     }
-  }, [fetchFn, pageSize]);
+  }, [fetchFn, pageSize, cacheKey, cacheTimeMs]);
 
   const fetchMore = useCallback(async () => {
     if (isFetchingRef.current || isLoading || isLoadingMore || !hasMore) return;
     isFetchingRef.current = true;
     setIsLoadingMore(true);
+
     const from = pageRef.current * pageSize;
     const to = from + pageSize - 1;
+
     try {
       const { data, count } = await fetchFn(from, to);
-      setItems(prev => dedupeById([...prev, ...data]));
+      const merged = dedupeById([...items, ...data]);
+      const nextHasMore = from + data.length < count;
+      const nextPage = pageRef.current + 1;
+
+      setItems(merged);
       setTotalCount(count);
-      setHasMore(from + data.length < count);
-      pageRef.current += 1;
+      setHasMore(nextHasMore);
+      pageRef.current = nextPage;
+
+      if (cacheKey) {
+        paginatedCache.set(cacheKey, {
+          items: merged,
+          totalCount: count,
+          hasMore: nextHasMore,
+          page: nextPage,
+          updatedAt: Date.now(),
+        });
+      }
     } catch {
       // handled by caller
     } finally {
       isFetchingRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [fetchFn, pageSize, isLoading, isLoadingMore, hasMore]);
+  }, [fetchFn, pageSize, isLoading, isLoadingMore, hasMore, cacheKey, items]);
 
   const sentinelRef = useInfiniteScroll({
     hasMore,

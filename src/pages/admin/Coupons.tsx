@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
@@ -80,21 +80,7 @@ export default function AdminCoupons() {
 
   useAdminRealtimeInvalidation(['coupons', 'coupon_usage'], [ADMIN_KEYS.coupons as unknown as string[]]);
 
-  // Auto-deactivate expired/exhausted coupons on load
-  const coupons = (() => {
-    const all = (couponsData || []) as Coupon[];
-    const now = new Date().toISOString();
-    const toDeactivate = all.filter(c => c.is_active && (
-      (c.end_date && c.end_date < now) ||
-      (c.usage_limit !== null && c.used_count >= c.usage_limit)
-    ));
-    if (toDeactivate.length > 0) {
-      Promise.all(toDeactivate.map(c =>
-        supabase.from('coupons').update({ is_active: false }).eq('id', c.id)
-      ));
-    }
-    return all;
-  })();
+  const coupons = (couponsData || []) as Coupon[];
 
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -105,6 +91,33 @@ export default function AdminCoupons() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { log } = useActivityLog();
+  const deactivatedCouponIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const now = new Date().toISOString();
+    const toDeactivate = coupons.filter((c) =>
+      c.is_active &&
+      ((c.end_date && c.end_date < now) || (c.usage_limit !== null && c.used_count >= c.usage_limit)) &&
+      !deactivatedCouponIdsRef.current.has(c.id)
+    );
+
+    if (toDeactivate.length === 0) return;
+
+    const ids = toDeactivate.map((c) => c.id);
+    ids.forEach((id) => deactivatedCouponIdsRef.current.add(id));
+
+    supabase
+      .from('coupons')
+      .update({ is_active: false })
+      .in('id', ids)
+      .then(({ error }) => {
+        if (error) {
+          ids.forEach((id) => deactivatedCouponIdsRef.current.delete(id));
+          return;
+        }
+        queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.coupons });
+      });
+  }, [coupons, queryClient]);
 
   const handleRowClick = (coupon: Coupon) => {
     setSelectedCoupon(coupon);

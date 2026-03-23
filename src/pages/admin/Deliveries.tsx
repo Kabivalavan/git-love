@@ -2,13 +2,13 @@ import { useEffect, useState, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
-import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { ExternalLink, Info, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
+import { fetchDeliveries as fetchDeliveriesApi } from '@/api/admin';
 
 interface Delivery {
   id: string;
@@ -45,23 +45,13 @@ export default function AdminDeliveries() {
   const { toast } = useToast();
 
   const fetchFn = useCallback(async (from: number, to: number) => {
-    let query = supabase
-      .from('deliveries')
-      .select('*, order:orders(order_number)', { count: 'exact' })
-      .order('created_at', { ascending: false });
-
-    if (statusFilter !== 'all') query = query.eq('status', statusFilter as any);
-    if (codFilter === 'cod') query = query.eq('is_cod', true);
-    if (codFilter === 'prepaid') query = query.eq('is_cod', false);
-    if (codFilter === 'cod_pending') query = query.eq('is_cod', true).eq('cod_collected', false);
-
-    query = query.range(from, to);
-    const { data, error, count } = await query;
-    if (error) {
+    try {
+      const result = await fetchDeliveriesApi(from, to, { status: statusFilter, cod: codFilter });
+      return { data: (result.data || []) as unknown as Delivery[], count: result.count || 0 };
+    } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      throw error;
+      return { data: [] as Delivery[], count: 0 };
     }
-    return { data: (data || []) as unknown as Delivery[], count: count || 0 };
   }, [statusFilter, codFilter, toast]);
 
   const {
@@ -72,7 +62,12 @@ export default function AdminDeliveries() {
     totalCount,
     sentinelRef,
     fetchInitial,
-  } = usePaginatedFetch<Delivery>({ fetchFn, pageSize: 30 });
+  } = usePaginatedFetch<Delivery>({
+    fetchFn,
+    pageSize: 30,
+    cacheKey: `admin-deliveries-${statusFilter}-${codFilter}`,
+    cacheTimeMs: 2 * 60 * 1000,
+  });
 
   useEffect(() => { fetchInitial(); }, [fetchInitial]);
 

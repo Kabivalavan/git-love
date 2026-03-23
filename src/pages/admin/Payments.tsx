@@ -56,18 +56,20 @@ export default function AdminPayments() {
   const { toast } = useToast();
 
   const fetchPaymentsFn = useCallback(async (from: number, to: number) => {
-    const { data, error, count } = await supabase
-      .from('payments')
-      .select('*, order:orders(order_number)', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(from, to);
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    return { data: (data || []) as unknown as Payment[], count: count || 0 };
-  }, []);
+    try {
+      const result = await fetchPaymentsApi(from, to);
+      return { data: (result.data || []) as unknown as Payment[], count: result.count || 0 };
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return { data: [] as Payment[], count: 0 };
+    }
+  }, [toast]);
 
   const { items: payments, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial: fetchPayments } = usePaginatedFetch<Payment>({
     pageSize: 30,
     fetchFn: fetchPaymentsFn,
+    cacheKey: 'admin-payments',
+    cacheTimeMs: 2 * 60 * 1000,
   });
 
   useEffect(() => { fetchPayments(); }, []);
