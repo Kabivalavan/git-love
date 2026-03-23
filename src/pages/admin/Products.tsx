@@ -449,6 +449,9 @@ export default function AdminProducts() {
           searchKeys={['name', 'sku', 'description']}
           getRowId={(p) => p.id}
           emptyMessage="No products found. Click 'Add Product' to create one."
+          isLoadingMore={isLoadingMore}
+          hasMore={hasMore}
+          sentinelRef={sentinelRef}
         />
       )}
 
