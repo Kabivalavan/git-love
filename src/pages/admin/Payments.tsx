@@ -33,11 +33,11 @@ interface Payment {
 }
 
 const PAYMENT_STATUSES = [
-  { value: 'pending', label: 'Pending', color: 'secondary' },
-  { value: 'paid', label: 'Paid', color: 'default' },
-  { value: 'failed', label: 'Failed', color: 'destructive' },
-  { value: 'refunded', label: 'Refunded', color: 'destructive' },
-  { value: 'partial', label: 'Partial', color: 'secondary' },
+  { value: 'pending', label: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
+  { value: 'paid', label: 'Paid', color: 'bg-green-100 text-green-800' },
+  { value: 'failed', label: 'Failed', color: 'bg-red-100 text-red-800' },
+  { value: 'refunded', label: 'Refunded', color: 'bg-purple-100 text-purple-800' },
+  { value: 'partial', label: 'Partial', color: 'bg-orange-100 text-orange-800' },
 ];
 
 const PAYMENT_METHODS = [
@@ -124,7 +124,7 @@ export default function AdminPayments() {
 
   const getStatusColor = (status: string) => {
     const found = PAYMENT_STATUSES.find(s => s.value === status);
-    return (found?.color || 'secondary') as 'default' | 'secondary' | 'destructive';
+    return found?.color || 'bg-gray-100 text-gray-800';
   };
 
   const columns: Column<Payment>[] = [
@@ -147,9 +147,9 @@ export default function AdminPayments() {
       key: 'status',
       header: 'Status',
       render: (p) => (
-        <Badge variant={getStatusColor(p.status)}>
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusColor(p.status)}`}>
           {PAYMENT_STATUSES.find(s => s.value === p.status)?.label || p.status}
-        </Badge>
+        </span>
       ),
     },
     { key: 'transaction_id', header: 'Transaction ID' },
@@ -198,7 +198,7 @@ export default function AdminPayments() {
                 <Select
                   value={selectedPayment.status}
                   onValueChange={handleStatusUpdate}
-                  disabled={isUpdating}
+                  disabled={isUpdating || selectedPayment.status === 'paid' || selectedPayment.status === 'refunded'}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -211,6 +211,9 @@ export default function AdminPayments() {
                     ))}
                   </SelectContent>
                 </Select>
+                {(selectedPayment.status === 'paid' || selectedPayment.status === 'refunded') && (
+                  <p className="text-[10px] text-muted-foreground mt-1">🔒 Status locked</p>
+                )}
               </div>
             </DetailSection>
 
