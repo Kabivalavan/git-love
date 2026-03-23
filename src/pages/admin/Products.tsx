@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import type { Product, Category, ProductImage, ProductVariant } from '@/types/database';
 import { ShimmerTable } from '@/components/ui/shimmer';
 import { useActivityLog } from '@/hooks/useActivityLog';
+import { useAdminProducts, useAdminCategories, useDeleteProduct, useSaveProduct, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { fetchProductVariants } from '@/api/admin';
 import {
   Dialog,
   DialogContent,
