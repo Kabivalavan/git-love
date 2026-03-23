@@ -77,19 +77,13 @@ export default function AdminCategories() {
   const handleDelete = async () => {
     if (!selectedCategory) return;
     setIsDeleting(true);
-
-    const { error } = await supabase
-      .from('categories')
-      .delete()
-      .eq('id', selectedCategory.id);
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      await deleteCategoryMutation.mutateAsync(selectedCategory.id);
       toast({ title: 'Success', description: 'Category deleted successfully' });
       log({ action: 'delete', entityType: 'category', entityId: selectedCategory.id, details: { name: selectedCategory.name } });
       setIsDetailOpen(false);
-      fetchCategories();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
     setIsDeleting(false);
   };
