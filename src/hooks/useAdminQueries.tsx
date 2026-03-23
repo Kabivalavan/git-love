@@ -223,9 +223,10 @@ export function useAdminBanners() {
 // Use this instead of direct fetchProducts() in realtime callbacks
 export function useAdminRealtimeInvalidation(
   tables: string[],
-  queryKeys: readonly string[][]
+  queryKeys: string[][]
 ) {
   const queryClient = useQueryClient();
+  const tablesKey = tables.join(',');
 
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -239,7 +240,7 @@ export function useAdminRealtimeInvalidation(
       }, 200);
     };
 
-    const channel = supabase.channel(`admin-realtime-${tables.join('-')}`);
+    const channel = supabase.channel(`admin-realtime-${tablesKey}`);
     tables.forEach((table) => {
       channel.on(
         'postgres_changes',
@@ -253,7 +254,8 @@ export function useAdminRealtimeInvalidation(
       if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, [queryClient, tables.join(',')]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient, tablesKey]);
 }
 
 // Helper to get a specific setting from the cached store settings
