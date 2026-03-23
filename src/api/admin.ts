@@ -379,6 +379,16 @@ export async function fetchAdminCoupons() {
   return data || [];
 }
 
+export async function fetchAdminCouponsPaginated(from: number, to: number) {
+  const { data, error, count } = await supabase
+    .from('coupons')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+  if (error) throw error;
+  return { data: data || [], count: count || 0 };
+}
+
 // ─── Offers ───
 export async function fetchAdminOffers() {
   const { data, error } = await supabase
