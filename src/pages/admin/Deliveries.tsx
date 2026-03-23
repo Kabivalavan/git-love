@@ -96,9 +96,9 @@ export default function AdminDeliveries() {
       key: 'status',
       header: 'Status',
       render: (d) => (
-        <Badge variant={getStatusColor(d.status)}>
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusColor(d.status)}`}>
           {DELIVERY_STATUSES.find(s => s.value === d.status)?.label || d.status}
-        </Badge>
+        </span>
       ),
     },
     { key: 'partner_name', header: 'Partner' },

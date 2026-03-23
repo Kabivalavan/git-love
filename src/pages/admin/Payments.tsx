@@ -147,9 +147,9 @@ export default function AdminPayments() {
       key: 'status',
       header: 'Status',
       render: (p) => (
-        <Badge variant={getStatusColor(p.status)}>
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusColor(p.status)}`}>
           {PAYMENT_STATUSES.find(s => s.value === p.status)?.label || p.status}
-        </Badge>
+        </span>
       ),
     },
     { key: 'transaction_id', header: 'Transaction ID' },
