@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
@@ -7,7 +7,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useActivityLog } from '@/hooks/useActivityLog';
-import { useAdminCustomers, useAdminStoreSettings, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { useAdminStoreSettings, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { fetchAdminCustomersPaginated } from '@/api/admin';
+import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
