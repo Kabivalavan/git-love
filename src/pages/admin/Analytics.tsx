@@ -293,7 +293,7 @@ export default function AdminAnalytics() {
                 <label className="text-xs text-muted-foreground">To</label>
                 <Input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="w-40 h-9" />
               </div>
-              <button onClick={fetchAnalytics} className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Apply</button>
+              <button onClick={() => setDateRange(dateRange)} className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Apply</button>
             </>
           )}
         </div>
