@@ -64,18 +64,20 @@ export default function WhatsAppMarketing() {
   const [previewTemplate, setPreviewTemplate] = useState<WhatsAppTemplate | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => { fetchTemplates(); }, []);
+  const { data: allSettings } = useAdminStoreSettings();
+  const saveSettingMutation = useSaveStoreSetting();
 
-  const fetchTemplates = async () => {
-    setIsLoading(true);
-    const { data } = await supabase.from('store_settings').select('value').eq('key', 'whatsapp_templates').maybeSingle();
-    if (data?.value) {
-      const saved = data.value as any as WhatsAppTemplate[];
-      const savedIds = new Set(saved.map(t => t.id));
-      setTemplates([...saved, ...DEFAULT_TEMPLATES.filter(d => !savedIds.has(d.id))]);
+  useEffect(() => {
+    if (allSettings) {
+      const waTemplatesSetting = allSettings.find((s: any) => s.key === 'whatsapp_templates');
+      if (waTemplatesSetting?.value) {
+        const saved = waTemplatesSetting.value as any as WhatsAppTemplate[];
+        const savedIds = new Set(saved.map(t => t.id));
+        setTemplates([...saved, ...DEFAULT_TEMPLATES.filter(d => !savedIds.has(d.id))]);
+      }
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  };
+  }, [allSettings]);
 
   const handleEdit = (template: WhatsAppTemplate) => {
     setEditingTemplate(template);
