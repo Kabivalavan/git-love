@@ -140,7 +140,7 @@ export default function AdminBanners() {
       toast({ title: 'Success', description: 'Banner deleted successfully' });
       log({ action: 'delete', entityType: 'banner', entityId: selectedBanner.id, details: { name: selectedBanner.title } });
       setIsDetailOpen(false);
-      fetchBanners();
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.banners });
     }
     setIsDeleting(false);
   };
@@ -189,7 +189,7 @@ export default function AdminBanners() {
         toast({ title: 'Success', description: 'Banner updated successfully' });
         log({ action: 'update', entityType: 'banner', entityId: selectedBanner.id, details: { name: formData.title } });
         setIsFormOpen(false);
-        fetchBanners();
+        queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.banners });
       }
     } else {
       const { error } = await supabase.from('banners').insert([bannerData]);
@@ -200,7 +200,7 @@ export default function AdminBanners() {
         toast({ title: 'Success', description: 'Banner created successfully' });
         log({ action: 'create', entityType: 'banner', details: { name: formData.title } });
         setIsFormOpen(false);
-        fetchBanners();
+        queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.banners });
       }
     }
     setIsSaving(false);
