@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
@@ -7,7 +7,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useActivityLog } from '@/hooks/useActivityLog';
-import { useAdminCustomers, useAdminStoreSettings, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { useAdminStoreSettings, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { fetchAdminCustomersPaginated } from '@/api/admin';
+import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -33,12 +35,27 @@ interface Customer {
 }
 
 export default function AdminCustomers() {
-  const { data: customersData, isLoading } = useAdminCustomers();
+  const { toast } = useToast();
+
+  const fetchCustomersFn = useCallback(async (from: number, to: number) => {
+    try {
+      return await fetchAdminCustomersPaginated(from, to);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      return { data: [], count: 0 };
+    }
+  }, [toast]);
+
+  const { items: customers, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial } = usePaginatedFetch<Customer>({
+    pageSize: 30,
+    fetchFn: fetchCustomersFn,
+    cacheKey: 'admin-customers-paginated',
+    cacheTimeMs: 3 * 60 * 1000,
+  });
+
+  useEffect(() => { fetchInitial(); }, []);
+
   const { data: settingsData } = useAdminStoreSettings();
-
-  useAdminRealtimeInvalidation(['profiles', 'orders'], [ADMIN_KEYS.customers as unknown as string[]]);
-
-  const customers = (customersData || []) as Customer[];
   const storeName = useMemo(() => {
     const info = settingsData?.find(s => s.key === 'store_info');
     return (info?.value as any)?.name || 'Our Store';
@@ -63,7 +80,6 @@ export default function AdminCustomers() {
   const [viewMode, setViewMode] = useState<string>(() => localStorage.getItem(VIEW_MODE_KEY) || 'list');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { log } = useActivityLog();
 
@@ -335,6 +351,9 @@ export default function AdminCustomers() {
             searchable={false}
             getRowId={(c) => c.id}
             emptyMessage="No customers found."
+            isLoadingMore={isLoadingMore}
+            hasMore={hasMore}
+            sentinelRef={sentinelRef}
           />
         ) : (
           isLoading ? (

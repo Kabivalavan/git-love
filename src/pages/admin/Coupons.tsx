@@ -1,10 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
 import { supabase } from '@/integrations/supabase/client';
-import { useAdminCoupons, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { fetchAdminCouponsPaginated } from '@/api/admin';
+import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Copy } from 'lucide-react';
@@ -76,11 +78,30 @@ function formatIST(utcStr: string | null): string {
 }
 
 export default function AdminCoupons() {
-  const { data: couponsData, isLoading } = useAdminCoupons();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const fetchCouponsFn = useCallback(async (from: number, to: number) => {
+    try {
+      return await fetchAdminCouponsPaginated(from, to);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      return { data: [], count: 0 };
+    }
+  }, [toast]);
+
+  const { items: couponsRaw, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial } = usePaginatedFetch<Coupon>({
+    pageSize: 30,
+    fetchFn: fetchCouponsFn,
+    cacheKey: 'admin-coupons-paginated',
+    cacheTimeMs: 3 * 60 * 1000,
+  });
+
+  useEffect(() => { fetchInitial(); }, []);
+
+  const coupons = couponsRaw as Coupon[];
 
   useAdminRealtimeInvalidation(['coupons', 'coupon_usage'], [ADMIN_KEYS.coupons as unknown as string[]]);
-
-  const coupons = (couponsData || []) as Coupon[];
 
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -88,8 +109,6 @@ export default function AdminCoupons() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Coupon> & { start_date_local?: string; end_date_local?: string }>({});
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
   const { log } = useActivityLog();
   const deactivatedCouponIdsRef = useRef<Set<string>>(new Set());
 
@@ -279,6 +298,9 @@ export default function AdminCoupons() {
         searchKeys={['code', 'description']}
         getRowId={(c) => c.id}
         emptyMessage="No coupons found."
+        isLoadingMore={isLoadingMore}
+        hasMore={hasMore}
+        sentinelRef={sentinelRef}
       />
 
       <DetailPanel

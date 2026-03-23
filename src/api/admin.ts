@@ -72,6 +72,16 @@ export async function fetchAdminProducts() {
   }));
 }
 
+export async function fetchAdminProductsPaginated(from: number, to: number) {
+  const { data, error, count } = await supabase
+    .from('products')
+    .select('*, category:categories(*), images:product_images(*), variants:product_variants(*)', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+  if (error) throw error;
+  return { data: (data || []) as unknown as Product[], count: count || 0 };
+}
+
 export async function fetchProductVariants(productId: string) {
   const { data, error } = await supabase
     .from('product_variants')
@@ -327,6 +337,38 @@ export async function fetchAdminCustomers() {
   }));
 }
 
+export async function fetchAdminCustomersPaginated(from: number, to: number) {
+  const { data: profiles, error, count } = await supabase
+    .from('profiles')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+  if (error) throw error;
+
+  const userIds = (profiles || []).map((p: any) => p.user_id);
+  let orderStats: Record<string, { count: number; total: number }> = {};
+  if (userIds.length > 0) {
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('user_id, total')
+      .in('user_id', userIds);
+    (orders || []).forEach((o: any) => {
+      if (!o.user_id) return;
+      if (!orderStats[o.user_id]) orderStats[o.user_id] = { count: 0, total: 0 };
+      orderStats[o.user_id].count += 1;
+      orderStats[o.user_id].total += Number(o.total);
+    });
+  }
+
+  const data = (profiles || []).map((p: any) => ({
+    ...p,
+    order_count: orderStats[p.user_id]?.count || 0,
+    total_spent: orderStats[p.user_id]?.total || 0,
+  }));
+
+  return { data, count: count || 0 };
+}
+
 // ─── Coupons ───
 export async function fetchAdminCoupons() {
   const { data, error } = await supabase
@@ -335,6 +377,16 @@ export async function fetchAdminCoupons() {
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data || [];
+}
+
+export async function fetchAdminCouponsPaginated(from: number, to: number) {
+  const { data, error, count } = await supabase
+    .from('coupons')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+  if (error) throw error;
+  return { data: data || [], count: count || 0 };
 }
 
 // ─── Offers ───
@@ -347,6 +399,16 @@ export async function fetchAdminOffers() {
   return data || [];
 }
 
+export async function fetchAdminOffersPaginated(from: number, to: number) {
+  const { data, error, count } = await supabase
+    .from('offers')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+  if (error) throw error;
+  return { data: data || [], count: count || 0 };
+}
+
 // ─── Expenses ───
 export async function fetchAdminExpenses() {
   const { data, error } = await supabase
@@ -355,6 +417,27 @@ export async function fetchAdminExpenses() {
     .order('date', { ascending: false });
   if (error) throw error;
   return data || [];
+}
+
+export async function fetchAdminExpensesPaginated(from: number, to: number) {
+  const { data, error, count } = await supabase
+    .from('expenses')
+    .select('*', { count: 'exact' })
+    .order('date', { ascending: false })
+    .range(from, to);
+  if (error) throw error;
+  return { data: data || [], count: count || 0 };
+}
+
+// ─── Bundles ───
+export async function fetchAdminBundlesPaginated(from: number, to: number) {
+  const { data, error, count } = await supabase
+    .from('bundles')
+    .select('*, items:bundle_items(*, product:products(name, price, images:product_images(*)))', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+  if (error) throw error;
+  return { data: data || [], count: count || 0 };
 }
 
 // ─── Deliveries ───

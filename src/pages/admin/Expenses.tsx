@@ -1,10 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
 import { supabase } from '@/integrations/supabase/client';
-import { useAdminExpenses, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { fetchAdminExpensesPaginated } from '@/api/admin';
+import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
 import { Button } from '@/components/ui/button';
 import { Plus, LayoutGrid, List, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -77,11 +79,30 @@ const getAmountBadgeClass = (amount: number) => {
 };
 
 export default function AdminExpenses() {
-  const { data: expensesData, isLoading } = useAdminExpenses();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const fetchExpensesFn = useCallback(async (from: number, to: number) => {
+    try {
+      return await fetchAdminExpensesPaginated(from, to);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      return { data: [], count: 0 };
+    }
+  }, [toast]);
+
+  const { items: expensesRaw, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial } = usePaginatedFetch<Expense>({
+    pageSize: 30,
+    fetchFn: fetchExpensesFn,
+    cacheKey: 'admin-expenses-paginated',
+    cacheTimeMs: 3 * 60 * 1000,
+  });
+
+  useEffect(() => { fetchInitial(); }, []);
 
   useAdminRealtimeInvalidation(['expenses'], [ADMIN_KEYS.expenses as unknown as string[]]);
 
-  const expenses = (expensesData || []) as Expense[];
+  const expenses = expensesRaw as Expense[];
 
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -98,8 +119,6 @@ export default function AdminExpenses() {
   const [customDateTo, setCustomDateTo] = useState<string>('');
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [receiptViewUrl, setReceiptViewUrl] = useState<string | null>(null);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
   const { log } = useActivityLog();
 
   useEffect(() => { localStorage.setItem(VIEW_MODE_KEY, viewMode); }, [viewMode]);
@@ -362,6 +381,9 @@ export default function AdminExpenses() {
             searchKeys={['description', 'category']}
             getRowId={(e) => e.id}
             emptyMessage="No expenses recorded."
+            isLoadingMore={isLoadingMore}
+            hasMore={hasMore}
+            sentinelRef={sentinelRef}
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

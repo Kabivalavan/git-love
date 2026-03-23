@@ -11,8 +11,9 @@ import { useToast } from '@/hooks/use-toast';
 import type { Product, Category, ProductImage, ProductVariant } from '@/types/database';
 import { ShimmerTable } from '@/components/ui/shimmer';
 import { useActivityLog } from '@/hooks/useActivityLog';
-import { useAdminProducts, useAdminCategories, useDeleteProduct, useSaveProduct, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
-import { fetchProductVariants } from '@/api/admin';
+import { useAdminCategories, useDeleteProduct, useSaveProduct, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { fetchProductVariants, fetchAdminProductsPaginated } from '@/api/admin';
+import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
 import {
   Dialog,
   DialogContent,
@@ -60,12 +61,31 @@ interface VariantForm {
 }
 
 export default function AdminProducts() {
-  const { data: productsData, isLoading: isProductsLoading } = useAdminProducts();
+  const { toast } = useToast();
+
+  const fetchProductsFn = useCallback(async (from: number, to: number) => {
+    try {
+      const result = await fetchAdminProductsPaginated(from, to);
+      return { data: result.data as Product[], count: result.count };
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      return { data: [] as Product[], count: 0 };
+    }
+  }, [toast]);
+
+  const { items: products, isLoading: isProductsLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial } = usePaginatedFetch<Product>({
+    pageSize: 30,
+    fetchFn: fetchProductsFn,
+    cacheKey: 'admin-products-paginated',
+    cacheTimeMs: 2 * 60 * 1000,
+  });
+
+  useEffect(() => { fetchInitial(); }, []);
+
   const { data: categoriesData } = useAdminCategories();
   const deleteProductMutation = useDeleteProduct();
   const saveProductMutation = useSaveProduct();
 
-  const products = productsData || [];
   const categories = (categoriesData || []) as Category[];
   const isLoading = isProductsLoading;
 
@@ -78,7 +98,6 @@ export default function AdminProducts() {
   const [variantForms, setVariantForms] = useState<VariantForm[]>([]);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [formParentCategoryId, setFormParentCategoryId] = useState<string>('');
-  const { toast } = useToast();
   const { log } = useActivityLog();
 
   // Realtime invalidation instead of manual fetch
@@ -86,6 +105,8 @@ export default function AdminProducts() {
     ['products', 'product_variants', 'stock_holds', 'orders', 'order_items'],
     [ADMIN_KEYS.products as unknown as string[]]
   );
+
+  const refreshProducts = () => { fetchInitial(); };
 
   const handleRowClick = async (product: Product) => {
     const variants = await fetchProductVariants(product.id);
@@ -428,6 +449,9 @@ export default function AdminProducts() {
           searchKeys={['name', 'sku', 'description']}
           getRowId={(p) => p.id}
           emptyMessage="No products found. Click 'Add Product' to create one."
+          isLoadingMore={isLoadingMore}
+          hasMore={hasMore}
+          sentinelRef={sentinelRef}
         />
       )}
 

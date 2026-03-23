@@ -1,10 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
 import { supabase } from '@/integrations/supabase/client';
-import { useAdminOffers, useAdminCategories, useAdminProducts, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { useAdminCategories, useAdminProducts, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { fetchAdminOffersPaginated } from '@/api/admin';
+import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus } from 'lucide-react';
@@ -109,14 +111,34 @@ type FormData = Partial<Offer> & {
 };
 
 export default function AdminOffers() {
-  const { data: offersData, isLoading: offersLoading } = useAdminOffers();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const fetchOffersFn = useCallback(async (from: number, to: number) => {
+    try {
+      const result = await fetchAdminOffersPaginated(from, to);
+      return { data: result.data as unknown as Offer[], count: result.count };
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      return { data: [] as Offer[], count: 0 };
+    }
+  }, [toast]);
+
+  const { items: offersRaw, isLoading: offersLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial } = usePaginatedFetch<Offer>({
+    pageSize: 30,
+    fetchFn: fetchOffersFn,
+    cacheKey: 'admin-offers-paginated',
+    cacheTimeMs: 3 * 60 * 1000,
+  });
+
+  useEffect(() => { fetchInitial(); }, []);
+
   const { data: categoriesData } = useAdminCategories();
   const { data: productsData } = useAdminProducts();
-  const queryClient = useQueryClient();
 
   useAdminRealtimeInvalidation(['offers'], [ADMIN_KEYS.offers as unknown as string[]]);
 
-  const offers = (offersData || []) as unknown as Offer[];
+  const offers = offersRaw as unknown as Offer[];
   const isLoading = offersLoading;
 
   const allCategories = ((categoriesData || []) as any[]).map((c: any) => ({ id: c.id, name: c.name, parent_id: c.parent_id })) as CategoryItem[];
@@ -131,7 +153,6 @@ export default function AdminOffers() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<FormData>({});
-  const { toast } = useToast();
   const { log } = useActivityLog();
 
   const fetchVariantsForProduct = async (productId: string) => {
@@ -366,6 +387,9 @@ export default function AdminOffers() {
         searchKeys={['name', 'description']}
         getRowId={(o) => o.id}
         emptyMessage="No offers found."
+        isLoadingMore={isLoadingMore}
+        hasMore={hasMore}
+        sentinelRef={sentinelRef}
       />
 
       <DetailPanel

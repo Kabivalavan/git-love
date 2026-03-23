@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Loader2, Trash2, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useActivityLog } from '@/hooks/useActivityLog';
+import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
+import { fetchAdminBundlesPaginated } from '@/api/admin';
 import { ShimmerTable } from '@/components/ui/shimmer';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -61,9 +63,7 @@ interface ProductWithVariants extends Product {
 }
 
 export default function AdminBundles() {
-  const [bundles, setBundles] = useState<Bundle[]>([]);
   const [products, setProducts] = useState<ProductWithVariants[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedBundle, setSelectedBundle] = useState<Bundle | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -73,6 +73,23 @@ export default function AdminBundles() {
   const [itemForms, setItemForms] = useState<BundleItemForm[]>([]);
   const { toast } = useToast();
   const { log } = useActivityLog();
+
+  const fetchBundlesFn = useCallback(async (from: number, to: number) => {
+    try {
+      const result = await fetchAdminBundlesPaginated(from, to);
+      return { data: result.data as unknown as Bundle[], count: result.count };
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      return { data: [] as Bundle[], count: 0 };
+    }
+  }, [toast]);
+
+  const { items: bundles, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial: fetchBundles } = usePaginatedFetch<Bundle>({
+    pageSize: 30,
+    fetchFn: fetchBundlesFn,
+    cacheKey: 'admin-bundles-paginated',
+    cacheTimeMs: 2 * 60 * 1000,
+  });
 
   useEffect(() => {
     fetchBundles();
