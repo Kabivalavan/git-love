@@ -128,26 +128,12 @@ export default function ConversionOptimization() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    const { data: existing } = await supabase
-      .from('store_settings')
-      .select('id')
-      .eq('key', 'conversion_optimization')
-      .single();
-
-    const value = settings as unknown as Record<string, unknown>;
-    let error;
-    if (existing) {
-      const result = await supabase.from('store_settings').update({ value: value as any }).eq('key', 'conversion_optimization');
-      error = result.error;
-    } else {
-      const result = await supabase.from('store_settings').insert({ key: 'conversion_optimization', value: value as any });
-      error = result.error;
-    }
-
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else {
+    try {
+      const value = settings as unknown as Record<string, unknown>;
+      await saveSetting.mutateAsync({ key: 'conversion_optimization', value });
       toast({ title: 'Saved', description: 'Conversion settings saved' });
-      queryClient.invalidateQueries({ queryKey: ['conversion-settings'] });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
     setIsSaving(false);
   };
