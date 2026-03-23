@@ -3,9 +3,9 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
 import { Shimmer } from '@/components/ui/shimmer';
+import { useReports2Query } from '@/hooks/useReports2Query';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, Legend,
@@ -98,84 +98,27 @@ export default function Reports2() {
   const fromDate = useMemo(() => format(from, 'yyyy-MM-dd'), [from]);
   const toDate = useMemo(() => format(to, 'yyyy-MM-dd'), [to]);
 
-  // Single consolidated query for all dashboard data
-  const { data: dashData, isLoading } = useQuery({
-    queryKey: ['r2-all', dateRange, fromDate, toDate],
-    queryFn: async () => {
-      const [
-        ordersRes,
-        prevOrdersRes,
-        expensesRes,
-        deliveriesRes,
-        paymentsRes,
-        refundsRes,
-        profilesRes,
-        orderItemsRes,
-      ] = await Promise.all([
-        supabase.from('orders')
-          .select('id, total, subtotal, discount, shipping_charge, tax, status, payment_status, payment_method, created_at, user_id')
-          .gte('created_at', fromStr)
-          .lte('created_at', toStr)
-          .order('created_at', { ascending: true }),
-        supabase.from('orders')
-          .select('id, total, payment_status, payment_method')
-          .gte('created_at', prevFromStr)
-          .lte('created_at', prevToStr),
-        supabase.from('expenses')
-          .select('amount, category, date')
-          .gte('date', fromDate)
-          .lte('date', toDate),
-        supabase.from('deliveries')
-          .select('id, status, order_id, created_at')
-          .gte('created_at', fromStr)
-          .lte('created_at', toStr),
-        supabase.from('payments')
-          .select('id, amount, status, method, order_id, created_at')
-          .gte('created_at', fromStr)
-          .lte('created_at', toStr),
-        supabase.from('refunds')
-          .select('id, amount, status, created_at')
-          .gte('created_at', fromStr)
-          .lte('created_at', toStr),
-        supabase.from('profiles')
-          .select('id, user_id, full_name, created_at')
-          .gte('created_at', fromStr)
-          .lte('created_at', toStr),
-        supabase.from('order_items')
-          .select('order_id, product_name, product_id, quantity, total, price, created_at')
-          .gte('created_at', fromStr)
-          .lte('created_at', toStr),
-      ]);
-
-      const firstError = [
-        ordersRes.error,
-        prevOrdersRes.error,
-        expensesRes.error,
-        deliveriesRes.error,
-        paymentsRes.error,
-        refundsRes.error,
-        profilesRes.error,
-        orderItemsRes.error,
-      ].find(Boolean);
-
-      if (firstError) {
-        throw firstError;
-      }
-
-      return {
-        orders: ordersRes.data || [],
-        prevOrders: prevOrdersRes.data || [],
-        expenses: expensesRes.data || [],
-        deliveries: deliveriesRes.data || [],
-        payments: paymentsRes.data || [],
-        refunds: refundsRes.data || [],
-        customers: profilesRes.data || [],
-        orderItems: orderItemsRes.data || [],
-      };
-    },
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
+  const {
+    data: dashData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useReports2Query({
+    fromISO: fromStr,
+    toISO: toStr,
+    prevFromISO: prevFromStr,
+    prevToISO: prevToStr,
+    fromDate,
+    toDate,
   });
+
+  const toDayLabel = (value?: string | null) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return format(parsed, 'MMM dd');
+  };
 
   const orders = dashData?.orders || [];
   const prevOrders = dashData?.prevOrders || [];
@@ -225,7 +168,8 @@ export default function Reports2() {
     // Revenue trend by day
     const revenueByDay: Record<string, { revenue: number; profit: number; orders: number }> = {};
     fo.forEach(o => {
-      const day = format(new Date(o.created_at), 'MMM dd');
+      const day = toDayLabel(o.created_at);
+      if (!day) return;
       if (!revenueByDay[day]) revenueByDay[day] = { revenue: 0, profit: 0, orders: 0 };
       revenueByDay[day].revenue += Number(o.total || 0);
       revenueByDay[day].orders += 1;
@@ -336,7 +280,7 @@ export default function Reports2() {
     };
   }, [filteredOrders, prevOrders, orderItems, expenses, customers, deliveries, payments, refunds]);
 
-  const fmt = (n: number) => `₹${Math.round(n).toLocaleString()}`;
+  const fmt = (n: number) => `₹${Math.round(Number.isFinite(n) ? n : 0).toLocaleString()}`;
 
   return (
     <AdminLayout title="Analytics Dashboard" description="Store performance overview">
@@ -375,6 +319,19 @@ export default function Reports2() {
           </SelectContent>
         </Select>
       </div>
+
+      {isError && (
+        <Card className="mb-6 border-destructive/30">
+          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-destructive">
+              {(error as Error)?.message || 'Failed to load analytics. Please retry.'}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
