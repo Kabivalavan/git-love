@@ -337,6 +337,38 @@ export async function fetchAdminCustomers() {
   }));
 }
 
+export async function fetchAdminCustomersPaginated(from: number, to: number) {
+  const { data: profiles, error, count } = await supabase
+    .from('profiles')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+  if (error) throw error;
+
+  const userIds = (profiles || []).map((p: any) => p.user_id);
+  let orderStats: Record<string, { count: number; total: number }> = {};
+  if (userIds.length > 0) {
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('user_id, total')
+      .in('user_id', userIds);
+    (orders || []).forEach((o: any) => {
+      if (!o.user_id) return;
+      if (!orderStats[o.user_id]) orderStats[o.user_id] = { count: 0, total: 0 };
+      orderStats[o.user_id].count += 1;
+      orderStats[o.user_id].total += Number(o.total);
+    });
+  }
+
+  const data = (profiles || []).map((p: any) => ({
+    ...p,
+    order_count: orderStats[p.user_id]?.count || 0,
+    total_spent: orderStats[p.user_id]?.total || 0,
+  }));
+
+  return { data, count: count || 0 };
+}
+
 // ─── Coupons ───
 export async function fetchAdminCoupons() {
   const { data, error } = await supabase
