@@ -60,9 +60,15 @@ interface VariantForm {
 }
 
 export default function AdminProducts() {
-  const [products, setProducts] = useState<(Product & { processing_qty?: number })[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: productsData, isLoading: isProductsLoading } = useAdminProducts();
+  const { data: categoriesData } = useAdminCategories();
+  const deleteProductMutation = useDeleteProduct();
+  const saveProductMutation = useSaveProduct();
+
+  const products = productsData || [];
+  const categories = (categoriesData || []) as Category[];
+  const isLoading = isProductsLoading;
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -75,80 +81,11 @@ export default function AdminProducts() {
   const { toast } = useToast();
   const { log } = useActivityLog();
 
-  const fetchProducts = useCallback(async (showLoader = true) => {
-    if (showLoader) setIsLoading(true);
-
-    const [{ data, error }, { data: processingOrders }] = await Promise.all([
-      supabase
-        .from('products')
-        .select('*, category:categories(*), images:product_images(*), variants:product_variants(*)')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('orders')
-        .select('id')
-        .in('status', ['new', 'confirmed', 'packed']),
-    ]);
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      if (showLoader) setIsLoading(false);
-      return;
-    }
-
-    const productsList = (data || []) as unknown as Product[];
-    const processingMap: Record<string, number> = {};
-
-    if (processingOrders && processingOrders.length > 0) {
-      const orderIds = processingOrders.map((order) => order.id);
-      const { data: items } = await supabase
-        .from('order_items')
-        .select('product_id, quantity')
-        .in('order_id', orderIds);
-
-      (items || []).forEach((item: any) => {
-        if (!item.product_id) return;
-        processingMap[item.product_id] = (processingMap[item.product_id] || 0) + Number(item.quantity || 0);
-      });
-    }
-
-    setProducts(productsList.map((product) => ({ ...product, processing_qty: processingMap[product.id] || 0 })));
-    if (showLoader) setIsLoading(false);
-  }, [toast]);
-
-  const fetchCategories = useCallback(async () => {
-    const { data } = await supabase.from('categories').select('*').eq('is_active', true);
-    setCategories((data || []) as unknown as Category[]);
-  }, []);
-
-  useEffect(() => {
-    void fetchProducts();
-    void fetchCategories();
-  }, [fetchProducts, fetchCategories]);
-
-  useEffect(() => {
-    let refreshTimer: number | null = null;
-
-    const scheduleRefresh = () => {
-      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
-      refreshTimer = window.setTimeout(() => {
-        void fetchProducts(false);
-      }, 120);
-    };
-
-    const channel = supabase
-      .channel('admin-products-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_variants' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_holds' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, scheduleRefresh)
-      .subscribe();
-
-    return () => {
-      if (refreshTimer) window.clearTimeout(refreshTimer);
-      void supabase.removeChannel(channel);
-    };
-  }, [fetchProducts]);
+  // Realtime invalidation instead of manual fetch
+  useAdminRealtimeInvalidation(
+    ['products', 'product_variants', 'stock_holds', 'orders', 'order_items'],
+    [ADMIN_KEYS.products]
+  );
 
   const handleRowClick = async (product: Product) => {
     // Fetch variants for detail panel
