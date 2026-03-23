@@ -94,8 +94,7 @@ function OffersContent() {
 
   useEffect(() => {
     fetchOffers();
-    fetchCategories();
-    fetchProducts();
+    fetchCategoriesAndProducts();
   }, []);
 
   const fetchOffers = async () => {
@@ -106,14 +105,13 @@ function OffersContent() {
     setIsLoading(false);
   };
 
-  const fetchCategories = async () => {
-    const { data } = await supabase.from('categories').select('id, name').eq('is_active', true);
-    setCategories(data || []);
-  };
-
-  const fetchProducts = async () => {
-    const { data } = await supabase.from('products').select('id, name').eq('is_active', true);
-    setProducts(data || []);
+  const fetchCategoriesAndProducts = async () => {
+    const [catRes, prodRes] = await Promise.all([
+      supabase.from('categories').select('id, name').eq('is_active', true),
+      supabase.from('products').select('id, name').eq('is_active', true),
+    ]);
+    setCategories(catRes.data || []);
+    setProducts(prodRes.data || []);
   };
 
   const handleRowClick = (offer: Offer) => { setSelectedOffer(offer); setIsDetailOpen(true); };
