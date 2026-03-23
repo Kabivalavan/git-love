@@ -111,14 +111,34 @@ type FormData = Partial<Offer> & {
 };
 
 export default function AdminOffers() {
-  const { data: offersData, isLoading: offersLoading } = useAdminOffers();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const fetchOffersFn = useCallback(async (from: number, to: number) => {
+    try {
+      const result = await fetchAdminOffersPaginated(from, to);
+      return { data: result.data as unknown as Offer[], count: result.count };
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      return { data: [] as Offer[], count: 0 };
+    }
+  }, [toast]);
+
+  const { items: offersRaw, isLoading: offersLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial } = usePaginatedFetch<Offer>({
+    pageSize: 30,
+    fetchFn: fetchOffersFn,
+    cacheKey: 'admin-offers-paginated',
+    cacheTimeMs: 3 * 60 * 1000,
+  });
+
+  useEffect(() => { fetchInitial(); }, []);
+
   const { data: categoriesData } = useAdminCategories();
   const { data: productsData } = useAdminProducts();
-  const queryClient = useQueryClient();
 
   useAdminRealtimeInvalidation(['offers'], [ADMIN_KEYS.offers as unknown as string[]]);
 
-  const offers = (offersData || []) as unknown as Offer[];
+  const offers = offersRaw as unknown as Offer[];
   const isLoading = offersLoading;
 
   const allCategories = ((categoriesData || []) as any[]).map((c: any) => ({ id: c.id, name: c.name, parent_id: c.parent_id })) as CategoryItem[];

@@ -78,11 +78,30 @@ function formatIST(utcStr: string | null): string {
 }
 
 export default function AdminCoupons() {
-  const { data: couponsData, isLoading } = useAdminCoupons();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const fetchCouponsFn = useCallback(async (from: number, to: number) => {
+    try {
+      return await fetchAdminCouponsPaginated(from, to);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      return { data: [], count: 0 };
+    }
+  }, [toast]);
+
+  const { items: couponsRaw, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial } = usePaginatedFetch<Coupon>({
+    pageSize: 30,
+    fetchFn: fetchCouponsFn,
+    cacheKey: 'admin-coupons-paginated',
+    cacheTimeMs: 3 * 60 * 1000,
+  });
+
+  useEffect(() => { fetchInitial(); }, []);
+
+  const coupons = couponsRaw as Coupon[];
 
   useAdminRealtimeInvalidation(['coupons', 'coupon_usage'], [ADMIN_KEYS.coupons as unknown as string[]]);
-
-  const coupons = (couponsData || []) as Coupon[];
 
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);

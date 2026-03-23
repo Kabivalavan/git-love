@@ -79,11 +79,30 @@ const getAmountBadgeClass = (amount: number) => {
 };
 
 export default function AdminExpenses() {
-  const { data: expensesData, isLoading } = useAdminExpenses();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const fetchExpensesFn = useCallback(async (from: number, to: number) => {
+    try {
+      return await fetchAdminExpensesPaginated(from, to);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      return { data: [], count: 0 };
+    }
+  }, [toast]);
+
+  const { items: expensesRaw, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial } = usePaginatedFetch<Expense>({
+    pageSize: 30,
+    fetchFn: fetchExpensesFn,
+    cacheKey: 'admin-expenses-paginated',
+    cacheTimeMs: 3 * 60 * 1000,
+  });
+
+  useEffect(() => { fetchInitial(); }, []);
 
   useAdminRealtimeInvalidation(['expenses'], [ADMIN_KEYS.expenses as unknown as string[]]);
 
-  const expenses = (expensesData || []) as Expense[];
+  const expenses = expensesRaw as Expense[];
 
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
