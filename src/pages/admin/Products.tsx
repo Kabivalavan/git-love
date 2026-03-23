@@ -250,46 +250,18 @@ export default function AdminProducts() {
     };
 
     try {
-      let productId: string;
+      const variantRecords = filledVariants.map((variant, sort_order) => toVariantPayload(variant, sort_order));
 
-      if (selectedProduct) {
-        const { error } = await supabase.from('products').update(productData).eq('id', selectedProduct.id);
-        if (error) throw error;
-        productId = selectedProduct.id;
-        // Delete old images and variants BEFORE re-inserting
-        await supabase.from('product_images').delete().eq('product_id', productId);
-        await supabase.from('product_variants').delete().eq('product_id', productId);
-      } else {
-        const { data, error } = await supabase.from('products').insert([productData]).select().single();
-        if (error) throw error;
-        productId = data.id;
-      }
-
-      // Insert images
-      if (formData.imageUrls && formData.imageUrls.length > 0) {
-        const imageRecords = formData.imageUrls.map((url, index) => ({
-          product_id: productId,
-          image_url: url,
-          sort_order: index,
-          is_primary: index === 0,
-        }));
-        await supabase.from('product_images').insert(imageRecords);
-      }
-
-      // Insert all variants fresh (old ones were deleted above for edits)
-      const variantRecords = filledVariants.map((variant, sort_order) => ({
-        product_id: productId,
-        ...toVariantPayload(variant, sort_order),
-      }));
-      if (variantRecords.length > 0) {
-        const { error: insertError } = await supabase.from('product_variants').insert(variantRecords as any);
-        if (insertError) throw insertError;
-      }
+      const productId = await saveProductMutation.mutateAsync({
+        productData,
+        imageUrls: formData.imageUrls || [],
+        variantRecords,
+        existingProductId: selectedProduct?.id,
+      });
 
       log({ action: selectedProduct ? 'update' : 'create', entityType: 'product', entityId: productId, details: { name: formData.name } });
       toast({ title: 'Success', description: `Product ${selectedProduct ? 'updated' : 'created'} successfully` });
       setIsFormOpen(false);
-      fetchProducts();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
