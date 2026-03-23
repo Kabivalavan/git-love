@@ -70,6 +70,9 @@ export default function ConversionOptimization() {
         .order('sort_order');
       return (data || []) as CrossSellRule[];
     },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   // Fetch conversion analytics with product details
@@ -90,7 +93,9 @@ export default function ConversionOptimization() {
       });
       return { counts, productClicks };
     },
-    staleTime: 60000,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   // Fetch top clicked products for insights
@@ -110,6 +115,9 @@ export default function ConversionOptimization() {
       return (data || []) as any[];
     },
     enabled: topClickedProductIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   // Use centralized store settings

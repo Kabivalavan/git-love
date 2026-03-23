@@ -82,6 +82,8 @@ export default function AdminOrders() {
   const { items: orders, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial: fetchOrders } = usePaginatedFetch<Order>({
     pageSize: 30,
     fetchFn: fetchOrdersFn,
+    cacheKey: 'admin-orders',
+    cacheTimeMs: 2 * 60 * 1000,
   });
 
   useEffect(() => { fetchOrders(); }, []);

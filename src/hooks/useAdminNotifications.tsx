@@ -38,6 +38,8 @@ let unreadCountsStore: Record<string, number> = {};
 let activeSubscribers = 0;
 let channelsCleanup: (() => void) | null = null;
 let notificationSettingsStore: AdminNotificationSettings = loadNotificationSettingsFromCache();
+let lastSettingsRefreshAt = 0;
+const SETTINGS_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 function emitStoreUpdate() {
   listeners.forEach((listener) => listener());
@@ -93,6 +95,8 @@ function persistNotificationSettingsToCache(settings: AdminNotificationSettings)
 }
 
 async function refreshNotificationSettings() {
+  if (Date.now() - lastSettingsRefreshAt < SETTINGS_REFRESH_INTERVAL_MS) return;
+
   const { data } = await supabase
     .from('store_settings')
     .select('value')
@@ -101,6 +105,7 @@ async function refreshNotificationSettings() {
 
   const incoming = (data?.value as Partial<AdminNotificationSettings> | undefined) || {};
   persistNotificationSettingsToCache({ ...DEFAULT_NOTIFICATION_SETTINGS, ...incoming });
+  lastSettingsRefreshAt = Date.now();
 }
 
 function computeUnreadCounts(items: AdminNotification[]) {
