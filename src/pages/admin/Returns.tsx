@@ -79,7 +79,7 @@ export default function AdminReturns() {
 
   const refetchReturns = () => queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.returns });
 
-  const filtered = returns.filter(r => {
+  const filtered = (returns as ReturnRecord[]).filter(r => {
     if (statusFilter !== 'all' && r.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
