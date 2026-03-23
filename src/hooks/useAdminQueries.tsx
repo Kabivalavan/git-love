@@ -223,6 +223,35 @@ export function useAdminBanners() {
   });
 }
 
+// ─── Returns ───
+export function useAdminReturns() {
+  return useQuery({
+    queryKey: ADMIN_KEYS.returns,
+    queryFn: fetchAdminReturns,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+// ─── Analytics ───
+export function useAdminAnalytics(since: string, until: string) {
+  return useQuery({
+    queryKey: ADMIN_KEYS.analytics(since, until),
+    queryFn: () => fetchAnalyticsData(since, until),
+    staleTime: 3 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    enabled: !!since && !!until,
+  });
+}
+    queryFn: fetchAdminBanners,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
 // ─── Realtime invalidation hook ───
 // Use this instead of direct fetchProducts() in realtime callbacks
 export function useAdminRealtimeInvalidation(
