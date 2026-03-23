@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { MessageSquare, Send, Save, Loader2, Edit, Eye, ShoppingCart, Truck, Star, UserPlus, Package, Clock, Sparkles, Mail } from 'lucide-react';
 import { BulkWhatsApp } from '@/components/admin/BulkWhatsApp';
 import { BulkEmail } from '@/components/admin/BulkEmail';
+import { useAdminStoreSettings, useSaveStoreSetting } from '@/hooks/useAdminQueries';
 
 interface WhatsAppTemplate {
   id: string;
@@ -61,18 +62,20 @@ export default function WhatsAppMarketing() {
   const [previewTemplate, setPreviewTemplate] = useState<WhatsAppTemplate | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => { fetchTemplates(); }, []);
+  const { data: allSettings } = useAdminStoreSettings();
+  const saveSettingMutation = useSaveStoreSetting();
 
-  const fetchTemplates = async () => {
-    setIsLoading(true);
-    const { data } = await supabase.from('store_settings').select('value').eq('key', 'whatsapp_templates').maybeSingle();
-    if (data?.value) {
-      const saved = data.value as any as WhatsAppTemplate[];
-      const savedIds = new Set(saved.map(t => t.id));
-      setTemplates([...saved, ...DEFAULT_TEMPLATES.filter(d => !savedIds.has(d.id))]);
+  useEffect(() => {
+    if (allSettings) {
+      const waTemplatesSetting = allSettings.find((s: any) => s.key === 'whatsapp_templates');
+      if (waTemplatesSetting?.value) {
+        const saved = waTemplatesSetting.value as any as WhatsAppTemplate[];
+        const savedIds = new Set(saved.map(t => t.id));
+        setTemplates([...saved, ...DEFAULT_TEMPLATES.filter(d => !savedIds.has(d.id))]);
+      }
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  };
+  }, [allSettings]);
 
   const handleEdit = (template: WhatsAppTemplate) => {
     setEditingTemplate(template);
@@ -85,16 +88,12 @@ export default function WhatsAppMarketing() {
     setIsSaving(true);
     const updated = templates.map(t => t.id === editingTemplate.id ? { ...t, message: editMessage, is_active: editActive } : t);
     setTemplates(updated);
-
-    const { data: existing } = await supabase.from('store_settings').select('id').eq('key', 'whatsapp_templates').maybeSingle();
-    let error;
-    if (existing) {
-      ({ error } = await supabase.from('store_settings').update({ value: updated as any }).eq('key', 'whatsapp_templates'));
-    } else {
-      ({ error } = await supabase.from('store_settings').insert({ key: 'whatsapp_templates', value: updated as any }));
+    try {
+      await saveSettingMutation.mutateAsync({ key: 'whatsapp_templates', value: updated as any });
+      toast({ title: 'Template saved!' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else toast({ title: 'Template saved!' });
     setEditingTemplate(null);
     setIsSaving(false);
   };
@@ -102,9 +101,9 @@ export default function WhatsAppMarketing() {
   const toggleTemplate = async (id: string, active: boolean) => {
     const updated = templates.map(t => t.id === id ? { ...t, is_active: active } : t);
     setTemplates(updated);
-    const { data: existing } = await supabase.from('store_settings').select('id').eq('key', 'whatsapp_templates').maybeSingle();
-    if (existing) await supabase.from('store_settings').update({ value: updated as any }).eq('key', 'whatsapp_templates');
-    else await supabase.from('store_settings').insert({ key: 'whatsapp_templates', value: updated as any });
+    try {
+      await saveSettingMutation.mutateAsync({ key: 'whatsapp_templates', value: updated as any });
+    } catch { /* ignore */ }
   };
 
   const getPreviewMessage = (template: WhatsAppTemplate) => {

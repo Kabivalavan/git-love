@@ -23,6 +23,8 @@ import {
   saveProduct,
   saveCategory,
   deleteCategory,
+  fetchAdminReturns,
+  fetchAnalyticsData,
 } from '@/api/admin';
 import type { Product } from '@/types/database';
 
@@ -38,6 +40,8 @@ export const ADMIN_KEYS = {
   offers: ['admin-offers'] as const,
   expenses: ['admin-expenses'] as const,
   banners: ['admin-banners'] as const,
+  returns: ['admin-returns'] as const,
+  analytics: (since: string, until: string) => ['admin-analytics', since, until] as const,
 };
 
 // ─── Store Settings (shared across Settings, Orders, Customers, etc.) ───
@@ -216,6 +220,29 @@ export function useAdminBanners() {
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
     refetchOnWindowFocus: false,
+  });
+}
+
+// ─── Returns ───
+export function useAdminReturns() {
+  return useQuery({
+    queryKey: ADMIN_KEYS.returns,
+    queryFn: fetchAdminReturns,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+// ─── Analytics ───
+export function useAdminAnalytics(since: string, until: string) {
+  return useQuery({
+    queryKey: ADMIN_KEYS.analytics(since, until),
+    queryFn: () => fetchAnalyticsData(since, until),
+    staleTime: 3 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    enabled: !!since && !!until,
   });
 }
 

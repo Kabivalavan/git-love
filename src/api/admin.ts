@@ -385,3 +385,82 @@ export async function fetchPayments(from: number, to: number) {
   if (error) throw error;
   return { data: data || [], count: count || 0 };
 }
+
+// ─── Returns ───
+export async function fetchAdminReturns() {
+  const { data, error } = await supabase
+    .from('returns')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  if (!data || data.length === 0) return [];
+
+  const orderIds = [...new Set(data.map(r => r.order_id))];
+  const userIds = [...new Set(data.map(r => r.user_id))];
+  const returnIds = data.map(r => r.id);
+
+  const [ordersRes, profilesRes, itemsRes, refundsRes] = await Promise.all([
+    supabase.from('orders').select('id, order_number, total, payment_method').in('id', orderIds),
+    supabase.from('profiles').select('user_id, full_name, email, mobile_number').in('user_id', userIds),
+    supabase.from('return_items').select('*').in('return_id', returnIds),
+    supabase.from('refunds').select('*').in('return_id', returnIds),
+  ]);
+
+  const ordersMap = new Map((ordersRes.data || []).map(o => [o.id, o]));
+  const profilesMap = new Map((profilesRes.data || []).map(p => [p.user_id, p]));
+  const itemsMap = new Map<string, any[]>();
+  (itemsRes.data || []).forEach(item => {
+    const list = itemsMap.get(item.return_id) || [];
+    list.push(item);
+    itemsMap.set(item.return_id, list);
+  });
+  const refundsMap = new Map((refundsRes.data || []).map(r => [r.return_id, r]));
+
+  return data.map(r => ({
+    ...r,
+    images: (r.images as any) || [],
+    order: ordersMap.get(r.order_id) as any,
+    profile: profilesMap.get(r.user_id) as any,
+    items: itemsMap.get(r.id) || [],
+    refund: refundsMap.get(r.id) as any || null,
+  }));
+}
+
+// ─── Analytics ───
+export async function fetchAnalyticsData(since: string, until: string) {
+  const [eventsRes, orderItemsRes, ordersRes, profilesRes, sessionsRes] = await Promise.all([
+    supabase.from('analytics_events').select('*').gte('created_at', since).lte('created_at', until).order('created_at', { ascending: false }).limit(5000),
+    supabase.from('order_items').select('product_name, quantity, total').gte('created_at', since).lte('created_at', until),
+    supabase.from('orders').select('id, total, user_id, created_at, status').gte('created_at', since).lte('created_at', until),
+    supabase.from('profiles').select('user_id, created_at').gte('created_at', since).lte('created_at', until),
+    supabase.from('analytics_sessions').select('*').gte('created_at', since).lte('created_at', until).limit(5000),
+  ]);
+
+  const eventsList = eventsRes.data || [];
+  const ordersList = ordersRes.data || [];
+  const orderItemsList = orderItemsRes.data || [];
+  const sessionsList = (sessionsRes.data || []) as any[];
+
+  // Fetch product names for product views
+  const productViewEvents = eventsList.filter(e => e.event_type === 'product_view');
+  const productViewsMap = new Map<string, number>();
+  productViewEvents.forEach(e => {
+    if (e.product_id) productViewsMap.set(e.product_id, (productViewsMap.get(e.product_id) || 0) + 1);
+  });
+  const productIds = Array.from(productViewsMap.keys());
+  let productNames: Record<string, string> = {};
+  if (productIds.length > 0) {
+    const { data: products } = await supabase.from('products').select('id, name').in('id', productIds);
+    products?.forEach(p => { productNames[p.id] = p.name; });
+  }
+
+  return {
+    eventsList,
+    ordersList,
+    orderItemsList,
+    sessionsList,
+    newCustomersCount: (profilesRes.data || []).length,
+    productNames,
+    productViewsMap,
+  };
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useMemo } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useAdminAnalytics } from '@/hooks/useAdminQueries';
 
 interface AnalyticsData {
   totalPageViews: number;
@@ -76,16 +77,9 @@ function FunnelBar({ label, value, maxValue, color }: { label: string; value: nu
 }
 
 export default function AdminAnalytics() {
-  const [data, setData] = useState<AnalyticsData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [dateRange, setDateRange] = useState('7');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
-  const { toast } = useToast();
-
-  useEffect(() => {
-    if (dateRange !== 'custom') fetchAnalytics();
-  }, [dateRange]);
 
   const getDateRange = () => {
     if (dateRange === 'custom' && customFrom && customTo) {
@@ -96,212 +90,173 @@ export default function AdminAnalytics() {
     return { since: daysAgo.toISOString(), until: new Date().toISOString() };
   };
 
-  const fetchAnalytics = async () => {
-    setIsLoading(true);
-    const { since, until } = getDateRange();
+  const { since, until } = getDateRange();
+  const { data: rawData, isLoading } = useAdminAnalytics(
+    dateRange === 'custom' && (!customFrom || !customTo) ? '' : since,
+    dateRange === 'custom' && (!customFrom || !customTo) ? '' : until
+  );
 
-    try {
-      const [eventsRes, orderItemsRes, ordersRes, profilesRes, sessionsRes] = await Promise.all([
-        supabase.from('analytics_events').select('*').gte('created_at', since).lte('created_at', until).order('created_at', { ascending: false }).limit(5000),
-        supabase.from('order_items').select('product_name, quantity, total').gte('created_at', since).lte('created_at', until),
-        supabase.from('orders').select('id, total, user_id, created_at, status').gte('created_at', since).lte('created_at', until),
-        supabase.from('profiles').select('user_id, created_at').gte('created_at', since).lte('created_at', until),
-        supabase.from('analytics_sessions' as any).select('*').gte('created_at', since).lte('created_at', until).limit(5000),
-      ]);
+  const data = useMemo<AnalyticsData | null>(() => {
+    if (!rawData) return null;
+    const { eventsList, ordersList, orderItemsList, sessionsList, newCustomersCount, productNames, productViewsMap } = rawData;
 
-      const eventsList = eventsRes.data || [];
-      const ordersList = ordersRes.data || [];
-      const orderItemsList = orderItemsRes.data || [];
-      const sessionsList = (sessionsRes.data || []) as any[];
+    const pageViews = eventsList.filter(e => e.event_type === 'page_view');
+    const productViewEvents = eventsList.filter(e => e.event_type === 'product_view');
+    const cartAddEvents = eventsList.filter(e => e.event_type === 'add_to_cart');
+    const checkoutEvents = eventsList.filter(e => e.event_type === 'checkout_started');
+    const orderCompletedEvents = eventsList.filter(e => e.event_type === 'order_completed');
+    const scrollEvents = eventsList.filter(e => e.event_type === 'scroll_depth');
 
-      // --- Core metrics ---
-      const pageViews = eventsList.filter(e => e.event_type === 'page_view');
-      const productViewEvents = eventsList.filter(e => e.event_type === 'product_view');
-      const cartAddEvents = eventsList.filter(e => e.event_type === 'add_to_cart');
-      const checkoutEvents = eventsList.filter(e => e.event_type === 'checkout_started');
-      const orderCompletedEvents = eventsList.filter(e => e.event_type === 'order_completed');
-      const scrollEvents = eventsList.filter(e => e.event_type === 'scroll_depth');
+    const uniqueSessions = new Set(eventsList.map(e => e.session_id).filter(Boolean)).size;
+    const uniqueVisitors = new Set([
+      ...eventsList.map(e => (e as any).visitor_id).filter(Boolean),
+      ...sessionsList.map((s: any) => s.visitor_id).filter(Boolean),
+    ]).size;
 
-      const uniqueSessions = new Set(eventsList.map(e => e.session_id).filter(Boolean)).size;
-      const uniqueVisitors = new Set([
-        ...eventsList.map(e => (e as any).visitor_id).filter(Boolean),
-        ...sessionsList.map(s => s.visitor_id).filter(Boolean),
-      ]).size;
-
-      // Session duration
-      const sessionDurations: number[] = [];
-      sessionsList.forEach(s => {
-        if (s.last_active_at && s.created_at) {
-          const dur = (new Date(s.last_active_at).getTime() - new Date(s.created_at).getTime()) / 1000;
-          if (dur > 0 && dur < 7200) sessionDurations.push(dur);
-        }
-      });
-      const avgSessionDuration = sessionDurations.length > 0 ? sessionDurations.reduce((a, b) => a + b, 0) / sessionDurations.length : 0;
-
-      // Device breakdown
-      const deviceBreakdown = { desktop: 0, mobile: 0, tablet: 0 };
-      sessionsList.forEach(s => {
-        if (s.device === 'mobile') deviceBreakdown.mobile++;
-        else if (s.device === 'tablet') deviceBreakdown.tablet++;
-        else deviceBreakdown.desktop++;
-      });
-
-      // Top referrers
-      const referrerMap = new Map<string, number>();
-      sessionsList.forEach(s => {
-        if (s.referrer) {
-          try {
-            const host = new URL(s.referrer).hostname || s.referrer;
-            referrerMap.set(host, (referrerMap.get(host) || 0) + 1);
-          } catch {
-            referrerMap.set(s.referrer, (referrerMap.get(s.referrer) || 0) + 1);
-          }
-        }
-      });
-      const topReferrers = Array.from(referrerMap.entries())
-        .map(([referrer, count]) => ({ referrer, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-
-      // Page views by page
-      const pageViewsMap = new Map<string, number>();
-      pageViews.forEach(e => {
-        const p = e.page_path || '/';
-        pageViewsMap.set(p, (pageViewsMap.get(p) || 0) + 1);
-      });
-      const pageViewsList = Array.from(pageViewsMap.entries())
-        .map(([page, views]) => ({ page, views }))
-        .sort((a, b) => b.views - a.views)
-        .slice(0, 15);
-
-      // Product views
-      const productViewsMap = new Map<string, number>();
-      productViewEvents.forEach(e => {
-        if (e.product_id) productViewsMap.set(e.product_id, (productViewsMap.get(e.product_id) || 0) + 1);
-      });
-
-      const productIds = Array.from(productViewsMap.keys());
-      let productNames: Record<string, string> = {};
-      if (productIds.length > 0) {
-        const { data: products } = await supabase.from('products').select('id, name').in('id', productIds);
-        products?.forEach(p => { productNames[p.id] = p.name; });
+    const sessionDurations: number[] = [];
+    sessionsList.forEach((s: any) => {
+      if (s.last_active_at && s.created_at) {
+        const dur = (new Date(s.last_active_at).getTime() - new Date(s.created_at).getTime()) / 1000;
+        if (dur > 0 && dur < 7200) sessionDurations.push(dur);
       }
+    });
+    const avgSessionDuration = sessionDurations.length > 0 ? sessionDurations.reduce((a, b) => a + b, 0) / sessionDurations.length : 0;
 
-      const productViewsList = Array.from(productViewsMap.entries())
-        .map(([product_id, views]) => ({ product_id, product_name: productNames[product_id] || 'Unknown', views }))
-        .sort((a, b) => b.views - a.views);
+    const deviceBreakdown = { desktop: 0, mobile: 0, tablet: 0 };
+    sessionsList.forEach((s: any) => {
+      if (s.device === 'mobile') deviceBreakdown.mobile++;
+      else if (s.device === 'tablet') deviceBreakdown.tablet++;
+      else deviceBreakdown.desktop++;
+    });
 
-      // Most ordered - show ALL products
-      const orderedMap = new Map<string, number>();
-      orderItemsList.forEach(item => {
-        orderedMap.set(item.product_name, (orderedMap.get(item.product_name) || 0) + item.quantity);
-      });
-      const mostOrdered = Array.from(orderedMap.entries())
-        .map(([product_name, total_orders]) => ({ product_name, total_orders }))
-        .sort((a, b) => b.total_orders - a.total_orders);
+    const referrerMap = new Map<string, number>();
+    sessionsList.forEach((s: any) => {
+      if (s.referrer) {
+        try {
+          const host = new URL(s.referrer).hostname || s.referrer;
+          referrerMap.set(host, (referrerMap.get(host) || 0) + 1);
+        } catch {
+          referrerMap.set(s.referrer, (referrerMap.get(s.referrer) || 0) + 1);
+        }
+      }
+    });
+    const topReferrers = Array.from(referrerMap.entries())
+      .map(([referrer, count]) => ({ referrer, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
 
-      // Daily views + visitors
-      const dailyMap = new Map<string, { views: number; visitors: Set<string> }>();
-      pageViews.forEach(e => {
-        const date = new Date(e.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-        if (!dailyMap.has(date)) dailyMap.set(date, { views: 0, visitors: new Set() });
-        const d = dailyMap.get(date)!;
-        d.views++;
-        if ((e as any).visitor_id) d.visitors.add((e as any).visitor_id);
-      });
-      const dailyViews = Array.from(dailyMap.entries())
-        .map(([date, d]) => ({ date, views: d.views, visitors: d.visitors.size }))
-        .reverse();
+    const pageViewsMap = new Map<string, number>();
+    pageViews.forEach(e => {
+      const p = e.page_path || '/';
+      pageViewsMap.set(p, (pageViewsMap.get(p) || 0) + 1);
+    });
+    const pageViewsList = Array.from(pageViewsMap.entries())
+      .map(([page, views]) => ({ page, views }))
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 15);
 
-      // Cart adds map
-      const cartAddsMap = new Map<string, number>();
-      cartAddEvents.forEach(e => {
-        if (e.product_id) cartAddsMap.set(e.product_id, (cartAddsMap.get(e.product_id) || 0) + 1);
-      });
+    const productViewsList = Array.from(productViewsMap.entries())
+      .map(([product_id, views]) => ({ product_id, product_name: productNames[product_id] || 'Unknown', views }))
+      .sort((a, b) => b.views - a.views);
 
-      // Engagement by product
-      const engagementByProduct = productViewsList.map(pv => {
-        const cartAdds = cartAddsMap.get(pv.product_id) || 0;
-        const orders = orderedMap.get(pv.product_name) || 0;
-        return { ...pv, cart_adds: cartAdds, orders, conversion: pv.views > 0 ? Math.round((orders / pv.views) * 100) : 0 };
-      });
+    const orderedMap = new Map<string, number>();
+    orderItemsList.forEach((item: any) => {
+      orderedMap.set(item.product_name, (orderedMap.get(item.product_name) || 0) + item.quantity);
+    });
+    const mostOrdered = Array.from(orderedMap.entries())
+      .map(([product_name, total_orders]) => ({ product_name, total_orders }))
+      .sort((a, b) => b.total_orders - a.total_orders);
 
-      // Cart abandonment (session-based)
-      const cartAddSessions = new Set(cartAddEvents.map(e => e.session_id).filter(Boolean));
-      const checkoutSessions = new Set(checkoutEvents.map(e => e.session_id).filter(Boolean));
-      const purchaseSessions = new Set(orderCompletedEvents.map(e => e.session_id).filter(Boolean));
-      const addedToCart = cartAddSessions.size;
-      const checkoutStarted = checkoutSessions.size;
-      const purchased = purchaseSessions.size;
-      const abandonmentRate = addedToCart > 0 ? Math.round(((addedToCart - purchased) / addedToCart) * 100) : 0;
+    const dailyMap = new Map<string, { views: number; visitors: Set<string> }>();
+    pageViews.forEach(e => {
+      const date = new Date(e.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      if (!dailyMap.has(date)) dailyMap.set(date, { views: 0, visitors: new Set() });
+      const d = dailyMap.get(date)!;
+      d.views++;
+      if ((e as any).visitor_id) d.visitors.add((e as any).visitor_id);
+    });
+    const dailyViews = Array.from(dailyMap.entries())
+      .map(([date, d]) => ({ date, views: d.views, visitors: d.visitors.size }))
+      .reverse();
 
-      // Conversion funnel
-      const conversionFunnel = {
-        pageViews: pageViews.length,
-        productViews: productViewEvents.length,
-        addToCart: cartAddEvents.length,
-        checkoutStarted: checkoutEvents.length,
-        orderCompleted: orderCompletedEvents.length,
-      };
+    const cartAddsMap = new Map<string, number>();
+    cartAddEvents.forEach(e => {
+      if (e.product_id) cartAddsMap.set(e.product_id, (cartAddsMap.get(e.product_id) || 0) + 1);
+    });
 
-      // Scroll depth
-      const scrollDepthCounts = { depth25: 0, depth50: 0, depth75: 0, depth100: 0 };
-      scrollEvents.forEach(e => {
-        const depth = (e.metadata as any)?.depth;
-        if (depth === 25) scrollDepthCounts.depth25++;
-        else if (depth === 50) scrollDepthCounts.depth50++;
-        else if (depth === 75) scrollDepthCounts.depth75++;
-        else if (depth === 100) scrollDepthCounts.depth100++;
-      });
+    const engagementByProduct = productViewsList.map(pv => {
+      const cartAdds = cartAddsMap.get(pv.product_id) || 0;
+      const orders = orderedMap.get(pv.product_name) || 0;
+      return { ...pv, cart_adds: cartAdds, orders, conversion: pv.views > 0 ? Math.round((orders / pv.views) * 100) : 0 };
+    });
 
-      // Revenue by day
-      const revenueByDayMap = new Map<string, { revenue: number; orders: number }>();
-      ordersList.filter(o => o.status !== 'cancelled' && o.status !== 'returned').forEach(o => {
-        const date = new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-        const existing = revenueByDayMap.get(date) || { revenue: 0, orders: 0 };
-        existing.revenue += Number(o.total);
-        existing.orders++;
-        revenueByDayMap.set(date, existing);
-      });
-      const revenueByDay = Array.from(revenueByDayMap.entries()).map(([date, d]) => ({ date, ...d })).reverse();
+    const cartAddSessions = new Set(cartAddEvents.map(e => e.session_id).filter(Boolean));
+    const checkoutSessions = new Set(checkoutEvents.map(e => e.session_id).filter(Boolean));
+    const purchaseSessions = new Set(orderCompletedEvents.map(e => e.session_id).filter(Boolean));
+    const addedToCart = cartAddSessions.size;
+    const checkoutStarted = checkoutSessions.size;
+    const purchased = purchaseSessions.size;
+    const abandonmentRate = addedToCart > 0 ? Math.round(((addedToCart - purchased) / addedToCart) * 100) : 0;
 
-      const validOrders = ordersList.filter(o => o.status !== 'cancelled' && o.status !== 'returned');
-      const totalRevenue = validOrders.reduce((s, o) => s + Number(o.total), 0);
-      const totalOrders = validOrders.length;
-      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const conversionFunnel = {
+      pageViews: pageViews.length,
+      productViews: productViewEvents.length,
+      addToCart: cartAddEvents.length,
+      checkoutStarted: checkoutEvents.length,
+      orderCompleted: orderCompletedEvents.length,
+    };
 
-      const newCustomers = (profilesRes.data || []).length;
-      const uniqueOrderUsers = new Set(ordersList.map(o => o.user_id).filter(Boolean));
-      const returningCustomers = uniqueOrderUsers.size;
+    const scrollDepthCounts = { depth25: 0, depth50: 0, depth75: 0, depth100: 0 };
+    scrollEvents.forEach(e => {
+      const depth = (e.metadata as any)?.depth;
+      if (depth === 25) scrollDepthCounts.depth25++;
+      else if (depth === 50) scrollDepthCounts.depth50++;
+      else if (depth === 75) scrollDepthCounts.depth75++;
+      else if (depth === 100) scrollDepthCounts.depth100++;
+    });
 
-      setData({
-        totalPageViews: pageViews.length,
-        uniqueSessions,
-        uniqueVisitors,
-        avgSessionDuration,
-        productViews: productViewsList,
-        mostOrdered,
-        pageViews: pageViewsList,
-        dailyViews,
-        engagementByProduct,
-        cartAbandonment: { addedToCart, checkoutStarted, purchased, abandonmentRate },
-        scrollDepth: scrollDepthCounts,
-        revenueByDay,
-        totalRevenue,
-        totalOrders,
-        avgOrderValue,
-        newCustomers,
-        returningCustomers,
-        deviceBreakdown,
-        conversionFunnel,
-        topReferrers,
-      });
-    } catch (err) {
-      console.error(err);
-      toast({ title: 'Error', description: 'Failed to fetch analytics', variant: 'destructive' });
-    }
-    setIsLoading(false);
-  };
+    const revenueByDayMap = new Map<string, { revenue: number; orders: number }>();
+    ordersList.filter((o: any) => o.status !== 'cancelled' && o.status !== 'returned').forEach((o: any) => {
+      const date = new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      const existing = revenueByDayMap.get(date) || { revenue: 0, orders: 0 };
+      existing.revenue += Number(o.total);
+      existing.orders++;
+      revenueByDayMap.set(date, existing);
+    });
+    const revenueByDay = Array.from(revenueByDayMap.entries()).map(([date, d]) => ({ date, ...d })).reverse();
+
+    const validOrders = ordersList.filter((o: any) => o.status !== 'cancelled' && o.status !== 'returned');
+    const totalRevenue = validOrders.reduce((s: number, o: any) => s + Number(o.total), 0);
+    const totalOrders = validOrders.length;
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    const newCustomers = newCustomersCount;
+    const uniqueOrderUsers = new Set(ordersList.map((o: any) => o.user_id).filter(Boolean));
+    const returningCustomers = uniqueOrderUsers.size;
+
+    return {
+      totalPageViews: pageViews.length,
+      uniqueSessions,
+      uniqueVisitors,
+      avgSessionDuration,
+      productViews: productViewsList,
+      mostOrdered,
+      pageViews: pageViewsList,
+      dailyViews,
+      engagementByProduct,
+      cartAbandonment: { addedToCart, checkoutStarted, purchased, abandonmentRate },
+      scrollDepth: scrollDepthCounts,
+      revenueByDay,
+      totalRevenue,
+      totalOrders,
+      avgOrderValue,
+      newCustomers,
+      returningCustomers,
+      deviceBreakdown,
+      conversionFunnel,
+      topReferrers,
+    };
+  }, [rawData]);
 
   const formatDuration = (seconds: number) => {
     if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -338,7 +293,7 @@ export default function AdminAnalytics() {
                 <label className="text-xs text-muted-foreground">To</label>
                 <Input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="w-40 h-9" />
               </div>
-              <button onClick={fetchAnalytics} className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Apply</button>
+              <button onClick={() => setDateRange(dateRange)} className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Apply</button>
             </>
           )}
         </div>

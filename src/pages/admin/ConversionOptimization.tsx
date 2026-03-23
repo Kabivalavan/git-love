@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,8 @@ import {
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import type { ConversionSettings } from '@/hooks/useConversionOptimization';
 import type { Product } from '@/types/database';
+import { useAdminProducts, useAdminStoreSettings, useSaveStoreSetting } from '@/hooks/useAdminQueries';
+import { useQuery } from '@tanstack/react-query';
 
 const DEFAULT_SETTINGS: ConversionSettings = {
   exit_popup: {
@@ -53,18 +55,9 @@ export default function ConversionOptimization() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch products for rule creation
-  const { data: allProducts = [] } = useQuery({
-    queryKey: ['admin-products-list'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('products')
-        .select('id, name, price, slug')
-        .eq('is_active', true)
-        .order('name');
-      return (data || []) as Pick<Product, 'id' | 'name' | 'price' | 'slug'>[];
-    },
-  });
+  // Use cached products from centralized hook
+  const { data: cachedProducts = [] } = useAdminProducts();
+  const allProducts = cachedProducts.map((p: any) => ({ id: p.id, name: p.name, price: p.price, slug: p.slug }));
 
   // Fetch cross-sell rules
   const { data: crossSellRules = [], refetch: refetchRules } = useQuery({
@@ -119,45 +112,28 @@ export default function ConversionOptimization() {
     enabled: topClickedProductIds.length > 0,
   });
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
+  // Use centralized store settings
+  const { data: allSettings } = useAdminStoreSettings();
+  const saveSetting = useSaveStoreSetting();
 
-  const fetchSettings = async () => {
-    setIsLoading(true);
-    const { data } = await supabase
-      .from('store_settings')
-      .select('value')
-      .eq('key', 'conversion_optimization')
-      .single();
-    if (data?.value) {
-      setSettings({ ...DEFAULT_SETTINGS, ...(data.value as any) });
+  useEffect(() => {
+    if (allSettings) {
+      const convSetting = allSettings.find((s: any) => s.key === 'conversion_optimization');
+      if (convSetting?.value) {
+        setSettings({ ...DEFAULT_SETTINGS, ...(convSetting.value as any) });
+      }
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  };
+  }, [allSettings]);
 
   const handleSave = async () => {
     setIsSaving(true);
-    const { data: existing } = await supabase
-      .from('store_settings')
-      .select('id')
-      .eq('key', 'conversion_optimization')
-      .single();
-
-    const value = settings as unknown as Record<string, unknown>;
-    let error;
-    if (existing) {
-      const result = await supabase.from('store_settings').update({ value: value as any }).eq('key', 'conversion_optimization');
-      error = result.error;
-    } else {
-      const result = await supabase.from('store_settings').insert({ key: 'conversion_optimization', value: value as any });
-      error = result.error;
-    }
-
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else {
+    try {
+      const value = settings as unknown as Record<string, unknown>;
+      await saveSetting.mutateAsync({ key: 'conversion_optimization', value });
       toast({ title: 'Saved', description: 'Conversion settings saved' });
-      queryClient.invalidateQueries({ queryKey: ['conversion-settings'] });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
     setIsSaving(false);
   };

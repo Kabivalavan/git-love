@@ -35,17 +35,13 @@ export function AdminLayout({ children, title, description, actions }: AdminLayo
       setSidebarCollapsed(collapsed);
     };
     checkSidebar();
-    const observer = new MutationObserver(checkSidebar);
-    const sidebar = document.querySelector('aside');
-    if (sidebar) {
-      observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
-    }
+    // Listen for storage changes (cross-tab) and custom event (same-tab)
     window.addEventListener('storage', checkSidebar);
-    const interval = setInterval(checkSidebar, 200);
+    const handler = () => checkSidebar();
+    window.addEventListener('sidebar-toggled', handler);
     return () => {
-      observer.disconnect();
       window.removeEventListener('storage', checkSidebar);
-      clearInterval(interval);
+      window.removeEventListener('sidebar-toggled', handler);
     };
   }, []);
 
