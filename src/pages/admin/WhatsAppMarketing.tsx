@@ -14,8 +14,6 @@ import { MessageSquare, Send, Save, Loader2, Edit, Eye, ShoppingCart, Truck, Sta
 import { BulkWhatsApp } from '@/components/admin/BulkWhatsApp';
 import { BulkEmail } from '@/components/admin/BulkEmail';
 import { useAdminStoreSettings, useSaveStoreSetting } from '@/hooks/useAdminQueries';
-import { BulkWhatsApp } from '@/components/admin/BulkWhatsApp';
-import { BulkEmail } from '@/components/admin/BulkEmail';
 
 interface WhatsAppTemplate {
   id: string;
