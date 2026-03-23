@@ -119,8 +119,7 @@ export default function AdminExpenses() {
   const [customDateTo, setCustomDateTo] = useState<string>('');
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [receiptViewUrl, setReceiptViewUrl] = useState<string | null>(null);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { log } = useActivityLog();
   const { log } = useActivityLog();
 
   useEffect(() => { localStorage.setItem(VIEW_MODE_KEY, viewMode); }, [viewMode]);

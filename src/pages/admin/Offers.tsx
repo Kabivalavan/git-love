@@ -153,7 +153,7 @@ export default function AdminOffers() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<FormData>({});
-  const { toast } = useToast();
+  const { log } = useActivityLog();
   const { log } = useActivityLog();
 
   const fetchVariantsForProduct = async (productId: string) => {
