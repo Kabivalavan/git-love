@@ -124,7 +124,7 @@ export default function AdminPayments() {
 
   const getStatusColor = (status: string) => {
     const found = PAYMENT_STATUSES.find(s => s.value === status);
-    return (found?.color || 'secondary') as 'default' | 'secondary' | 'destructive';
+    return found?.color || 'bg-gray-100 text-gray-800';
   };
 
   const columns: Column<Payment>[] = [
