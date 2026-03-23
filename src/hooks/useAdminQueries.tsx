@@ -245,12 +245,6 @@ export function useAdminAnalytics(since: string, until: string) {
     enabled: !!since && !!until,
   });
 }
-    queryFn: fetchAdminBanners,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 15 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
-}
 
 // ─── Realtime invalidation hook ───
 // Use this instead of direct fetchProducts() in realtime callbacks
