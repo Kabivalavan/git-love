@@ -98,7 +98,6 @@ export default function AdminCategories() {
 
     const slug = formData.slug || formData.name.toLowerCase().replace(/\s+/g, '-');
     let sortOrder = formData.sort_order ?? getNextSortOrder();
-    // Auto-resolve sort order collisions
     const hasCollision = categories.some(c => c.sort_order === sortOrder && c.id !== selectedCategory?.id);
     if (hasCollision) {
       sortOrder = getNextSortOrder();
@@ -113,31 +112,13 @@ export default function AdminCategories() {
       is_active: formData.is_active ?? true,
     };
 
-    if (selectedCategory) {
-      const { error } = await supabase
-        .from('categories')
-        .update(categoryData)
-        .eq('id', selectedCategory.id);
-
-      if (error) {
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      } else {
-        toast({ title: 'Success', description: 'Category updated successfully' });
-        log({ action: 'update', entityType: 'category', entityId: selectedCategory.id, details: { name: formData.name } });
-        setIsFormOpen(false);
-        fetchCategories();
-      }
-    } else {
-      const { error } = await supabase.from('categories').insert([categoryData]);
-
-      if (error) {
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      } else {
-        toast({ title: 'Success', description: 'Category created successfully' });
-        log({ action: 'create', entityType: 'category', details: { name: formData.name } });
-        setIsFormOpen(false);
-        fetchCategories();
-      }
+    try {
+      await saveCategoryMutation.mutateAsync({ data: categoryData, existingId: selectedCategory?.id });
+      toast({ title: 'Success', description: `Category ${selectedCategory ? 'updated' : 'created'} successfully` });
+      log({ action: selectedCategory ? 'update' : 'create', entityType: 'category', entityId: selectedCategory?.id, details: { name: formData.name } });
+      setIsFormOpen(false);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
     setIsSaving(false);
   };

@@ -78,8 +78,12 @@ function formatIST(utcStr: string | null): string {
 }
 
 export default function AdminBanners() {
-  const [banners, setBanners] = useState<Banner[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: bannersData, isLoading } = useAdminBanners();
+
+  useAdminRealtimeInvalidation(['banners'], [ADMIN_KEYS.banners as unknown as string[]]);
+
+  const banners = (bannersData || []) as Banner[];
+
   const [selectedBanner, setSelectedBanner] = useState<Banner | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -88,38 +92,6 @@ export default function AdminBanners() {
   const [formData, setFormData] = useState<Partial<Banner> & { start_date_local?: string; end_date_local?: string }>({});
   const { toast } = useToast();
   const { log } = useActivityLog();
-
-  useEffect(() => {
-    fetchBanners();
-  }, []);
-
-  const fetchBanners = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('banners')
-      .select('*')
-      .order('sort_order', { ascending: true });
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      const now = new Date().toISOString();
-      const allBanners = (data || []) as Banner[];
-      
-      const expired = allBanners.filter(b => b.is_active && b.end_date && b.end_date < now);
-      if (expired.length > 0) {
-        await Promise.all(expired.map(b =>
-          supabase.from('banners').update({ is_active: false }).eq('id', b.id)
-        ));
-        allBanners.forEach(b => {
-          if (b.is_active && b.end_date && b.end_date < now) b.is_active = false;
-        });
-      }
-      
-      setBanners(allBanners);
-    }
-    setIsLoading(false);
-  };
 
   const handleRowClick = (banner: Banner) => {
     setSelectedBanner(banner);

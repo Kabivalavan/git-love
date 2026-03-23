@@ -75,8 +75,26 @@ function formatIST(utcStr: string | null): string {
 }
 
 export default function AdminCoupons() {
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: couponsData, isLoading } = useAdminCoupons();
+
+  useAdminRealtimeInvalidation(['coupons', 'coupon_usage'], [ADMIN_KEYS.coupons as unknown as string[]]);
+
+  // Auto-deactivate expired/exhausted coupons on load
+  const coupons = (() => {
+    const all = (couponsData || []) as Coupon[];
+    const now = new Date().toISOString();
+    const toDeactivate = all.filter(c => c.is_active && (
+      (c.end_date && c.end_date < now) ||
+      (c.usage_limit !== null && c.used_count >= c.usage_limit)
+    ));
+    if (toDeactivate.length > 0) {
+      Promise.all(toDeactivate.map(c =>
+        supabase.from('coupons').update({ is_active: false }).eq('id', c.id)
+      ));
+    }
+    return all;
+  })();
+
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -85,37 +103,6 @@ export default function AdminCoupons() {
   const [formData, setFormData] = useState<Partial<Coupon> & { start_date_local?: string; end_date_local?: string }>({});
   const { toast } = useToast();
   const { log } = useActivityLog();
-
-  useEffect(() => {
-    fetchCoupons();
-  }, []);
-
-  const fetchCoupons = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('coupons')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      const now = new Date().toISOString();
-      const allCoupons = (data || []) as Coupon[];
-      const toDeactivate = allCoupons.filter(c => c.is_active && (
-        (c.end_date && c.end_date < now) ||
-        (c.usage_limit !== null && c.used_count >= c.usage_limit)
-      ));
-      if (toDeactivate.length > 0) {
-        await Promise.all(toDeactivate.map(c =>
-          supabase.from('coupons').update({ is_active: false }).eq('id', c.id)
-        ));
-        toDeactivate.forEach(c => { c.is_active = false; });
-      }
-      setCoupons(allCoupons);
-    }
-    setIsLoading(false);
-  };
 
   const handleRowClick = (coupon: Coupon) => {
     setSelectedCoupon(coupon);

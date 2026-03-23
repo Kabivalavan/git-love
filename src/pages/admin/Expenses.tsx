@@ -76,8 +76,12 @@ const getAmountBadgeClass = (amount: number) => {
 };
 
 export default function AdminExpenses() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: expensesData, isLoading } = useAdminExpenses();
+
+  useAdminRealtimeInvalidation(['expenses'], [ADMIN_KEYS.expenses as unknown as string[]]);
+
+  const expenses = (expensesData || []) as Expense[];
+
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -96,19 +100,7 @@ export default function AdminExpenses() {
   const { toast } = useToast();
   const { log } = useActivityLog();
 
-  useEffect(() => { fetchExpenses(); }, []);
   useEffect(() => { localStorage.setItem(VIEW_MODE_KEY, viewMode); }, [viewMode]);
-
-  const fetchExpenses = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase.from('expenses').select('*').order('date', { ascending: false });
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      setExpenses((data || []) as Expense[]);
-    }
-    setIsLoading(false);
-  };
 
   const filteredExpenses = useMemo(() => {
     let result = expenses;
