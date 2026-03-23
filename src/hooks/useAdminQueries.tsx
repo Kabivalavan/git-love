@@ -23,6 +23,8 @@ import {
   saveProduct,
   saveCategory,
   deleteCategory,
+  fetchAdminReturns,
+  fetchAnalyticsData,
 } from '@/api/admin';
 import type { Product } from '@/types/database';
 
