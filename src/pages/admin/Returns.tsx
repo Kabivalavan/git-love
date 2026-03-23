@@ -180,7 +180,7 @@ export default function AdminReturns() {
     log({ action: 'refund', entityType: 'return', entityId: selectedReturn.id, details: { refund_number: refundNumber, amount: totalAmount } });
   };
 
-  const statusCounts = returns.reduce((acc, r) => {
+  const statusCounts = (returns as ReturnRecord[]).reduce((acc, r) => {
     acc[r.status] = (acc[r.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);

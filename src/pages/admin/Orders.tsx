@@ -67,14 +67,16 @@ export default function AdminOrders() {
   const { toast } = useToast();
   const { log } = useActivityLog();
 
+  // Use centralized cached store settings
+  const cachedStoreInfo = useStoreSettingValue<StoreInfo | null>('store_info', null);
+
   const fetchOrdersFn = useCallback(async (from: number, to: number) => {
-    const { data, error, count } = await supabase
-      .from('orders')
-      .select('*, order_items:order_items(id, product_name, variant_name, quantity)', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(from, to);
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    return { data: (data || []) as unknown as Order[], count: count || 0 };
+    try {
+      return await fetchOrdersApi(from, to);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      return { data: [] as Order[], count: 0 };
+    }
   }, []);
 
   const { items: orders, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial: fetchOrders } = usePaginatedFetch<Order>({
@@ -82,36 +84,18 @@ export default function AdminOrders() {
     fetchFn: fetchOrdersFn,
   });
 
-  useEffect(() => { fetchOrders(); fetchStoreInfo(); }, []);
-
-  const fetchStoreInfo = async () => {
-    const { data } = await supabase.from('store_settings').select('value').eq('key', 'store_info').single();
-    if (data) setStoreInfo(data.value as unknown as StoreInfo);
-  };
+  useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => { if (cachedStoreInfo) setStoreInfo(cachedStoreInfo); }, [cachedStoreInfo]);
 
   const fetchOrderDetails = async (orderId: string) => {
     try {
-      const [itemsRes, deliveryRes, paymentsRes, returnItemsRes] = await Promise.all([
-        supabase.from('order_items').select('*').eq('order_id', orderId),
-        supabase.from('deliveries').select('*').eq('order_id', orderId).maybeSingle(),
-        supabase.from('payments').select('*').eq('order_id', orderId),
-        supabase.from('return_items').select('order_item_id, quantity, return_id').in(
-          'return_id',
-          (await supabase.from('returns').select('id').eq('order_id', orderId).not('status', 'eq', 'rejected')).data?.map(r => r.id) || []
-        ),
-      ]);
-      setOrderItems((itemsRes.data || []) as unknown as OrderItem[]);
-      const del = (deliveryRes.data as unknown as Delivery) || null;
+      const details = await fetchOrderDetailsApi(orderId);
+      setOrderItems(details.items as unknown as OrderItem[]);
+      const del = (details.delivery as unknown as Delivery) || null;
       setDelivery(del);
       setDeliveryEdit(del ? { ...del } : {});
-      setPayments((paymentsRes.data || []) as unknown as Payment[]);
-
-      // Build returned items map: order_item_id -> qty returned
-      const riMap: Record<string, number> = {};
-      (returnItemsRes.data || []).forEach((ri: any) => {
-        riMap[ri.order_item_id] = (riMap[ri.order_item_id] || 0) + ri.quantity;
-      });
-      setReturnedItems(riMap);
+      setPayments(details.payments as unknown as Payment[]);
+      setReturnedItems(details.returnedItems);
     } catch (e) {
       console.error('Failed to fetch order details:', e);
       toast({ title: 'Error loading order details', variant: 'destructive' });
