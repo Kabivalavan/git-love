@@ -112,22 +112,19 @@ export default function ConversionOptimization() {
     enabled: topClickedProductIds.length > 0,
   });
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
+  // Use centralized store settings
+  const { data: allSettings } = useAdminStoreSettings();
+  const saveSetting = useSaveStoreSetting();
 
-  const fetchSettings = async () => {
-    setIsLoading(true);
-    const { data } = await supabase
-      .from('store_settings')
-      .select('value')
-      .eq('key', 'conversion_optimization')
-      .single();
-    if (data?.value) {
-      setSettings({ ...DEFAULT_SETTINGS, ...(data.value as any) });
+  useEffect(() => {
+    if (allSettings) {
+      const convSetting = allSettings.find((s: any) => s.key === 'conversion_optimization');
+      if (convSetting?.value) {
+        setSettings({ ...DEFAULT_SETTINGS, ...(convSetting.value as any) });
+      }
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  };
+  }, [allSettings]);
 
   const handleSave = async () => {
     setIsSaving(true);
