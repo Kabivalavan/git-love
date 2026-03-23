@@ -121,7 +121,7 @@ export default function AdminReturns() {
       }
       toast({ title: 'Return updated', description: `Status changed to ${status}` });
       log({ action: 'status_change', entityType: 'return', entityId: selectedReturn.id, details: { return_number: selectedReturn.return_number, new_status: status } });
-      await fetchReturns();
+      await refetchReturns();
       setIsDetailOpen(false);
     }
     setIsProcessing(false);
