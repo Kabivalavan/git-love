@@ -80,8 +80,7 @@ export default function AdminCustomers() {
   const [viewMode, setViewMode] = useState<string>(() => localStorage.getItem(VIEW_MODE_KEY) || 'list');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const queryClient = useQueryClient();
-  const queryClient = useQueryClient();
+  const { log } = useActivityLog();
   const { log } = useActivityLog();
 
   useEffect(() => {
