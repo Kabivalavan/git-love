@@ -352,6 +352,9 @@ export default function AdminCustomers() {
             searchable={false}
             getRowId={(c) => c.id}
             emptyMessage="No customers found."
+            isLoadingMore={isLoadingMore}
+            hasMore={hasMore}
+            sentinelRef={sentinelRef}
           />
         ) : (
           isLoading ? (
