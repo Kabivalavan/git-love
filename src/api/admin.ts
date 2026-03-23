@@ -419,6 +419,27 @@ export async function fetchAdminExpenses() {
   return data || [];
 }
 
+export async function fetchAdminExpensesPaginated(from: number, to: number) {
+  const { data, error, count } = await supabase
+    .from('expenses')
+    .select('*', { count: 'exact' })
+    .order('date', { ascending: false })
+    .range(from, to);
+  if (error) throw error;
+  return { data: data || [], count: count || 0 };
+}
+
+// ─── Bundles ───
+export async function fetchAdminBundlesPaginated(from: number, to: number) {
+  const { data, error, count } = await supabase
+    .from('bundles')
+    .select('*, items:bundle_items(*, product:products(name, price, images:product_images(*)))', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+  if (error) throw error;
+  return { data: data || [], count: count || 0 };
+}
+
 // ─── Deliveries ───
 export async function fetchDeliveries(from: number, to: number, filters?: { status?: string; cod?: string }) {
   let query = supabase
