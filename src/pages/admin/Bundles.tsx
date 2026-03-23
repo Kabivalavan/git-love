@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Loader2, Trash2, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useActivityLog } from '@/hooks/useActivityLog';
+import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
+import { fetchAdminBundlesPaginated } from '@/api/admin';
 import { ShimmerTable } from '@/components/ui/shimmer';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
