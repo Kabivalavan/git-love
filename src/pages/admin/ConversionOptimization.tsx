@@ -55,18 +55,9 @@ export default function ConversionOptimization() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch products for rule creation
-  const { data: allProducts = [] } = useQuery({
-    queryKey: ['admin-products-list'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('products')
-        .select('id, name, price, slug')
-        .eq('is_active', true)
-        .order('name');
-      return (data || []) as Pick<Product, 'id' | 'name' | 'price' | 'slug'>[];
-    },
-  });
+  // Use cached products from centralized hook
+  const { data: cachedProducts = [] } = useAdminProducts();
+  const allProducts = cachedProducts.map((p: any) => ({ id: p.id, name: p.name, price: p.price, slug: p.slug }));
 
   // Fetch cross-sell rules
   const { data: crossSellRules = [], refetch: refetchRules } = useQuery({
