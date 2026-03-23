@@ -298,6 +298,9 @@ export default function AdminCoupons() {
         searchKeys={['code', 'description']}
         getRowId={(c) => c.id}
         emptyMessage="No coupons found."
+        isLoadingMore={isLoadingMore}
+        hasMore={hasMore}
+        sentinelRef={sentinelRef}
       />
 
       <DetailPanel

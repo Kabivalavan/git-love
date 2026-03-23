@@ -387,6 +387,9 @@ export default function AdminOffers() {
         searchKeys={['name', 'description']}
         getRowId={(o) => o.id}
         emptyMessage="No offers found."
+        isLoadingMore={isLoadingMore}
+        hasMore={hasMore}
+        sentinelRef={sentinelRef}
       />
 
       <DetailPanel

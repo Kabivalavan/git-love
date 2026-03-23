@@ -381,6 +381,9 @@ export default function AdminExpenses() {
             searchKeys={['description', 'category']}
             getRowId={(e) => e.id}
             emptyMessage="No expenses recorded."
+            isLoadingMore={isLoadingMore}
+            hasMore={hasMore}
+            sentinelRef={sentinelRef}
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
