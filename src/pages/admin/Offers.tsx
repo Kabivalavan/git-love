@@ -108,13 +108,22 @@ type FormData = Partial<Offer> & {
 };
 
 export default function AdminOffers() {
-  const [offers, setOffers] = useState<Offer[]>([]);
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [allCategories, setAllCategories] = useState<CategoryItem[]>([]);
-  const [products, setProducts] = useState<ProductItem[]>([]);
+  const { data: offersData, isLoading: offersLoading } = useAdminOffers();
+  const { data: categoriesData } = useAdminCategories();
+  const { data: productsData } = useAdminProducts();
+  const queryClient = useQueryClient();
+
+  useAdminRealtimeInvalidation(['offers'], [ADMIN_KEYS.offers as unknown as string[]]);
+
+  const offers = (offersData || []) as unknown as Offer[];
+  const isLoading = offersLoading;
+
+  const allCategories = ((categoriesData || []) as any[]).map((c: any) => ({ id: c.id, name: c.name, parent_id: c.parent_id })) as CategoryItem[];
+  const categories = allCategories.filter(c => !c.parent_id);
+  const products = ((productsData || []) as any[]).map((p: any) => ({ id: p.id, name: p.name, category_id: p.category_id, variant_required: p.variant_required })) as ProductItem[];
+
   const [filteredProducts, setFilteredProducts] = useState<ProductItem[]>([]);
   const [variants, setVariants] = useState<VariantItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -123,50 +132,6 @@ export default function AdminOffers() {
   const [formData, setFormData] = useState<FormData>({});
   const { toast } = useToast();
   const { log } = useActivityLog();
-
-  useEffect(() => {
-    fetchOffers();
-    fetchCategories();
-    fetchProducts();
-  }, []);
-
-  const fetchOffers = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('offers')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      const now = new Date().toISOString();
-      const allOffers = (data || []) as unknown as Offer[];
-      const expired = allOffers.filter(o => o.is_active && o.end_date && o.end_date < now);
-      if (expired.length > 0) {
-        await Promise.all(expired.map(o =>
-          supabase.from('offers').update({ is_active: false }).eq('id', o.id)
-        ));
-        allOffers.forEach(o => {
-          if (o.is_active && o.end_date && o.end_date < now) o.is_active = false;
-        });
-      }
-      setOffers(allOffers);
-    }
-    setIsLoading(false);
-  };
-
-  const fetchCategories = async () => {
-    const { data } = await supabase.from('categories').select('id, name, parent_id').eq('is_active', true).order('sort_order');
-    const all = (data || []) as CategoryItem[];
-    setAllCategories(all);
-    setCategories(all.filter(c => !c.parent_id));
-  };
-
-  const fetchProducts = async () => {
-    const { data } = await supabase.from('products').select('id, name, category_id, variant_required').eq('is_active', true);
-    setProducts((data || []) as ProductItem[]);
-  };
 
   const fetchVariantsForProduct = async (productId: string) => {
     const { data } = await supabase.from('product_variants').select('id, name, product_id').eq('product_id', productId).eq('is_active', true).order('sort_order');
