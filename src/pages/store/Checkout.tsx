@@ -636,12 +636,11 @@ export default function CheckoutPage() {
             await clearCartAndRedirect(orderNumber);
           },
           onFailure: async (error) => {
-            await supabase.functions.invoke('razorpay-cancel-order', {
-              body: {
-                order_id: order.id,
-                reason: error || 'Payment cancelled by user',
-              },
-            });
+            // Mark order as cancelled and payment as failed directly
+            await Promise.all([
+              supabase.from('orders').update({ status: 'cancelled' as any, payment_status: 'failed' as any }).eq('id', order.id),
+              supabase.from('payments').update({ status: 'failed' as any }).eq('order_id', order.id),
+            ]);
 
             // Release linked hold if payment fails
             await supabase.rpc('release_stock_hold', {

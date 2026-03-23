@@ -801,14 +801,21 @@ export default function AdminOrders() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <Label className="text-xs">Status</Label>
-                      <Select value={deliveryEdit.status || delivery.status} onValueChange={v => handleDeliveryUpdate('status', v)}>
-                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {DELIVERY_STATUSES.map(s => (
-                            <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {selectedOrder.status === 'delivered' || delivery.status === 'delivered' ? (
+                        <>
+                          <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-green-100 text-green-800">Delivered</span>
+                          <p className="text-[10px] text-muted-foreground">🔒 Delivered — locked</p>
+                        </>
+                      ) : (
+                        <Select value={deliveryEdit.status || delivery.status} onValueChange={v => handleDeliveryUpdate('status', v)}>
+                          <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {DELIVERY_STATUSES.map(s => (
+                              <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Courier / Partner</Label>
