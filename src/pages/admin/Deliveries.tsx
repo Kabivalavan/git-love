@@ -69,7 +69,11 @@ export default function AdminDeliveries() {
     cacheTimeMs: 2 * 60 * 1000,
   });
 
-  useEffect(() => { fetchInitial(); }, [fetchInitial]);
+  useEffect(() => {
+    fetchInitial();
+    // Intentionally keyed by filters to avoid refetch loops from function identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, codFilter]);
 
   const handleRowClick = (delivery: Delivery) => {
     setSelectedDelivery(delivery);
