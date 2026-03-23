@@ -97,13 +97,8 @@ export default function AdminProducts() {
     if (!selectedProduct) return;
     const imageUrls = selectedProduct.images?.map(img => img.image_url) || [];
     
-    // Fetch variants for this product
-    const { data: variants } = await supabase
-      .from('product_variants')
-      .select('*')
-      .eq('product_id', selectedProduct.id)
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true });
+    // Fetch variants for this product using centralized API
+    const variants = await fetchProductVariants(selectedProduct.id);
     
     const existingVariants = (variants || []).map(v => ({
       id: v.id,
