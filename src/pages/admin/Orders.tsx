@@ -670,7 +670,7 @@ export default function AdminOrders() {
                     {selectedOrder.payment_method === 'cod' ? (
                       <Select
                         value={selectedOrder.payment_status}
-                        disabled={selectedOrder.status === 'delivered' || selectedOrder.status === 'returned'}
+                        disabled={selectedOrder.payment_status === 'paid' || selectedOrder.status === 'delivered' || selectedOrder.status === 'returned'}
                         onValueChange={async (val) => {
                           const typedVal = val as 'pending' | 'paid' | 'failed' | 'refunded';
                           await supabase.from('orders').update({ payment_status: typedVal }).eq('id', selectedOrder.id);
@@ -679,7 +679,6 @@ export default function AdminOrders() {
                           if (paymentRecord) {
                             await supabase.from('payments').update({ status: typedVal }).eq('id', paymentRecord.id);
                           } else if (typedVal === 'paid') {
-                            // Auto-create payment record when COD is marked as paid
                             await supabase.from('payments').insert({
                               order_id: selectedOrder.id,
                               method: 'cod' as any,
@@ -704,6 +703,9 @@ export default function AdminOrders() {
                       <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${paymentStatusColors[selectedOrder.payment_status] || ''}`}>
                         {selectedOrder.payment_status}
                       </span>
+                    )}
+                    {selectedOrder.payment_status === 'paid' && (
+                      <p className="text-[10px] text-muted-foreground">🔒 Payment received — locked</p>
                     )}
                   </div>
                   <Badge variant="outline" className="mt-5">{selectedOrder.payment_method?.toUpperCase() || 'N/A'}</Badge>
