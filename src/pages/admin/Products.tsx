@@ -98,7 +98,6 @@ export default function AdminProducts() {
   const [variantForms, setVariantForms] = useState<VariantForm[]>([]);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [formParentCategoryId, setFormParentCategoryId] = useState<string>('');
-  const { toast } = useToast();
   const { log } = useActivityLog();
 
   // Realtime invalidation instead of manual fetch
