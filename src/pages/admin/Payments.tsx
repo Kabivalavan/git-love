@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { fetchPayments as fetchPaymentsApi } from '@/api/admin';
 
 interface Payment {
   id: string;
