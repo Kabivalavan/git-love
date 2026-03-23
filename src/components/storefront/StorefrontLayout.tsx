@@ -20,8 +20,8 @@ const AI_CACHE_KEY = 'ai_enabled_cache';
 const baseMobileNavItems = [
   { icon: Home, label: 'Home', path: '/', fill: true },
   { icon: LayoutGrid, label: 'Category', path: '/category', fill: false },
-  { icon: ShoppingCart, label: 'Cart', path: '/cart', fill: false },
   { icon: User, label: 'Profile', path: '/account', fill: false },
+  { icon: ShoppingCart, label: 'Cart', path: '/cart', fill: false },
 ];
 
 function getCachedAiEnabled(): boolean {
@@ -118,8 +118,8 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
     return [
       baseMobileNavItems[0],
       baseMobileNavItems[1],
-      { icon: Sparkles, label: 'AI', path: '/ai-assistant', fill: false, isAiLauncher: true },
       baseMobileNavItems[2],
+      { icon: Sparkles, label: 'AI', path: '/ai-assistant', fill: false, isAiLauncher: true },
       baseMobileNavItems[3],
     ];
   }, [isAiEnabled]);

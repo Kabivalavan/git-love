@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import type { StoreInfo, ThemeSettings, CheckoutSettings, SocialLinks } from '@/types/database';
 import { useStorefrontTheme, THEME_OPTIONS, type StorefrontTheme } from '@/hooks/useTheme';
 import { cn } from '@/lib/utils';
+import { ADMIN_NOTIFICATION_SETTINGS_CACHE_KEY } from '@/hooks/useAdminNotifications';
 
 interface RazorpayConnectionStatus {
   connected: boolean;
@@ -137,6 +138,17 @@ export default function AdminSettings() {
     returnShippingCharges: 'customer',
     restockingFee: 0,
   });
+  const [notificationSettings, setNotificationSettings] = useState({
+    browser_enabled: false,
+    new_order_alerts: true,
+    low_stock_alerts: true,
+    customer_alerts: true,
+    payment_alerts: true,
+  });
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return 'default';
+    return Notification.permission;
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -208,8 +220,15 @@ export default function AdminSettings() {
           case 'return_settings':
             setReturnSettings(prev => ({ ...prev, ...(value as any) }));
             break;
+          case 'notification_settings':
+            setNotificationSettings(prev => ({ ...prev, ...(value as any) }));
+            break;
         }
       });
+    }
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotificationPermission(Notification.permission);
     }
     setIsLoading(false);
   };
@@ -379,6 +398,46 @@ export default function AdminSettings() {
     await handleSave('smtp_config', { host: '', port: 587, encryption: 'STARTTLS', username: '', password: '', from_name: '', from_email: '' });
     setSmtpConnected(false);
     toast({ title: 'Disconnected', description: 'SMTP configuration removed' });
+  };
+
+  const handleSaveNotificationSettings = async () => {
+    await handleSave('notification_settings', notificationSettings as unknown as Record<string, unknown>);
+    try {
+      localStorage.setItem(ADMIN_NOTIFICATION_SETTINGS_CACHE_KEY, JSON.stringify(notificationSettings));
+    } catch {
+      // ignore cache failures
+    }
+  };
+
+  const handleEnableBrowserNotifications = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      toast({ title: 'Not supported', description: 'Browser notifications are not supported on this device.', variant: 'destructive' });
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+
+    const nextSettings = {
+      ...notificationSettings,
+      browser_enabled: permission === 'granted',
+    };
+
+    setNotificationSettings(nextSettings);
+
+    try {
+      localStorage.setItem(ADMIN_NOTIFICATION_SETTINGS_CACHE_KEY, JSON.stringify(nextSettings));
+    } catch {
+      // ignore cache failures
+    }
+
+    toast({
+      title: permission === 'granted' ? 'Notifications enabled' : 'Permission not granted',
+      description: permission === 'granted'
+        ? 'You will now receive mobile/browser alerts based on the toggles below.'
+        : 'Allow browser notification permission to receive alerts.',
+      variant: permission === 'granted' ? 'default' : 'destructive',
+    });
   };
 
   if (isLoading) {
@@ -1369,37 +1428,66 @@ export default function AdminSettings() {
                 <Bell className="h-5 w-5" />
                 Notification Settings
               </CardTitle>
-              <CardDescription>Configure order and system notifications</CardDescription>
+              <CardDescription>Configure mobile/browser alert behavior</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="p-4 border rounded-lg bg-muted/40 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <Label className="text-base font-medium">Browser/Mobile Push Permission</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Current permission: <span className="font-medium capitalize">{notificationPermission}</span>
+                  </p>
+                </div>
+                <Button variant="outline" onClick={handleEnableBrowserNotifications}>
+                  Allow Notifications
+                </Button>
+              </div>
+
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
                   <Label className="text-base font-medium">New Order Alerts</Label>
                   <p className="text-sm text-muted-foreground">Get notified when a new order is placed</p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={notificationSettings.new_order_alerts}
+                  onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, new_order_alerts: checked }))}
+                />
               </div>
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
                   <Label className="text-base font-medium">Low Stock Alerts</Label>
                   <p className="text-sm text-muted-foreground">Get notified when product stock is low</p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={notificationSettings.low_stock_alerts}
+                  onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, low_stock_alerts: checked }))}
+                />
               </div>
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
-                  <Label className="text-base font-medium">Customer Reviews</Label>
-                  <p className="text-sm text-muted-foreground">Get notified when customers leave reviews</p>
+                  <Label className="text-base font-medium">Customer Alerts</Label>
+                  <p className="text-sm text-muted-foreground">Get notified when new customers sign up</p>
                 </div>
-                <Switch />
+                <Switch
+                  checked={notificationSettings.customer_alerts}
+                  onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, customer_alerts: checked }))}
+                />
               </div>
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
                   <Label className="text-base font-medium">Payment Alerts</Label>
                   <p className="text-sm text-muted-foreground">Get notified for payment updates</p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={notificationSettings.payment_alerts}
+                  onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, payment_alerts: checked }))}
+                />
               </div>
+
+              <Button onClick={handleSaveNotificationSettings} disabled={isSaving === 'notification_settings'}>
+                {isSaving === 'notification_settings' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Save Notification Settings
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
