@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, useMemo } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
@@ -6,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useActivityLog } from '@/hooks/useActivityLog';
+import { useAdminCustomers, useAdminStoreSettings, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -31,8 +33,26 @@ interface Customer {
 }
 
 export default function AdminCustomers() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: customersData, isLoading } = useAdminCustomers();
+  const { data: settingsData } = useAdminStoreSettings();
+
+  useAdminRealtimeInvalidation(['profiles', 'orders'], [ADMIN_KEYS.customers as unknown as string[]]);
+
+  const customers = (customersData || []) as Customer[];
+  const storeName = useMemo(() => {
+    const info = settingsData?.find(s => s.key === 'store_info');
+    return (info?.value as any)?.name || 'Our Store';
+  }, [settingsData]);
+
+  const stats = useMemo(() => {
+    const total = customers.length;
+    const blocked = customers.filter(c => c.is_blocked).length;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayCount = customers.filter(c => new Date(c.created_at) >= today).length;
+    return { total, active: total - blocked, blocked, todayCount };
+  }, [customers]);
+
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
@@ -40,71 +60,16 @@ export default function AdminCustomers() {
   const [customerAISessions, setCustomerAISessions] = useState<any[]>([]);
   const [customerAddresses, setCustomerAddresses] = useState<any[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [stats, setStats] = useState({ total: 0, active: 0, blocked: 0, todayCount: 0 });
-  const [storeName, setStoreName] = useState('Our Store');
   const [viewMode, setViewMode] = useState<string>(() => localStorage.getItem(VIEW_MODE_KEY) || 'list');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { log } = useActivityLog();
 
   useEffect(() => {
     localStorage.setItem(VIEW_MODE_KEY, viewMode);
   }, [viewMode]);
-
-  useEffect(() => {
-    fetchCustomers();
-    supabase.from('store_settings').select('value').eq('key', 'store_info').single().then(({ data }) => {
-      if (data) setStoreName((data.value as any)?.name || 'Our Store');
-    });
-  }, []);
-
-  const fetchCustomers = async () => {
-    setIsLoading(true);
-    
-    const { data: profiles, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      setIsLoading(false);
-      return;
-    }
-
-    const { data: orders } = await supabase
-      .from('orders')
-      .select('user_id, total');
-
-    const orderStats: Record<string, { count: number; total: number }> = {};
-    (orders || []).forEach((order: any) => {
-      if (order.user_id) {
-        if (!orderStats[order.user_id]) {
-          orderStats[order.user_id] = { count: 0, total: 0 };
-        }
-        orderStats[order.user_id].count++;
-        orderStats[order.user_id].total += Number(order.total);
-      }
-    });
-
-    const customersWithStats = (profiles || []).map((profile: any) => ({
-      ...profile,
-      order_count: orderStats[profile.user_id]?.count || 0,
-      total_spent: orderStats[profile.user_id]?.total || 0,
-    }));
-
-    setCustomers(customersWithStats);
-    
-    const total = customersWithStats.length;
-    const blocked = customersWithStats.filter((c: Customer) => c.is_blocked).length;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayCount = customersWithStats.filter((c: Customer) => new Date(c.created_at) >= today).length;
-    setStats({ total, active: total - blocked, blocked, todayCount });
-
-    setIsLoading(false);
-  };
 
   const handleRowClick = async (customer: Customer) => {
     setSelectedCustomer(customer);
@@ -212,7 +177,7 @@ export default function AdminCustomers() {
         description: `Customer ${blocked ? 'blocked' : 'unblocked'} successfully` 
       });
       setSelectedCustomer({ ...selectedCustomer, is_blocked: blocked });
-      fetchCustomers();
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.customers });
     }
     setIsUpdating(false);
   };

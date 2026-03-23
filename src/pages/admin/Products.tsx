@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import type { Product, Category, ProductImage, ProductVariant } from '@/types/database';
 import { ShimmerTable } from '@/components/ui/shimmer';
 import { useActivityLog } from '@/hooks/useActivityLog';
+import { useAdminProducts, useAdminCategories, useDeleteProduct, useSaveProduct, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { fetchProductVariants } from '@/api/admin';
 import {
   Dialog,
   DialogContent,
@@ -58,9 +60,15 @@ interface VariantForm {
 }
 
 export default function AdminProducts() {
-  const [products, setProducts] = useState<(Product & { processing_qty?: number })[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: productsData, isLoading: isProductsLoading } = useAdminProducts();
+  const { data: categoriesData } = useAdminCategories();
+  const deleteProductMutation = useDeleteProduct();
+  const saveProductMutation = useSaveProduct();
+
+  const products = productsData || [];
+  const categories = (categoriesData || []) as Category[];
+  const isLoading = isProductsLoading;
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -73,90 +81,15 @@ export default function AdminProducts() {
   const { toast } = useToast();
   const { log } = useActivityLog();
 
-  const fetchProducts = useCallback(async (showLoader = true) => {
-    if (showLoader) setIsLoading(true);
-
-    const [{ data, error }, { data: processingOrders }] = await Promise.all([
-      supabase
-        .from('products')
-        .select('*, category:categories(*), images:product_images(*), variants:product_variants(*)')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('orders')
-        .select('id')
-        .in('status', ['new', 'confirmed', 'packed']),
-    ]);
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      if (showLoader) setIsLoading(false);
-      return;
-    }
-
-    const productsList = (data || []) as unknown as Product[];
-    const processingMap: Record<string, number> = {};
-
-    if (processingOrders && processingOrders.length > 0) {
-      const orderIds = processingOrders.map((order) => order.id);
-      const { data: items } = await supabase
-        .from('order_items')
-        .select('product_id, quantity')
-        .in('order_id', orderIds);
-
-      (items || []).forEach((item: any) => {
-        if (!item.product_id) return;
-        processingMap[item.product_id] = (processingMap[item.product_id] || 0) + Number(item.quantity || 0);
-      });
-    }
-
-    setProducts(productsList.map((product) => ({ ...product, processing_qty: processingMap[product.id] || 0 })));
-    if (showLoader) setIsLoading(false);
-  }, [toast]);
-
-  const fetchCategories = useCallback(async () => {
-    const { data } = await supabase.from('categories').select('*').eq('is_active', true);
-    setCategories((data || []) as unknown as Category[]);
-  }, []);
-
-  useEffect(() => {
-    void fetchProducts();
-    void fetchCategories();
-  }, [fetchProducts, fetchCategories]);
-
-  useEffect(() => {
-    let refreshTimer: number | null = null;
-
-    const scheduleRefresh = () => {
-      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
-      refreshTimer = window.setTimeout(() => {
-        void fetchProducts(false);
-      }, 120);
-    };
-
-    const channel = supabase
-      .channel('admin-products-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_variants' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_holds' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, scheduleRefresh)
-      .subscribe();
-
-    return () => {
-      if (refreshTimer) window.clearTimeout(refreshTimer);
-      void supabase.removeChannel(channel);
-    };
-  }, [fetchProducts]);
+  // Realtime invalidation instead of manual fetch
+  useAdminRealtimeInvalidation(
+    ['products', 'product_variants', 'stock_holds', 'orders', 'order_items'],
+    [ADMIN_KEYS.products as unknown as string[]]
+  );
 
   const handleRowClick = async (product: Product) => {
-    // Fetch variants for detail panel
-    const { data: variants } = await supabase
-      .from('product_variants')
-      .select('*')
-      .eq('product_id', product.id)
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true });
-    setSelectedProduct({ ...product, variants: (variants || []) as unknown as ProductVariant[] });
+    const variants = await fetchProductVariants(product.id);
+    setSelectedProduct({ ...product, variants: variants as unknown as ProductVariant[] });
     setIsDetailOpen(true);
   };
 
@@ -164,13 +97,8 @@ export default function AdminProducts() {
     if (!selectedProduct) return;
     const imageUrls = selectedProduct.images?.map(img => img.image_url) || [];
     
-    // Fetch variants for this product
-    const { data: variants } = await supabase
-      .from('product_variants')
-      .select('*')
-      .eq('product_id', selectedProduct.id)
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true });
+    // Fetch variants for this product using centralized API
+    const variants = await fetchProductVariants(selectedProduct.id);
     
     const existingVariants = (variants || []).map(v => ({
       id: v.id,
@@ -238,25 +166,13 @@ export default function AdminProducts() {
   const handleDelete = async () => {
     if (!selectedProduct) return;
     setIsDeleting(true);
-
-    if (selectedProduct.images) {
-      for (const img of selectedProduct.images) {
-        const urlParts = img.image_url.split('/products/');
-        if (urlParts.length > 1) {
-          await supabase.storage.from('products').remove([urlParts[1]]);
-        }
-      }
-    }
-
-    const { error } = await supabase.from('products').delete().eq('id', selectedProduct.id);
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      await deleteProductMutation.mutateAsync(selectedProduct);
       log({ action: 'delete', entityType: 'product', entityId: selectedProduct.id, details: { name: selectedProduct.name } });
       toast({ title: 'Success', description: 'Product deleted successfully' });
       setIsDetailOpen(false);
-      fetchProducts();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
     setIsDeleting(false);
   };
@@ -334,46 +250,18 @@ export default function AdminProducts() {
     };
 
     try {
-      let productId: string;
+      const variantRecords = filledVariants.map((variant, sort_order) => toVariantPayload(variant, sort_order));
 
-      if (selectedProduct) {
-        const { error } = await supabase.from('products').update(productData).eq('id', selectedProduct.id);
-        if (error) throw error;
-        productId = selectedProduct.id;
-        // Delete old images and variants BEFORE re-inserting
-        await supabase.from('product_images').delete().eq('product_id', productId);
-        await supabase.from('product_variants').delete().eq('product_id', productId);
-      } else {
-        const { data, error } = await supabase.from('products').insert([productData]).select().single();
-        if (error) throw error;
-        productId = data.id;
-      }
-
-      // Insert images
-      if (formData.imageUrls && formData.imageUrls.length > 0) {
-        const imageRecords = formData.imageUrls.map((url, index) => ({
-          product_id: productId,
-          image_url: url,
-          sort_order: index,
-          is_primary: index === 0,
-        }));
-        await supabase.from('product_images').insert(imageRecords);
-      }
-
-      // Insert all variants fresh (old ones were deleted above for edits)
-      const variantRecords = filledVariants.map((variant, sort_order) => ({
-        product_id: productId,
-        ...toVariantPayload(variant, sort_order),
-      }));
-      if (variantRecords.length > 0) {
-        const { error: insertError } = await supabase.from('product_variants').insert(variantRecords as any);
-        if (insertError) throw insertError;
-      }
+      const productId = await saveProductMutation.mutateAsync({
+        productData,
+        imageUrls: formData.imageUrls || [],
+        variantRecords,
+        existingProductId: selectedProduct?.id,
+      });
 
       log({ action: selectedProduct ? 'update' : 'create', entityType: 'product', entityId: productId, details: { name: formData.name } });
       toast({ title: 'Success', description: `Product ${selectedProduct ? 'updated' : 'created'} successfully` });
       setIsFormOpen(false);
-      fetchProducts();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }

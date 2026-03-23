@@ -1,8 +1,10 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useMemo } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
 import { supabase } from '@/integrations/supabase/client';
+import { useAdminExpenses, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
 import { Button } from '@/components/ui/button';
 import { Plus, LayoutGrid, List, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -75,8 +77,12 @@ const getAmountBadgeClass = (amount: number) => {
 };
 
 export default function AdminExpenses() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: expensesData, isLoading } = useAdminExpenses();
+
+  useAdminRealtimeInvalidation(['expenses'], [ADMIN_KEYS.expenses as unknown as string[]]);
+
+  const expenses = (expensesData || []) as Expense[];
+
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -93,21 +99,10 @@ export default function AdminExpenses() {
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [receiptViewUrl, setReceiptViewUrl] = useState<string | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { log } = useActivityLog();
 
-  useEffect(() => { fetchExpenses(); }, []);
   useEffect(() => { localStorage.setItem(VIEW_MODE_KEY, viewMode); }, [viewMode]);
-
-  const fetchExpenses = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase.from('expenses').select('*').order('date', { ascending: false });
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      setExpenses((data || []) as Expense[]);
-    }
-    setIsLoading(false);
-  };
 
   const filteredExpenses = useMemo(() => {
     let result = expenses;
@@ -159,7 +154,7 @@ export default function AdminExpenses() {
     setIsDeleting(true);
     const { error } = await supabase.from('expenses').delete().eq('id', selectedExpense.id);
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else { toast({ title: 'Success', description: 'Expense deleted' }); log({ action: 'delete', entityType: 'expense', entityId: selectedExpense.id, details: { name: selectedExpense.description } }); setIsDetailOpen(false); fetchExpenses(); }
+    else { toast({ title: 'Success', description: 'Expense deleted' }); log({ action: 'delete', entityType: 'expense', entityId: selectedExpense.id, details: { name: selectedExpense.description } }); setIsDetailOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); }
     setIsDeleting(false);
   };
 
@@ -180,11 +175,11 @@ export default function AdminExpenses() {
     if (selectedExpense) {
       const { error } = await supabase.from('expenses').update(expenseData).eq('id', selectedExpense.id);
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      else { toast({ title: 'Success', description: 'Expense updated' }); log({ action: 'update', entityType: 'expense', entityId: selectedExpense.id, details: { name: formData.description } }); setIsFormOpen(false); fetchExpenses(); }
+      else { toast({ title: 'Success', description: 'Expense updated' }); log({ action: 'update', entityType: 'expense', entityId: selectedExpense.id, details: { name: formData.description } }); setIsFormOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); }
     } else {
       const { error } = await supabase.from('expenses').insert([expenseData]);
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      else { toast({ title: 'Success', description: 'Expense added' }); log({ action: 'create', entityType: 'expense', details: { name: formData.description } }); setIsFormOpen(false); fetchExpenses(); }
+      else { toast({ title: 'Success', description: 'Expense added' }); log({ action: 'create', entityType: 'expense', details: { name: formData.description } }); setIsFormOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); }
     }
     setIsSaving(false);
   };

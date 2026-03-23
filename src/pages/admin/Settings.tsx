@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { useAdminStoreSettings, useSaveStoreSetting, ADMIN_KEYS } from '@/hooks/useAdminQueries';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -154,117 +155,85 @@ export default function AdminSettings() {
 
   const { theme: storefrontTheme, setTheme: setStorefrontTheme, applyThemeToAdmin, setApplyThemeToAdmin } = useStorefrontTheme();
 
+  // Use centralized store settings hook
+  const { data: settingsData, isLoading: settingsLoading } = useAdminStoreSettings();
+  const saveSettingMutation = useSaveStoreSetting();
+
   useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('store_settings')
-      .select('key, value');
-
-    if (data) {
-      data.forEach((item) => {
-        const value = item.value as Record<string, unknown>;
-        switch (item.key) {
-          case 'store_info':
-            setStoreInfo(value as unknown as StoreInfo);
-            break;
-          case 'theme':
-            setTheme(value as unknown as ThemeSettings);
-            break;
-          case 'checkout':
-            setCheckout(value as unknown as CheckoutSettings);
-            break;
-          case 'social_links':
-            setSocial(value as unknown as SocialLinks);
-            break;
-          case 'razorpay':
-            const rpVal = value as any;
-            setRazorpayStatus({
-              connected: rpVal.is_connected || false,
-              is_test_mode: rpVal.is_test_mode || false,
-              key_id_preview: rpVal.key_id_preview || null,
-              connected_at: rpVal.connected_at || null,
-            });
-            break;
-          case 'announcement':
-            setAnnouncement(value as unknown as AnnouncementSettings);
-            break;
-          case 'smtp_config':
-            const smtp = value as any;
-            setSmtpConfig({
-              host: smtp.host || '',
-              port: smtp.port || 587,
-              encryption: smtp.encryption || 'STARTTLS',
-              username: smtp.username || '',
-              password: smtp.password || '',
-              from_name: smtp.from_name || '',
-              from_email: smtp.from_email || '',
-            });
-            setSmtpConnected(!!(smtp.host && smtp.username && smtp.password));
-            break;
-          case 'email_automation':
-            setEmailAutomation({ ...emailAutomation, ...(value as any) });
-            break;
-          case 'email_templates':
-            setEmailTemplates(value as any);
-            break;
-          case 'storefront_display':
-            setStorefrontDisplay({ ...storefrontDisplay, ...(value as any) });
-            break;
-          case 'ai_assistant':
-            setAiAssistant({ ...aiAssistant, ...(value as any) });
-            break;
-          case 'return_settings':
-            setReturnSettings(prev => ({ ...prev, ...(value as any) }));
-            break;
-          case 'notification_settings':
-            setNotificationSettings(prev => ({ ...prev, ...(value as any) }));
-            break;
-        }
-      });
-    }
-
+    if (!settingsData) return;
+    settingsData.forEach((item) => {
+      const value = item.value as Record<string, unknown>;
+      switch (item.key) {
+        case 'store_info':
+          setStoreInfo(value as unknown as StoreInfo);
+          break;
+        case 'theme':
+          setTheme(value as unknown as ThemeSettings);
+          break;
+        case 'checkout':
+          setCheckout(value as unknown as CheckoutSettings);
+          break;
+        case 'social_links':
+          setSocial(value as unknown as SocialLinks);
+          break;
+        case 'razorpay':
+          const rpVal = value as any;
+          setRazorpayStatus({
+            connected: rpVal.is_connected || false,
+            is_test_mode: rpVal.is_test_mode || false,
+            key_id_preview: rpVal.key_id_preview || null,
+            connected_at: rpVal.connected_at || null,
+          });
+          break;
+        case 'announcement':
+          setAnnouncement(value as unknown as AnnouncementSettings);
+          break;
+        case 'smtp_config':
+          const smtp = value as any;
+          setSmtpConfig({
+            host: smtp.host || '',
+            port: smtp.port || 587,
+            encryption: smtp.encryption || 'STARTTLS',
+            username: smtp.username || '',
+            password: smtp.password || '',
+            from_name: smtp.from_name || '',
+            from_email: smtp.from_email || '',
+          });
+          setSmtpConnected(!!(smtp.host && smtp.username && smtp.password));
+          break;
+        case 'email_automation':
+          setEmailAutomation(prev => ({ ...prev, ...(value as any) }));
+          break;
+        case 'email_templates':
+          setEmailTemplates(value as any);
+          break;
+        case 'storefront_display':
+          setStorefrontDisplay(prev => ({ ...prev, ...(value as any) }));
+          break;
+        case 'ai_assistant':
+          setAiAssistant(prev => ({ ...prev, ...(value as any) }));
+          break;
+        case 'return_settings':
+          setReturnSettings(prev => ({ ...prev, ...(value as any) }));
+          break;
+        case 'notification_settings':
+          setNotificationSettings(prev => ({ ...prev, ...(value as any) }));
+          break;
+      }
+    });
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setNotificationPermission(Notification.permission);
     }
     setIsLoading(false);
-  };
+  }, [settingsData]);
 
   const handleSave = async (key: string, value: Record<string, unknown>) => {
     setIsSaving(key);
-    
-    // Check if setting exists
-    const { data: existing } = await supabase
-      .from('store_settings')
-      .select('id')
-      .eq('key', key)
-      .single();
-
-    let error;
-    if (existing) {
-      const result = await supabase
-        .from('store_settings')
-        .update({ value: value as any })
-        .eq('key', key);
-      error = result.error;
-    } else {
-      const result = await supabase
-        .from('store_settings')
-        .insert({ key, value: value as any });
-      error = result.error;
-    }
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      await saveSettingMutation.mutateAsync({ key, value });
       toast({ title: 'Saved', description: 'Settings saved successfully' });
-      // Invalidate storefront queries so public pages reflect changes immediately
-      queryClient.invalidateQueries({ queryKey: ['home-page-data'] });
-      queryClient.invalidateQueries({ queryKey: ['store-products'] });
-      queryClient.invalidateQueries({ queryKey: ['checkout-settings'] });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
     setIsSaving(null);
   };

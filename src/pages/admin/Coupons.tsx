@@ -1,8 +1,10 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
 import { supabase } from '@/integrations/supabase/client';
+import { useAdminCoupons, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Copy } from 'lucide-react';
@@ -74,8 +76,26 @@ function formatIST(utcStr: string | null): string {
 }
 
 export default function AdminCoupons() {
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: couponsData, isLoading } = useAdminCoupons();
+
+  useAdminRealtimeInvalidation(['coupons', 'coupon_usage'], [ADMIN_KEYS.coupons as unknown as string[]]);
+
+  // Auto-deactivate expired/exhausted coupons on load
+  const coupons = (() => {
+    const all = (couponsData || []) as Coupon[];
+    const now = new Date().toISOString();
+    const toDeactivate = all.filter(c => c.is_active && (
+      (c.end_date && c.end_date < now) ||
+      (c.usage_limit !== null && c.used_count >= c.usage_limit)
+    ));
+    if (toDeactivate.length > 0) {
+      Promise.all(toDeactivate.map(c =>
+        supabase.from('coupons').update({ is_active: false }).eq('id', c.id)
+      ));
+    }
+    return all;
+  })();
+
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -83,38 +103,8 @@ export default function AdminCoupons() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Coupon> & { start_date_local?: string; end_date_local?: string }>({});
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { log } = useActivityLog();
-
-  useEffect(() => {
-    fetchCoupons();
-  }, []);
-
-  const fetchCoupons = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('coupons')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      const now = new Date().toISOString();
-      const allCoupons = (data || []) as Coupon[];
-      const toDeactivate = allCoupons.filter(c => c.is_active && (
-        (c.end_date && c.end_date < now) ||
-        (c.usage_limit !== null && c.used_count >= c.usage_limit)
-      ));
-      if (toDeactivate.length > 0) {
-        await Promise.all(toDeactivate.map(c =>
-          supabase.from('coupons').update({ is_active: false }).eq('id', c.id)
-        ));
-        toDeactivate.forEach(c => { c.is_active = false; });
-      }
-      setCoupons(allCoupons);
-    }
-    setIsLoading(false);
-  };
 
   const handleRowClick = (coupon: Coupon) => {
     setSelectedCoupon(coupon);
@@ -159,7 +149,7 @@ export default function AdminCoupons() {
       toast({ title: 'Success', description: 'Coupon deleted successfully' });
       log({ action: 'delete', entityType: 'coupon', entityId: selectedCoupon.id, details: { name: selectedCoupon.code } });
       setIsDetailOpen(false);
-      fetchCoupons();
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.coupons });
     }
     setIsDeleting(false);
   };
@@ -195,7 +185,7 @@ export default function AdminCoupons() {
         toast({ title: 'Success', description: 'Coupon updated successfully' });
         log({ action: 'update', entityType: 'coupon', entityId: selectedCoupon.id, details: { name: formData.code } });
         setIsFormOpen(false);
-        fetchCoupons();
+        queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.coupons });
       }
     } else {
       const { error } = await supabase.from('coupons').insert([couponData]);
@@ -205,7 +195,7 @@ export default function AdminCoupons() {
         toast({ title: 'Success', description: 'Coupon created successfully' });
         log({ action: 'create', entityType: 'coupon', details: { name: formData.code } });
         setIsFormOpen(false);
-        fetchCoupons();
+        queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.coupons });
       }
     }
     setIsSaving(false);

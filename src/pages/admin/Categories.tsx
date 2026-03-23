@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useActivityLog } from '@/hooks/useActivityLog';
+import { useAdminCategories, useSaveCategory, useDeleteCategory, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
 import type { Category } from '@/types/database';
 import {
   Dialog,
@@ -29,8 +30,13 @@ import {
 } from '@/components/ui/select';
 
 export default function AdminCategories() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: categoriesData, isLoading } = useAdminCategories();
+  const saveCategoryMutation = useSaveCategory();
+  const deleteCategoryMutation = useDeleteCategory();
+  const categories = (categoriesData || []) as Category[];
+
+  useAdminRealtimeInvalidation(['categories'], [ADMIN_KEYS.categories as unknown as string[]]);
+
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -39,25 +45,6 @@ export default function AdminCategories() {
   const [formData, setFormData] = useState<Partial<Category>>({});
   const { toast } = useToast();
   const { log } = useActivityLog();
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*')
-      .order('sort_order', { ascending: true });
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      setCategories((data || []) as unknown as Category[]);
-    }
-    setIsLoading(false);
-  };
 
   const handleRowClick = (category: Category) => {
     setSelectedCategory(category);
@@ -90,19 +77,13 @@ export default function AdminCategories() {
   const handleDelete = async () => {
     if (!selectedCategory) return;
     setIsDeleting(true);
-
-    const { error } = await supabase
-      .from('categories')
-      .delete()
-      .eq('id', selectedCategory.id);
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      await deleteCategoryMutation.mutateAsync(selectedCategory.id);
       toast({ title: 'Success', description: 'Category deleted successfully' });
       log({ action: 'delete', entityType: 'category', entityId: selectedCategory.id, details: { name: selectedCategory.name } });
       setIsDetailOpen(false);
-      fetchCategories();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
     setIsDeleting(false);
   };
@@ -117,7 +98,6 @@ export default function AdminCategories() {
 
     const slug = formData.slug || formData.name.toLowerCase().replace(/\s+/g, '-');
     let sortOrder = formData.sort_order ?? getNextSortOrder();
-    // Auto-resolve sort order collisions
     const hasCollision = categories.some(c => c.sort_order === sortOrder && c.id !== selectedCategory?.id);
     if (hasCollision) {
       sortOrder = getNextSortOrder();
@@ -132,31 +112,13 @@ export default function AdminCategories() {
       is_active: formData.is_active ?? true,
     };
 
-    if (selectedCategory) {
-      const { error } = await supabase
-        .from('categories')
-        .update(categoryData)
-        .eq('id', selectedCategory.id);
-
-      if (error) {
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      } else {
-        toast({ title: 'Success', description: 'Category updated successfully' });
-        log({ action: 'update', entityType: 'category', entityId: selectedCategory.id, details: { name: formData.name } });
-        setIsFormOpen(false);
-        fetchCategories();
-      }
-    } else {
-      const { error } = await supabase.from('categories').insert([categoryData]);
-
-      if (error) {
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      } else {
-        toast({ title: 'Success', description: 'Category created successfully' });
-        log({ action: 'create', entityType: 'category', details: { name: formData.name } });
-        setIsFormOpen(false);
-        fetchCategories();
-      }
+    try {
+      await saveCategoryMutation.mutateAsync({ data: categoryData, existingId: selectedCategory?.id });
+      toast({ title: 'Success', description: `Category ${selectedCategory ? 'updated' : 'created'} successfully` });
+      log({ action: selectedCategory ? 'update' : 'create', entityType: 'category', entityId: selectedCategory?.id, details: { name: formData.name } });
+      setIsFormOpen(false);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
     setIsSaving(false);
   };
