@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useMemo } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
@@ -98,6 +99,7 @@ export default function AdminExpenses() {
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [receiptViewUrl, setReceiptViewUrl] = useState<string | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { log } = useActivityLog();
 
   useEffect(() => { localStorage.setItem(VIEW_MODE_KEY, viewMode); }, [viewMode]);
@@ -152,7 +154,7 @@ export default function AdminExpenses() {
     setIsDeleting(true);
     const { error } = await supabase.from('expenses').delete().eq('id', selectedExpense.id);
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else { toast({ title: 'Success', description: 'Expense deleted' }); log({ action: 'delete', entityType: 'expense', entityId: selectedExpense.id, details: { name: selectedExpense.description } }); setIsDetailOpen(false); fetchExpenses(); }
+    else { toast({ title: 'Success', description: 'Expense deleted' }); log({ action: 'delete', entityType: 'expense', entityId: selectedExpense.id, details: { name: selectedExpense.description } }); setIsDetailOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); }
     setIsDeleting(false);
   };
 
@@ -173,11 +175,11 @@ export default function AdminExpenses() {
     if (selectedExpense) {
       const { error } = await supabase.from('expenses').update(expenseData).eq('id', selectedExpense.id);
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      else { toast({ title: 'Success', description: 'Expense updated' }); log({ action: 'update', entityType: 'expense', entityId: selectedExpense.id, details: { name: formData.description } }); setIsFormOpen(false); fetchExpenses(); }
+      else { toast({ title: 'Success', description: 'Expense updated' }); log({ action: 'update', entityType: 'expense', entityId: selectedExpense.id, details: { name: formData.description } }); setIsFormOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); }
     } else {
       const { error } = await supabase.from('expenses').insert([expenseData]);
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      else { toast({ title: 'Success', description: 'Expense added' }); log({ action: 'create', entityType: 'expense', details: { name: formData.description } }); setIsFormOpen(false); fetchExpenses(); }
+      else { toast({ title: 'Success', description: 'Expense added' }); log({ action: 'create', entityType: 'expense', details: { name: formData.description } }); setIsFormOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); }
     }
     setIsSaving(false);
   };

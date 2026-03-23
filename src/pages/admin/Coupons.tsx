@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
@@ -102,6 +103,7 @@ export default function AdminCoupons() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Coupon> & { start_date_local?: string; end_date_local?: string }>({});
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { log } = useActivityLog();
 
   const handleRowClick = (coupon: Coupon) => {
@@ -147,7 +149,7 @@ export default function AdminCoupons() {
       toast({ title: 'Success', description: 'Coupon deleted successfully' });
       log({ action: 'delete', entityType: 'coupon', entityId: selectedCoupon.id, details: { name: selectedCoupon.code } });
       setIsDetailOpen(false);
-      fetchCoupons();
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.coupons });
     }
     setIsDeleting(false);
   };
@@ -183,7 +185,7 @@ export default function AdminCoupons() {
         toast({ title: 'Success', description: 'Coupon updated successfully' });
         log({ action: 'update', entityType: 'coupon', entityId: selectedCoupon.id, details: { name: formData.code } });
         setIsFormOpen(false);
-        fetchCoupons();
+        queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.coupons });
       }
     } else {
       const { error } = await supabase.from('coupons').insert([couponData]);
@@ -193,7 +195,7 @@ export default function AdminCoupons() {
         toast({ title: 'Success', description: 'Coupon created successfully' });
         log({ action: 'create', entityType: 'coupon', details: { name: formData.code } });
         setIsFormOpen(false);
-        fetchCoupons();
+        queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.coupons });
       }
     }
     setIsSaving(false);

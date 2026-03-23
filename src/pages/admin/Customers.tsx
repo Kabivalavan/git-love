@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useMemo } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
@@ -63,6 +64,7 @@ export default function AdminCustomers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { log } = useActivityLog();
 
   useEffect(() => {
@@ -175,7 +177,7 @@ export default function AdminCustomers() {
         description: `Customer ${blocked ? 'blocked' : 'unblocked'} successfully` 
       });
       setSelectedCustomer({ ...selectedCustomer, is_blocked: blocked });
-      fetchCustomers();
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.customers });
     }
     setIsUpdating(false);
   };

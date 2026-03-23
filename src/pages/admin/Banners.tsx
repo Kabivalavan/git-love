@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
@@ -91,6 +92,7 @@ export default function AdminBanners() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Banner> & { start_date_local?: string; end_date_local?: string }>({});
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { log } = useActivityLog();
 
   const handleRowClick = (banner: Banner) => {
