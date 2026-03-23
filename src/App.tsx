@@ -3,7 +3,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { GlobalStoreProvider } from '@/hooks/useGlobalStore';
@@ -183,19 +183,30 @@ const AppRoutes = () => (
   </>
 );
 
+function RouteScopedProviders({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
+
+  if (isAdminRoute) {
+    return <>{children}</>;
+  }
+
+  return <GlobalStoreProvider>{children}</GlobalStoreProvider>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <ThemeProvider>
-        <GlobalStoreProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <RouteScopedProviders>
               <AppRoutes />
-            </BrowserRouter>
-          </TooltipProvider>
-        </GlobalStoreProvider>
+            </RouteScopedProviders>
+          </BrowserRouter>
+        </TooltipProvider>
       </ThemeProvider>
     </AuthProvider>
   </QueryClientProvider>
