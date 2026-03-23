@@ -29,12 +29,12 @@ interface Delivery {
 }
 
 const DELIVERY_STATUSES = [
-  { value: 'pending', label: 'Pending', color: 'secondary' },
-  { value: 'assigned', label: 'Assigned', color: 'default' },
-  { value: 'picked', label: 'Picked Up', color: 'default' },
-  { value: 'in_transit', label: 'In Transit', color: 'default' },
-  { value: 'delivered', label: 'Delivered', color: 'default' },
-  { value: 'failed', label: 'Failed', color: 'destructive' },
+  { value: 'pending', label: 'Pending', color: 'bg-gray-100 text-gray-800' },
+  { value: 'assigned', label: 'Assigned', color: 'bg-blue-100 text-blue-800' },
+  { value: 'picked', label: 'Picked Up', color: 'bg-indigo-100 text-indigo-800' },
+  { value: 'in_transit', label: 'In Transit', color: 'bg-amber-100 text-amber-800' },
+  { value: 'delivered', label: 'Delivered', color: 'bg-green-100 text-green-800' },
+  { value: 'failed', label: 'Failed', color: 'bg-red-100 text-red-800' },
 ];
 
 export default function AdminDeliveries() {
