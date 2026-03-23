@@ -20,6 +20,8 @@ import {
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import type { ConversionSettings } from '@/hooks/useConversionOptimization';
 import type { Product } from '@/types/database';
+import { useAdminProducts, useAdminStoreSettings, useSaveStoreSetting } from '@/hooks/useAdminQueries';
+import { useQuery } from '@tanstack/react-query';
 
 const DEFAULT_SETTINGS: ConversionSettings = {
   exit_popup: {
