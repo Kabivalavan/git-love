@@ -3,6 +3,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
 import { supabase } from '@/integrations/supabase/client';
+import { useAdminExpenses, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
 import { Button } from '@/components/ui/button';
 import { Plus, LayoutGrid, List, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
