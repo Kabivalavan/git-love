@@ -166,25 +166,13 @@ export default function AdminProducts() {
   const handleDelete = async () => {
     if (!selectedProduct) return;
     setIsDeleting(true);
-
-    if (selectedProduct.images) {
-      for (const img of selectedProduct.images) {
-        const urlParts = img.image_url.split('/products/');
-        if (urlParts.length > 1) {
-          await supabase.storage.from('products').remove([urlParts[1]]);
-        }
-      }
-    }
-
-    const { error } = await supabase.from('products').delete().eq('id', selectedProduct.id);
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      await deleteProductMutation.mutateAsync(selectedProduct);
       log({ action: 'delete', entityType: 'product', entityId: selectedProduct.id, details: { name: selectedProduct.name } });
       toast({ title: 'Success', description: 'Product deleted successfully' });
       setIsDetailOpen(false);
-      fetchProducts();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
     setIsDeleting(false);
   };
