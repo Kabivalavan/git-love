@@ -13,6 +13,9 @@ import { useToast } from '@/hooks/use-toast';
 import { MessageSquare, Send, Save, Loader2, Edit, Eye, ShoppingCart, Truck, Star, UserPlus, Package, Clock, Sparkles, Mail } from 'lucide-react';
 import { BulkWhatsApp } from '@/components/admin/BulkWhatsApp';
 import { BulkEmail } from '@/components/admin/BulkEmail';
+import { useAdminStoreSettings, useSaveStoreSetting } from '@/hooks/useAdminQueries';
+import { BulkWhatsApp } from '@/components/admin/BulkWhatsApp';
+import { BulkEmail } from '@/components/admin/BulkEmail';
 
 interface WhatsAppTemplate {
   id: string;
