@@ -198,7 +198,7 @@ export default function AdminPayments() {
                 <Select
                   value={selectedPayment.status}
                   onValueChange={handleStatusUpdate}
-                  disabled={isUpdating}
+                  disabled={isUpdating || selectedPayment.status === 'paid' || selectedPayment.status === 'refunded'}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -211,6 +211,9 @@ export default function AdminPayments() {
                     ))}
                   </SelectContent>
                 </Select>
+                {(selectedPayment.status === 'paid' || selectedPayment.status === 'refunded') && (
+                  <p className="text-[10px] text-muted-foreground mt-1">🔒 Status locked</p>
+                )}
               </div>
             </DetailSection>
 
