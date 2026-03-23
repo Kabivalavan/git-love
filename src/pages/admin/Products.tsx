@@ -84,7 +84,7 @@ export default function AdminProducts() {
   // Realtime invalidation instead of manual fetch
   useAdminRealtimeInvalidation(
     ['products', 'product_variants', 'stock_holds', 'orders', 'order_items'],
-    [ADMIN_KEYS.products]
+    [ADMIN_KEYS.products as unknown as string[]]
   );
 
   const handleRowClick = async (product: Product) => {
