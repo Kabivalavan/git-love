@@ -32,6 +32,7 @@ export default function CartPage() {
   const { updateQuantity: updateQtyMutation, removeItem: removeItemMutation } = useCartMutations();
   const { data: checkoutSettingsData } = useCheckoutSettings();
   const checkoutSettings = {
+    min_order_value: checkoutSettingsData?.min_order_value ?? 0,
     free_shipping_threshold: checkoutSettingsData?.free_shipping_threshold ?? 500,
     default_shipping_charge: checkoutSettingsData?.default_shipping_charge ?? 50,
   };
@@ -119,6 +120,9 @@ export default function CartPage() {
       : appliedCoupon.value
     : 0;
   const totalDiscount = offerDiscount.totalDiscount + couponDiscount;
+  const minOrderValue = checkoutSettings.min_order_value;
+  const isMinOrderMet = minOrderValue <= 0 || subtotal >= minOrderValue;
+  const minOrderRemaining = Math.max(0, minOrderValue - subtotal);
   const freeThreshold = checkoutSettings.free_shipping_threshold;
   const defaultShipping = checkoutSettings.default_shipping_charge;
   const shippingCharge = (freeThreshold > 0 && subtotal >= freeThreshold) ? 0 : defaultShipping;
@@ -390,7 +394,22 @@ export default function CartPage() {
                 <span>₹{Math.round(total)}</span>
               </div>
 
-              <Button className="w-full h-12 text-base font-semibold rounded-xl" onClick={() => navigate('/checkout')}>
+              {!isMinOrderMet && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3">
+                  <p className="text-sm font-medium text-destructive">
+                    Minimum order value is ₹{Math.round(minOrderValue)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Add ₹{Math.round(minOrderRemaining)} more to continue checkout.
+                  </p>
+                </div>
+              )}
+
+              <Button
+                className="w-full h-12 text-base font-semibold rounded-xl"
+                onClick={() => navigate('/checkout')}
+                disabled={!isMinOrderMet}
+              >
                 Checkout
               </Button>
 
