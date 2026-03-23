@@ -40,6 +40,8 @@ export const ADMIN_KEYS = {
   offers: ['admin-offers'] as const,
   expenses: ['admin-expenses'] as const,
   banners: ['admin-banners'] as const,
+  returns: ['admin-returns'] as const,
+  analytics: (since: string, until: string) => ['admin-analytics', since, until] as const,
 };
 
 // ─── Store Settings (shared across Settings, Orders, Customers, etc.) ───
