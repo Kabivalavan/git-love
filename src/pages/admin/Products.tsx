@@ -88,14 +88,8 @@ export default function AdminProducts() {
   );
 
   const handleRowClick = async (product: Product) => {
-    // Fetch variants for detail panel
-    const { data: variants } = await supabase
-      .from('product_variants')
-      .select('*')
-      .eq('product_id', product.id)
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true });
-    setSelectedProduct({ ...product, variants: (variants || []) as unknown as ProductVariant[] });
+    const variants = await fetchProductVariants(product.id);
+    setSelectedProduct({ ...product, variants: variants as unknown as ProductVariant[] });
     setIsDetailOpen(true);
   };
 
