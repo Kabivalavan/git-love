@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useActivityLog } from '@/hooks/useActivityLog';
+import { useAdminCategories, useSaveCategory, useDeleteCategory, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
 import type { Category } from '@/types/database';
 import {
   Dialog,
@@ -29,8 +30,13 @@ import {
 } from '@/components/ui/select';
 
 export default function AdminCategories() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: categoriesData, isLoading } = useAdminCategories();
+  const saveCategoryMutation = useSaveCategory();
+  const deleteCategoryMutation = useDeleteCategory();
+  const categories = (categoriesData || []) as Category[];
+
+  useAdminRealtimeInvalidation(['categories'], [ADMIN_KEYS.categories as unknown as string[]]);
+
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -39,25 +45,6 @@ export default function AdminCategories() {
   const [formData, setFormData] = useState<Partial<Category>>({});
   const { toast } = useToast();
   const { log } = useActivityLog();
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*')
-      .order('sort_order', { ascending: true });
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      setCategories((data || []) as unknown as Category[]);
-    }
-    setIsLoading(false);
-  };
 
   const handleRowClick = (category: Category) => {
     setSelectedCategory(category);
