@@ -405,6 +405,11 @@ export default function CheckoutPage() {
   const placeOrder = async () => {
     if (!user || !selectedAddress || cartItems.length === 0) return;
 
+    const currentSubtotal = cartItems.reduce(
+      (sum, item) => sum + ((item.variant?.price ?? item.product.price) * item.quantity),
+      0,
+    );
+
     const quantityIssues = getQuantityIssues();
     if (quantityIssues.length > 0) {
       toast({
@@ -415,6 +420,16 @@ export default function CheckoutPage() {
           .join(' | '),
         variant: 'destructive',
       });
+      return;
+    }
+
+    if (checkoutSettings.min_order_value > 0 && currentSubtotal < checkoutSettings.min_order_value) {
+      toast({
+        title: 'Minimum order not reached',
+        description: `Add ₹${Math.ceil(checkoutSettings.min_order_value - currentSubtotal)} more in cart to continue.`,
+        variant: 'destructive',
+      });
+      navigate('/cart');
       return;
     }
     
@@ -449,14 +464,12 @@ export default function CheckoutPage() {
       const { data: orderNumberData } = await supabase.rpc('generate_order_number');
       const orderNumber = orderNumberData || `ORD${Date.now()}`;
 
-      const subtotal = cartItems.reduce((sum, item) => sum + ((item.variant?.price ?? item.product.price) * item.quantity), 0);
-
       let validCoupon: Coupon | null = null;
       if (appliedCoupon) {
         const { coupon, error } = await validateCouponForUser({
           couponId: appliedCoupon.id,
           userId: user.id,
-          subtotal,
+          subtotal: currentSubtotal,
         });
 
         if (!coupon || error) {
@@ -475,14 +488,14 @@ export default function CheckoutPage() {
       );
       const orderCouponDiscount = validCoupon
         ? validCoupon.type === 'percentage'
-          ? Math.min((subtotal * validCoupon.value) / 100, validCoupon.max_discount || Infinity)
+          ? Math.min((currentSubtotal * validCoupon.value) / 100, validCoupon.max_discount || Infinity)
           : validCoupon.value
         : 0;
       const orderTotalDiscount = orderOfferDiscount.totalDiscount + orderCouponDiscount;
       const freeThreshold = checkoutSettings.free_shipping_threshold;
       const defaultShipping = checkoutSettings.default_shipping_charge;
-      const shippingCharge = (freeThreshold > 0 && subtotal >= freeThreshold) ? 0 : defaultShipping;
-      const total = subtotal - orderTotalDiscount + shippingCharge;
+      const shippingCharge = (freeThreshold > 0 && currentSubtotal >= freeThreshold) ? 0 : defaultShipping;
+      const total = currentSubtotal - orderTotalDiscount + shippingCharge;
 
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -492,7 +505,7 @@ export default function CheckoutPage() {
           status: 'new',
           payment_status: 'pending',
           payment_method: paymentMethod,
-          subtotal,
+          subtotal: currentSubtotal,
           discount: orderTotalDiscount,
           coupon_id: validCoupon?.id || null,
           coupon_code: validCoupon?.code || null,
@@ -623,10 +636,12 @@ export default function CheckoutPage() {
             await clearCartAndRedirect(orderNumber);
           },
           onFailure: async (error) => {
-            await supabase
-              .from('orders')
-              .update({ payment_status: 'failed' })
-              .eq('id', order.id);
+            await supabase.functions.invoke('razorpay-cancel-order', {
+              body: {
+                order_id: order.id,
+                reason: error || 'Payment cancelled by user',
+              },
+            });
 
             // Release linked hold if payment fails
             await supabase.rpc('release_stock_hold', {
@@ -949,12 +964,6 @@ export default function CheckoutPage() {
                   <span>₹{total.toFixed(0)}</span>
                 </div>
 
-                {checkoutSettings.min_order_value > 0 && subtotal < checkoutSettings.min_order_value && (
-                  <p className="text-sm text-destructive text-center">
-                    Minimum order value is ₹{checkoutSettings.min_order_value}
-                  </p>
-                )}
-
                 {quantityIssues.length > 0 && (
                   <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                     <p className="text-sm text-destructive font-medium">Some items exceed available stock</p>
@@ -975,7 +984,7 @@ export default function CheckoutPage() {
                   className="w-full"
                   size="lg"
                   onClick={placeOrder}
-                  disabled={!selectedAddress || isPlacingOrder || isBlocked || quantityIssues.length > 0 || (checkoutSettings.min_order_value > 0 && subtotal < checkoutSettings.min_order_value)}
+                  disabled={!selectedAddress || isPlacingOrder || isBlocked || quantityIssues.length > 0}
                 >
                   {isPlacingOrder ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Placing Order...</>
