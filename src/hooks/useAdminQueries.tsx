@@ -157,9 +157,9 @@ export function useAdminLiveViewers() {
   return useQuery({
     queryKey: ADMIN_KEYS.liveViewers,
     queryFn: fetchLiveViewerStats,
-    staleTime: 10 * 1000, // 10s stale for live data
+    staleTime: 30 * 1000, // 30s stale for live data
     gcTime: 60 * 1000,
-    refetchInterval: 15000, // auto-refresh every 15s
+    refetchInterval: 30000, // auto-refresh every 30s
     refetchOnWindowFocus: false,
   });
 }
@@ -230,14 +230,30 @@ export function useAdminRealtimeInvalidation(
 
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let throttleTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastInvalidationAt = 0;
+    const DEBOUNCE_MS = 250;
+    const MIN_INVALIDATE_INTERVAL_MS = 5000;
+
+    const runInvalidation = () => {
+      lastInvalidationAt = Date.now();
+      queryKeys.forEach((key) => {
+        queryClient.invalidateQueries({ queryKey: key });
+      });
+    };
 
     const scheduleInvalidation = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        queryKeys.forEach((key) => {
-          queryClient.invalidateQueries({ queryKey: key });
-        });
-      }, 200);
+        const elapsed = Date.now() - lastInvalidationAt;
+        if (elapsed >= MIN_INVALIDATE_INTERVAL_MS) {
+          runInvalidation();
+          return;
+        }
+
+        if (throttleTimer) clearTimeout(throttleTimer);
+        throttleTimer = setTimeout(runInvalidation, MIN_INVALIDATE_INTERVAL_MS - elapsed);
+      }, DEBOUNCE_MS);
     };
 
     const channel = supabase.channel(`admin-realtime-${tablesKey}`);
@@ -252,6 +268,7 @@ export function useAdminRealtimeInvalidation(
 
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
+      if (throttleTimer) clearTimeout(throttleTimer);
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
