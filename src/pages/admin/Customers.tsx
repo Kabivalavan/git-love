@@ -35,12 +35,27 @@ interface Customer {
 }
 
 export default function AdminCustomers() {
-  const { data: customersData, isLoading } = useAdminCustomers();
+  const { toast } = useToast();
+
+  const fetchCustomersFn = useCallback(async (from: number, to: number) => {
+    try {
+      return await fetchAdminCustomersPaginated(from, to);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      return { data: [], count: 0 };
+    }
+  }, [toast]);
+
+  const { items: customers, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial } = usePaginatedFetch<Customer>({
+    pageSize: 30,
+    fetchFn: fetchCustomersFn,
+    cacheKey: 'admin-customers-paginated',
+    cacheTimeMs: 3 * 60 * 1000,
+  });
+
+  useEffect(() => { fetchInitial(); }, []);
+
   const { data: settingsData } = useAdminStoreSettings();
-
-  useAdminRealtimeInvalidation(['profiles', 'orders'], [ADMIN_KEYS.customers as unknown as string[]]);
-
-  const customers = (customersData || []) as Customer[];
   const storeName = useMemo(() => {
     const info = settingsData?.find(s => s.key === 'store_info');
     return (info?.value as any)?.name || 'Our Store';
