@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 
 interface UseInfiniteScrollOptions {
   hasMore: boolean;
@@ -6,6 +6,7 @@ interface UseInfiniteScrollOptions {
   onLoadMore: () => void;
   threshold?: number;
   rootMargin?: string;
+  requireUserScroll?: boolean;
 }
 
 export function useInfiniteScroll({
@@ -13,17 +14,42 @@ export function useInfiniteScroll({
   isLoading,
   onLoadMore,
   rootMargin = '200px',
+  requireUserScroll = true,
 }: UseInfiniteScrollOptions) {
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const [hasUserScrolled, setHasUserScrolled] = useState(!requireUserScroll);
+
+  useEffect(() => {
+    if (!requireUserScroll || hasUserScrolled) return;
+
+    const markScrolled = () => setHasUserScrolled(true);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (['ArrowDown', 'PageDown', 'End', ' '].includes(event.key)) {
+        markScrolled();
+      }
+    };
+
+    window.addEventListener('scroll', markScrolled, true);
+    window.addEventListener('wheel', markScrolled, { passive: true });
+    window.addEventListener('touchmove', markScrolled, { passive: true });
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('scroll', markScrolled, true);
+      window.removeEventListener('wheel', markScrolled);
+      window.removeEventListener('touchmove', markScrolled);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [requireUserScroll, hasUserScrolled]);
 
   const handleObserver = useCallback(
     (entries: IntersectionObserverEntry[]) => {
       const target = entries[0];
-      if (target.isIntersecting && hasMore && !isLoading) {
+      if (target.isIntersecting && hasMore && !isLoading && hasUserScrolled) {
         onLoadMore();
       }
     },
-    [hasMore, isLoading, onLoadMore]
+    [hasMore, isLoading, onLoadMore, hasUserScrolled]
   );
 
   useEffect(() => {
