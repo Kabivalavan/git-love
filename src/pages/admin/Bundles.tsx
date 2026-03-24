@@ -302,6 +302,9 @@ export default function AdminBundles() {
           searchKeys={['name']}
           getRowId={(b) => b.id}
           emptyMessage="No bundles yet. Create one to offer combo deals."
+          isLoadingMore={isLoadingMore}
+          hasMore={hasMore}
+          sentinelRef={sentinelRef}
         />
       )}
 
