@@ -96,20 +96,6 @@ export default function AdminBundles() {
     fetchProducts();
   }, []);
 
-  const fetchBundles = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('bundles')
-      .select('*, items:bundle_items(*, product:products(name, price, images:product_images(*)))')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      setBundles((data || []) as unknown as Bundle[]);
-    }
-    setIsLoading(false);
-  };
 
   const fetchProducts = async () => {
     const { data } = await supabase
