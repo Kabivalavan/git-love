@@ -6,6 +6,7 @@ interface UsePaginatedFetchOptions<T> {
   fetchFn: (from: number, to: number) => Promise<{ data: T[]; count: number }>;
   cacheKey?: string;
   cacheTimeMs?: number;
+  requireUserScroll?: boolean;
 }
 
 type CachedPage<T> = {
@@ -35,6 +36,7 @@ export function usePaginatedFetch<T>({
   fetchFn,
   cacheKey,
   cacheTimeMs = 2 * 60 * 1000,
+  requireUserScroll = true,
 }: UsePaginatedFetchOptions<T>) {
   const [items, setItems] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,6 +52,7 @@ export function usePaginatedFetch<T>({
     setIsLoading(true);
     pageRef.current = 0;
     setHasMore(false);
+    let initialRequest: Promise<{ data: T[]; count: number }> | null = null;
 
     try {
       if (cacheKey) {
@@ -78,6 +81,8 @@ export function usePaginatedFetch<T>({
         request = loadInitial();
       }
 
+      initialRequest = request;
+
       const { data, count } = await request;
       const uniqueData = dedupeById(data);
       const nextHasMore = uniqueData.length < count;
@@ -96,13 +101,12 @@ export function usePaginatedFetch<T>({
           updatedAt: Date.now(),
         });
       }
-
-      if (cacheKey && inFlightInitialRequests.get(cacheKey) === request) {
-        inFlightInitialRequests.delete(cacheKey);
-      }
     } catch {
       // handled by caller
     } finally {
+      if (cacheKey && initialRequest && inFlightInitialRequests.get(cacheKey) === initialRequest) {
+        inFlightInitialRequests.delete(cacheKey);
+      }
       isFetchingRef.current = false;
       setIsLoading(false);
     }
@@ -118,11 +122,15 @@ export function usePaginatedFetch<T>({
 
     try {
       const { data, count } = await fetchFn(from, to);
-      const merged = dedupeById([...items, ...data]);
-      const nextHasMore = from + data.length < count;
+      let merged: T[] = [];
+      setItems((prev) => {
+        merged = dedupeById([...prev, ...data]);
+        return merged;
+      });
+
+      const nextHasMore = merged.length < count;
       const nextPage = pageRef.current + 1;
 
-      setItems(merged);
       setTotalCount(count);
       setHasMore(nextHasMore);
       pageRef.current = nextPage;
@@ -142,12 +150,13 @@ export function usePaginatedFetch<T>({
       isFetchingRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [fetchFn, pageSize, isLoading, isLoadingMore, hasMore, cacheKey, items]);
+  }, [fetchFn, pageSize, isLoading, isLoadingMore, hasMore, cacheKey]);
 
   const sentinelRef = useInfiniteScroll({
     hasMore,
     isLoading: isLoading || isLoadingMore,
     onLoadMore: fetchMore,
+    requireUserScroll,
   });
 
   return {
