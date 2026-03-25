@@ -81,20 +81,26 @@ export default function AdminAnalytics() {
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
 
-  const getDateRange = () => {
-    if (dateRange === 'custom' && customFrom && customTo) {
-      return { since: new Date(customFrom).toISOString(), until: new Date(customTo + 'T23:59:59').toISOString() };
+  const queryRange = useMemo(() => {
+    if (dateRange === 'custom') {
+      if (!customFrom || !customTo) return { since: '', until: '' };
+      return {
+        since: new Date(customFrom).toISOString(),
+        until: new Date(`${customTo}T23:59:59`).toISOString(),
+      };
     }
-    const daysAgo = new Date();
-    daysAgo.setDate(daysAgo.getDate() - parseInt(dateRange));
-    return { since: daysAgo.toISOString(), until: new Date().toISOString() };
-  };
 
-  const { since, until } = getDateRange();
-  const { data: rawData, isLoading } = useAdminAnalytics(
-    dateRange === 'custom' && (!customFrom || !customTo) ? '' : since,
-    dateRange === 'custom' && (!customFrom || !customTo) ? '' : until
-  );
+    const untilDate = new Date();
+    const sinceDate = new Date(untilDate);
+    sinceDate.setDate(sinceDate.getDate() - Number.parseInt(dateRange, 10));
+
+    return {
+      since: sinceDate.toISOString(),
+      until: untilDate.toISOString(),
+    };
+  }, [dateRange, customFrom, customTo]);
+
+  const { data: rawData, isLoading } = useAdminAnalytics(queryRange.since, queryRange.until);
 
   const data = useMemo<AnalyticsData | null>(() => {
     if (!rawData) return null;
