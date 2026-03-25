@@ -227,8 +227,13 @@ export async function fetchDashboardData() {
   weekAgo.setDate(weekAgo.getDate() - 7);
 
   const [ordersRes, productsRes, customersRes, analyticsRes, returnsRes] = await Promise.all([
-    supabase.from('orders').select('*').order('created_at', { ascending: false }),
-    supabase.from('products').select('*'),
+    supabase
+      .from('orders')
+      .select('id, order_number, total, status, payment_method, created_at')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('products')
+      .select('id, name, sku, stock_quantity, low_stock_threshold'),
     supabase.from('profiles').select('id'),
     supabase.from('analytics_events').select('id').eq('event_type', 'page_view').gte('created_at', weekAgo.toISOString()),
     supabase.from('returns').select('id', { count: 'exact', head: true }).eq('status', 'requested' as any),
@@ -470,6 +475,66 @@ export async function fetchPayments(from: number, to: number) {
 }
 
 // ─── Returns ───
+export async function fetchAdminReturnsPaginated(from: number, to: number, filters?: { status?: string }) {
+  let query = supabase
+    .from('returns')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false });
+
+  if (filters?.status && filters.status !== 'all') {
+    query = query.eq('status', filters.status as any);
+  }
+
+  const { data, error, count } = await query.range(from, to);
+  if (error) throw error;
+  if (!data || data.length === 0) return { data: [], count: count || 0 };
+
+  const orderIds = [...new Set(data.map((r) => r.order_id).filter(Boolean))];
+  const userIds = [...new Set(data.map((r) => r.user_id).filter(Boolean))];
+  const returnIds = data.map((r) => r.id);
+
+  const [ordersRes, profilesRes, itemsRes, refundsRes] = await Promise.all([
+    orderIds.length > 0
+      ? supabase.from('orders').select('id, order_number, total, payment_method').in('id', orderIds)
+      : Promise.resolve({ data: [], error: null } as any),
+    userIds.length > 0
+      ? supabase.from('profiles').select('user_id, full_name, email, mobile_number').in('user_id', userIds)
+      : Promise.resolve({ data: [], error: null } as any),
+    returnIds.length > 0
+      ? supabase.from('return_items').select('*').in('return_id', returnIds)
+      : Promise.resolve({ data: [], error: null } as any),
+    returnIds.length > 0
+      ? supabase.from('refunds').select('*').in('return_id', returnIds)
+      : Promise.resolve({ data: [], error: null } as any),
+  ]);
+
+  const relatedError = [ordersRes.error, profilesRes.error, itemsRes.error, refundsRes.error].find(Boolean);
+  if (relatedError) throw relatedError;
+
+  const ordersMap = new Map((ordersRes.data || []).map((o) => [o.id, o]));
+  const profilesMap = new Map((profilesRes.data || []).map((p) => [p.user_id, p]));
+  const itemsMap = new Map<string, any[]>();
+
+  (itemsRes.data || []).forEach((item) => {
+    const list = itemsMap.get(item.return_id) || [];
+    list.push(item);
+    itemsMap.set(item.return_id, list);
+  });
+
+  const refundsMap = new Map((refundsRes.data || []).map((r) => [r.return_id, r]));
+
+  const result = data.map((r) => ({
+    ...r,
+    images: (r.images as any) || [],
+    order: ordersMap.get(r.order_id) as any,
+    profile: profilesMap.get(r.user_id) as any,
+    items: itemsMap.get(r.id) || [],
+    refund: (refundsMap.get(r.id) as any) || null,
+  }));
+
+  return { data: result, count: count || 0 };
+}
+
 export async function fetchAdminReturns() {
   const { data, error } = await supabase
     .from('returns')
