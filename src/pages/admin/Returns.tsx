@@ -1,5 +1,4 @@
-import { useState, useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useState, useCallback, useEffect } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useActivityLog } from '@/hooks/useActivityLog';
 import { RotateCcw, Search, Check, X, Truck, Package, DollarSign, Loader2, Image as ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
-import { useAdminReturns, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { fetchAdminReturnsPaginated } from '@/api/admin';
+import { usePaginatedFetch } from '@/hooks/usePaginatedFetch';
 
 type ReturnStatus = 'requested' | 'approved' | 'rejected' | 'in_transit' | 'received' | 'refunded' | 'completed';
 
@@ -61,8 +61,6 @@ const statusColors: Record<ReturnStatus, string> = {
 };
 
 export default function AdminReturns() {
-  const queryClient = useQueryClient();
-  const { data: returns = [], isLoading } = useAdminReturns();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedReturn, setSelectedReturn] = useState<ReturnRecord | null>(null);
@@ -77,9 +75,33 @@ export default function AdminReturns() {
   const { toast } = useToast();
   const { log } = useActivityLog();
 
-  const refetchReturns = () => queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.returns });
+  const fetchReturnsFn = useCallback(
+    (from: number, to: number) => fetchAdminReturnsPaginated(from, to, { status: statusFilter }),
+    [statusFilter]
+  );
 
-  const filtered = (returns as ReturnRecord[]).filter(r => {
+  const {
+    items: returnsRaw,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    sentinelRef,
+    fetchInitial,
+  } = usePaginatedFetch<ReturnRecord>({
+    pageSize: 24,
+    fetchFn: fetchReturnsFn,
+    cacheKey: `admin-returns-${statusFilter}`,
+    cacheTimeMs: 2 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    fetchInitial();
+  }, [fetchInitial]);
+
+  const returns = returnsRaw as ReturnRecord[];
+  const refetchReturns = useCallback(() => fetchInitial(), [fetchInitial]);
+
+  const filtered = returns.filter(r => {
     if (statusFilter !== 'all' && r.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -173,14 +195,11 @@ export default function AdminReturns() {
       }
     }
 
-    // Update order status to returned
-    await supabase.from('orders').update({ status: 'returned' as any }).eq('id', selectedReturn.order_id);
-
     await updateStatus('refunded', { item_condition: itemCondition });
     log({ action: 'refund', entityType: 'return', entityId: selectedReturn.id, details: { refund_number: refundNumber, amount: totalAmount } });
   };
 
-  const statusCounts = (returns as ReturnRecord[]).reduce((acc, r) => {
+  const statusCounts = returns.reduce((acc, r) => {
     acc[r.status] = (acc[r.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -454,37 +473,52 @@ export default function AdminReturns() {
         ) : filtered.length === 0 ? (
           <Card><CardContent className="py-12 text-center text-muted-foreground">No returns found</CardContent></Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(r => (
-              <Card key={r.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openDetail(r)}>
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-sm">{r.return_number}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[r.status]}`}>
-                      {r.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Order: {r.order?.order_number || '—'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{r.profile?.full_name || 'Unknown'}</p>
-                  <p className="text-xs text-muted-foreground truncate">{r.reason}</p>
-                  <div className="flex items-center justify-between pt-1">
-                    <p className="font-semibold text-sm">
-                      ₹{(r.items || []).reduce((s, i) => s + i.price * i.quantity, 0).toFixed(0)}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{(r.items || []).length} item(s)</span>
-                      {r.images && r.images.length > 0 && (
-                        <span className="flex items-center gap-0.5"><ImageIcon className="h-3 w-3" />{r.images.length}</span>
-                      )}
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filtered.map(r => (
+                <Card key={r.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openDetail(r)}>
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-sm">{r.return_number}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[r.status]}`}>
+                        {r.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                      </span>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      Order: {r.order?.order_number || '—'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{r.profile?.full_name || 'Unknown'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{r.reason}</p>
+                    <div className="flex items-center justify-between pt-1">
+                      <p className="font-semibold text-sm">
+                        ₹{(r.items || []).reduce((s, i) => s + i.price * i.quantity, 0).toFixed(0)}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{(r.items || []).length} item(s)</span>
+                        {r.images && r.images.length > 0 && (
+                          <span className="flex items-center gap-0.5"><ImageIcon className="h-3 w-3" />{r.images.length}</span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">{format(new Date(r.created_at), 'dd MMM yyyy, hh:mm a')}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {hasMore && (
+              <div ref={sentinelRef} className="flex justify-center py-4">
+                {isLoadingMore ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Loading more returns...</span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground">{format(new Date(r.created_at), 'dd MMM yyyy, hh:mm a')}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Scroll to load more</span>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </AdminLayout>
