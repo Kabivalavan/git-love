@@ -37,15 +37,25 @@ export default function AdminDashboard() {
   const todayPageViews = liveData?.todayPageViews || 0;
   const activeSessions = liveData?.activeSessions || 0;
 
+  const STATUS_COLORS: Record<string, string> = {
+    new: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+    confirmed: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
+    packed: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+    shipped: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+    delivered: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+    cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+    returned: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
+  };
+
   const orderColumns: Column<Order>[] = [
     { key: 'order_number', header: 'Order #' },
     { key: 'total', header: 'Amount', render: (order) => `₹${Number(order.total).toFixed(2)}` },
     {
       key: 'status', header: 'Status',
       render: (order) => (
-        <Badge variant={order.status === 'delivered' ? 'default' : order.status === 'cancelled' ? 'destructive' : 'secondary'}>
-          {order.status}
-        </Badge>
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800'}`}>
+          {order.status?.charAt(0).toUpperCase() + order.status?.slice(1)}
+        </span>
       ),
     },
     { key: 'created_at', header: 'Date', render: (order) => new Date(order.created_at).toLocaleDateString() },
