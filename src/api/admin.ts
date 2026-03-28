@@ -288,10 +288,11 @@ export async function fetchDashboardData() {
 
   return {
     stats: {
-      todaySales, weekSales, totalOrders: ordersData.length, newOrders, processingOrders, deliveredOrders,
+      todaySales, weekSales, totalOrders: ordersData.length, newOrders, processingOrders,
+      shippedOrders, deliveredOrders,
       totalProducts: productsData.length, lowStockProducts: lowStock.length, totalCustomers: customersData.length,
       avgOrderValue, conversionRate, codOrders, onlineOrders: ordersData.length - codOrders,
-      returnRequests: returnsRes.count || 0,
+      returnRequests: returnsRes.count || 0, pendingCodAmount,
     },
     salesChart: Object.values(dailySales),
     orderStatusChart: Object.entries(statusCounts).map(([name, value]) => ({
