@@ -506,18 +506,19 @@ export default function AdminReturns() {
               ))}
             </div>
 
-            {hasMore && (
-              <div ref={sentinelRef} className="flex justify-center py-4">
-                {isLoadingMore ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Loading more returns...</span>
-                  </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground">Scroll to load more</span>
-                )}
-              </div>
-            )}
+            {/* Infinite scroll sentinel - always rendered */}
+            <div ref={sentinelRef} className="flex justify-center py-4 col-span-full">
+              {isLoadingMore ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Loading more returns...</span>
+                </div>
+              ) : hasMore ? (
+                <span className="text-xs text-muted-foreground">Scroll to load more</span>
+              ) : returns.length > 0 ? (
+                <span className="text-xs text-muted-foreground">All returns loaded</span>
+              ) : null}
+            </div>
           </>
         )}
       </div>

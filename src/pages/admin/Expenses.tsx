@@ -410,6 +410,16 @@ export default function AdminExpenses() {
               </Card>
             ))}
             {filteredExpenses.length === 0 && <p className="col-span-full text-center text-muted-foreground py-12">No expenses recorded.</p>}
+            {/* Infinite scroll sentinel for grid view */}
+            <div ref={sentinelRef} className="col-span-full flex justify-center py-4">
+              {isLoadingMore ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <span className="text-sm">Loading more expenses...</span>
+                </div>
+              ) : hasMore ? (
+                <span className="text-xs text-muted-foreground">Scroll to load more</span>
+              ) : null}
+            </div>
           </div>
         )}
       </div>
