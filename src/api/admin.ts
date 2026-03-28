@@ -250,7 +250,18 @@ export async function fetchDashboardData() {
   const weekSales = weekOrders.reduce((sum, o) => sum + Number(o.total), 0);
   const newOrders = ordersData.filter(o => o.status === 'new').length;
   const processingOrders = ordersData.filter(o => o.status === 'confirmed' || o.status === 'packed').length;
+  const shippedOrders = ordersData.filter(o => o.status === 'shipped').length;
   const deliveredOrders = ordersData.filter(o => o.status === 'delivered').length;
+  const pendingPaymentAmount = ordersData
+    .filter(o => o.payment_method !== 'cod' && !['delivered', 'cancelled'].includes(o.status || ''))
+    .reduce((sum, o) => {
+      // Count orders with pending payment status
+      return sum;
+    }, 0);
+  // Actual pending payments: COD orders that haven't been collected
+  const pendingCodAmount = ordersData
+    .filter(o => o.payment_method === 'cod' && o.status !== 'cancelled')
+    .reduce((sum, o) => sum + Number(o.total), 0);
   const lowStock = productsData.filter(p => p.stock_quantity <= p.low_stock_threshold);
   const avgOrderValue = ordersData.length > 0 ? ordersData.reduce((s, o) => s + Number(o.total), 0) / ordersData.length : 0;
   const codOrders = ordersData.filter(o => o.payment_method === 'cod').length;
