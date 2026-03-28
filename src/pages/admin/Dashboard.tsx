@@ -4,7 +4,7 @@ import { ShimmerStats, ShimmerTable } from '@/components/ui/shimmer';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import {
   ShoppingCart, DollarSign, Package, Users, TrendingUp, AlertTriangle,
-  Truck, Clock, Percent, CreditCard, Zap, RotateCcw, XCircle, PackageX, Eye, Activity,
+  Truck, Clock, Percent, CreditCard, Zap, RotateCcw, PackageX, Eye, Activity,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
