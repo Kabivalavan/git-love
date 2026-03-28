@@ -71,7 +71,8 @@ export default function AdminDashboard() {
   const shippingData = [
     { name: 'Pending', value: stats?.newOrders || 0, color: 'hsl(38, 92%, 50%)' },
     { name: 'Packed', value: stats?.processingOrders || 0, color: 'hsl(280, 65%, 60%)' },
-    { name: 'Shipped', value: stats?.deliveredOrders || 0, color: 'hsl(211, 100%, 50%)' },
+    { name: 'Shipped', value: stats?.shippedOrders || 0, color: 'hsl(211, 100%, 50%)' },
+    { name: 'Delivered', value: stats?.deliveredOrders || 0, color: 'hsl(142, 76%, 36%)' },
   ];
   const totalShippings = shippingData.reduce((s, d) => s + d.value, 0);
 
