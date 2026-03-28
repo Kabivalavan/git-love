@@ -119,8 +119,8 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   <StatCard title="PENDING ORDERS" value={stats?.newOrders || 0} description="To Be Confirmed" icon={<ShoppingCart className="h-5 w-5" />} />
                   <StatCard title="RETURN REQUESTS" value={stats?.returnRequests || 0} description="To Be Reviewed" icon={<RotateCcw className="h-5 w-5" />} />
-                  <StatCard title="PENDING CANCEL REQUEST" value={0} description="To Be Processed" icon={<XCircle className="h-5 w-5" />} />
-                  <StatCard title="YET TO RECEIVE PAYMENTS" value={`₹${stats?.todaySales.toLocaleString() || '0'}`} description="To Be Received" icon={<CreditCard className="h-5 w-5" />} />
+                  <StatCard title="SHIPPED IN TRANSIT" value={stats?.shippedOrders || 0} description="Out for Delivery" icon={<Truck className="h-5 w-5" />} />
+                  <StatCard title="COD RECEIVABLE" value={`₹${(stats?.pendingCodAmount || 0).toLocaleString()}`} description="Cash to Collect" icon={<CreditCard className="h-5 w-5" />} />
                   <StatCard title="OUT OF STOCK ITEMS" value={stats?.lowStockProducts || 0} description="To Be Restocked" icon={<PackageX className="h-5 w-5" />} />
                 </div>
               </div>
