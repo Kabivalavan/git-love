@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { GlobalStoreProvider } from '@/hooks/useGlobalStore';
 import { ScrollToTop } from '@/components/ScrollToTop';
+import { ScrollToTopButton } from '@/components/ScrollToTopButton';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
@@ -124,6 +125,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 const AppRoutes = () => (
   <>
     <ScrollToTop />
+    <ScrollToTopButton />
     <Routes>
       {/* Public Storefront */}
       <Route path="/" element={<HomePage />} />

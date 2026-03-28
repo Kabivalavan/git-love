@@ -4,7 +4,7 @@ import { ShimmerStats, ShimmerTable } from '@/components/ui/shimmer';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import {
   ShoppingCart, DollarSign, Package, Users, TrendingUp, AlertTriangle,
-  Truck, Clock, Percent, CreditCard, Zap, RotateCcw, XCircle, PackageX, Eye, Activity,
+  Truck, Clock, Percent, CreditCard, Zap, RotateCcw, PackageX, Eye, Activity,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -37,15 +37,25 @@ export default function AdminDashboard() {
   const todayPageViews = liveData?.todayPageViews || 0;
   const activeSessions = liveData?.activeSessions || 0;
 
+  const STATUS_COLORS: Record<string, string> = {
+    new: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+    confirmed: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
+    packed: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+    shipped: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+    delivered: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+    cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+    returned: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
+  };
+
   const orderColumns: Column<Order>[] = [
     { key: 'order_number', header: 'Order #' },
     { key: 'total', header: 'Amount', render: (order) => `₹${Number(order.total).toFixed(2)}` },
     {
       key: 'status', header: 'Status',
       render: (order) => (
-        <Badge variant={order.status === 'delivered' ? 'default' : order.status === 'cancelled' ? 'destructive' : 'secondary'}>
-          {order.status}
-        </Badge>
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800'}`}>
+          {order.status?.charAt(0).toUpperCase() + order.status?.slice(1)}
+        </span>
       ),
     },
     { key: 'created_at', header: 'Date', render: (order) => new Date(order.created_at).toLocaleDateString() },
@@ -61,7 +71,8 @@ export default function AdminDashboard() {
   const shippingData = [
     { name: 'Pending', value: stats?.newOrders || 0, color: 'hsl(38, 92%, 50%)' },
     { name: 'Packed', value: stats?.processingOrders || 0, color: 'hsl(280, 65%, 60%)' },
-    { name: 'Shipped', value: stats?.deliveredOrders || 0, color: 'hsl(211, 100%, 50%)' },
+    { name: 'Shipped', value: stats?.shippedOrders || 0, color: 'hsl(211, 100%, 50%)' },
+    { name: 'Delivered', value: stats?.deliveredOrders || 0, color: 'hsl(142, 76%, 36%)' },
   ];
   const totalShippings = shippingData.reduce((s, d) => s + d.value, 0);
 
@@ -108,8 +119,8 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   <StatCard title="PENDING ORDERS" value={stats?.newOrders || 0} description="To Be Confirmed" icon={<ShoppingCart className="h-5 w-5" />} />
                   <StatCard title="RETURN REQUESTS" value={stats?.returnRequests || 0} description="To Be Reviewed" icon={<RotateCcw className="h-5 w-5" />} />
-                  <StatCard title="PENDING CANCEL REQUEST" value={0} description="To Be Processed" icon={<XCircle className="h-5 w-5" />} />
-                  <StatCard title="YET TO RECEIVE PAYMENTS" value={`₹${stats?.todaySales.toLocaleString() || '0'}`} description="To Be Received" icon={<CreditCard className="h-5 w-5" />} />
+                  <StatCard title="SHIPPED IN TRANSIT" value={stats?.shippedOrders || 0} description="Out for Delivery" icon={<Truck className="h-5 w-5" />} />
+                  <StatCard title="COD RECEIVABLE" value={`₹${(stats?.pendingCodAmount || 0).toLocaleString()}`} description="Cash to Collect" icon={<CreditCard className="h-5 w-5" />} />
                   <StatCard title="OUT OF STOCK ITEMS" value={stats?.lowStockProducts || 0} description="To Be Restocked" icon={<PackageX className="h-5 w-5" />} />
                 </div>
               </div>

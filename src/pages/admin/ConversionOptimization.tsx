@@ -472,8 +472,82 @@ export default function ConversionOptimization() {
                   </div>
                 ))}
                 {crossSellRules.filter(r => r.rule_type === 'upsell').length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">No manual upsell rules yet. Auto-detection will be used.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No manual upsell rules yet. Use auto-generate or auto-detection will be used.</p>
                 )}
+              </div>
+
+              {/* Auto-Generate Upsell Rules */}
+              <Separator />
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Auto-Generate Upsell Rules</Label>
+                <p className="text-xs text-muted-foreground">
+                  Automatically find higher-priced alternatives in the same category using weighted matching (price proximity, bestseller status, rating).
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    if (!allProducts.length) { toast({ title: 'No products', variant: 'destructive' }); return; }
+                    setIsSaving(true);
+                    try {
+                      // Delete existing auto rules
+                      await supabase.from('cross_sell_rules').delete().eq('rule_type', 'upsell');
+
+                      // Fetch full product data for scoring
+                      const { data: fullProducts } = await supabase
+                        .from('products')
+                        .select('id, name, price, category_id, is_bestseller, is_featured, is_active')
+                        .eq('is_active', true);
+                      const products = fullProducts || [];
+
+                      const rules: { source_product_id: string; target_product_id: string; rule_type: string; sort_order: number }[] = [];
+
+                      for (const source of products) {
+                        if (!source.category_id) continue;
+                        const candidates = products
+                          .filter(p => p.id !== source.id && p.category_id === source.category_id && Number(p.price) > Number(source.price) * 1.1)
+                          .map(p => {
+                            let weight = 0;
+                            const priceDiff = (Number(p.price) - Number(source.price)) / Number(source.price);
+                            // Sweet spot: 15-50% higher
+                            if (priceDiff >= 0.15 && priceDiff <= 0.5) weight += 3;
+                            else if (priceDiff > 0.5 && priceDiff <= 1.0) weight += 1;
+                            if (p.is_bestseller) weight += 2;
+                            if (p.is_featured) weight += 1;
+                            // Name similarity bonus
+                            const srcWords = source.name.toLowerCase().split(/\s+/);
+                            const tgtWords = p.name.toLowerCase().split(/\s+/);
+                            const shared = srcWords.filter(w => w.length > 2 && tgtWords.includes(w)).length;
+                            weight += Math.min(shared, 2);
+                            return { ...p, weight };
+                          })
+                          .sort((a, b) => b.weight - a.weight)
+                          .slice(0, 3);
+
+                        candidates.forEach((target, i) => {
+                          if (target.weight >= 2) {
+                            rules.push({ source_product_id: source.id, target_product_id: target.id, rule_type: 'upsell', sort_order: i });
+                          }
+                        });
+                      }
+
+                      if (rules.length > 0) {
+                        // Batch insert in chunks of 100
+                        for (let i = 0; i < rules.length; i += 100) {
+                          await supabase.from('cross_sell_rules').insert(rules.slice(i, i + 100));
+                        }
+                      }
+                      toast({ title: 'Auto-generated', description: `Created ${rules.length} upsell rules` });
+                      refetchRules();
+                    } catch (err: any) {
+                      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+                    }
+                    setIsSaving(false);
+                  }}
+                  disabled={isSaving}
+                  className="gap-2"
+                >
+                  <Zap className="h-4 w-4" /> Auto-Generate Upsell Rules
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -543,8 +617,75 @@ export default function ConversionOptimization() {
                   </div>
                 ))}
                 {crossSellRules.filter(r => r.rule_type === 'cross_sell').length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">No cross-sell rules yet. Bestsellers will be shown as fallback.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No cross-sell rules yet. Use auto-generate or bestsellers will be shown as fallback.</p>
                 )}
+              </div>
+
+              {/* Auto-Generate Cross-Sell Rules */}
+              <Separator />
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Auto-Generate Cross-Sell Rules</Label>
+                <p className="text-xs text-muted-foreground">
+                  Automatically pair products from different categories using weighted matching (price compatibility, bestseller/featured status, complementary categories).
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    if (!allProducts.length) { toast({ title: 'No products', variant: 'destructive' }); return; }
+                    setIsSaving(true);
+                    try {
+                      await supabase.from('cross_sell_rules').delete().eq('rule_type', 'cross_sell');
+
+                      const { data: fullProducts } = await supabase
+                        .from('products')
+                        .select('id, name, price, category_id, is_bestseller, is_featured, is_active')
+                        .eq('is_active', true);
+                      const products = fullProducts || [];
+
+                      const rules: { source_product_id: string; target_product_id: string; rule_type: string; sort_order: number }[] = [];
+
+                      for (const source of products) {
+                        const candidates = products
+                          .filter(p => p.id !== source.id && p.category_id !== source.category_id)
+                          .map(p => {
+                            let weight = 0;
+                            // Price compatibility: similar price range gets bonus
+                            const priceRatio = Number(p.price) / Number(source.price);
+                            if (priceRatio >= 0.3 && priceRatio <= 3.0) weight += 2;
+                            if (priceRatio >= 0.5 && priceRatio <= 2.0) weight += 1;
+                            if (p.is_bestseller) weight += 3;
+                            if (p.is_featured) weight += 1;
+                            // Different category bonus (complementary)
+                            if (p.category_id && p.category_id !== source.category_id) weight += 1;
+                            return { ...p, weight };
+                          })
+                          .sort((a, b) => b.weight - a.weight)
+                          .slice(0, 4);
+
+                        candidates.forEach((target, i) => {
+                          if (target.weight >= 3) {
+                            rules.push({ source_product_id: source.id, target_product_id: target.id, rule_type: 'cross_sell', sort_order: i });
+                          }
+                        });
+                      }
+
+                      if (rules.length > 0) {
+                        for (let i = 0; i < rules.length; i += 100) {
+                          await supabase.from('cross_sell_rules').insert(rules.slice(i, i + 100));
+                        }
+                      }
+                      toast({ title: 'Auto-generated', description: `Created ${rules.length} cross-sell rules` });
+                      refetchRules();
+                    } catch (err: any) {
+                      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+                    }
+                    setIsSaving(false);
+                  }}
+                  disabled={isSaving}
+                  className="gap-2"
+                >
+                  <Zap className="h-4 w-4" /> Auto-Generate Cross-Sell Rules
+                </Button>
               </div>
             </CardContent>
           </Card>
