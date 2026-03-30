@@ -144,24 +144,40 @@ export function DataTable<T>({
                 {emptyMessage}
               </div>
             ) : (
-              <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-                <Table>
-                  <TableBody>
-                    {virtualizer.getVirtualItems().map((virtualRow) => {
-                      const item = filteredData[virtualRow.index];
-                      return renderRow(item, virtualRow.index, {
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: `${virtualRow.size}px`,
-                        transform: `translateY(${virtualRow.start}px)`,
-                        display: 'table-row',
-                      });
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              <>
+                <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+                  <Table>
+                    <TableBody>
+                      {virtualizer.getVirtualItems().map((virtualRow) => {
+                        const item = filteredData[virtualRow.index];
+                        if (!item) return null;
+
+                        return renderRow(item, virtualRow.index, {
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: `${virtualRow.size}px`,
+                          transform: `translateY(${virtualRow.start}px)`,
+                          display: 'table-row',
+                        });
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Keep sentinel inside the virtual scroll container to avoid eager auto-loading */}
+                {sentinelRef && (
+                  <div ref={sentinelRef} className="flex justify-center py-4">
+                    {isLoadingMore && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Loading more...</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
           <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30">
@@ -170,42 +186,44 @@ export function DataTable<T>({
         </div>
       ) : (
         /* Standard table for smaller datasets */
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                {columns.map((column) => (
-                  <TableHead key={String(column.key)} className={cn("font-semibold", column.className)}>
-                    {column.header}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredData.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                    {emptyMessage}
-                  </TableCell>
+        <>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  {columns.map((column) => (
+                    <TableHead key={String(column.key)} className={cn("font-semibold", column.className)}>
+                      {column.header}
+                    </TableHead>
+                  ))}
                 </TableRow>
-              ) : (
-                filteredData.map((item, index) => renderRow(item, index))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+              </TableHeader>
+              <TableBody>
+                {filteredData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+                      {emptyMessage}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredData.map((item, index) => renderRow(item, index))
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-      {/* Infinite scroll sentinel + loader */}
-      {sentinelRef && (
-        <div ref={sentinelRef} className="flex justify-center py-4">
-          {isLoadingMore && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Loading more...</span>
+          {/* Infinite scroll sentinel + loader (non-virtualized mode) */}
+          {sentinelRef && (
+            <div ref={sentinelRef} className="flex justify-center py-4">
+              {isLoadingMore && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Loading more...</span>
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
