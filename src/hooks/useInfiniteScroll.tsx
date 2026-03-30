@@ -16,10 +16,11 @@ export function useInfiniteScroll({
   rootMargin = '200px',
   requireUserScroll = true,
 }: UseInfiniteScrollOptions) {
-  const sentinelRef = useRef<HTMLDivElement>(null);
   const [hasUserScrolled, setHasUserScrolled] = useState(!requireUserScroll);
   const callbackRef = useRef<(entries: IntersectionObserverEntry[]) => void>(() => {});
   const lastLoadRef = useRef(0);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const elementRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!requireUserScroll || hasUserScrolled) return;
@@ -57,19 +58,35 @@ export function useInfiniteScroll({
     [hasMore, isLoading, onLoadMore, hasUserScrolled]
   );
 
-  // Observer created only once (or when rootMargin changes), uses stable ref
+  // Setup/teardown observer when rootMargin changes
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
+    observerRef.current?.disconnect();
+    observerRef.current = new IntersectionObserver(
       (entries) => callbackRef.current(entries),
       { rootMargin }
     );
-
-    observer.observe(el);
-    return () => observer.disconnect();
+    // If element is already attached, observe it
+    if (elementRef.current) {
+      observerRef.current.observe(elementRef.current);
+    }
+    return () => {
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+    };
   }, [rootMargin]);
+
+  // Callback ref: re-observe whenever the DOM element changes (mount/unmount/swap)
+  const sentinelRef = useCallback((node: HTMLDivElement | null) => {
+    // Unobserve old element
+    if (elementRef.current && observerRef.current) {
+      observerRef.current.unobserve(elementRef.current);
+    }
+    elementRef.current = node;
+    // Observe new element
+    if (node && observerRef.current) {
+      observerRef.current.observe(node);
+    }
+  }, []);
 
   return sentinelRef;
 }

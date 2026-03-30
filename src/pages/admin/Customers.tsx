@@ -363,51 +363,61 @@ export default function AdminCustomers() {
           ) : filteredCustomers.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">No customers found.</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredCustomers.map((c) => (
-                <Card
-                  key={c.id}
-                  className="cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => handleRowClick(c)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      {c.avatar_url ? (
-                        <img src={c.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover" />
-                      ) : (
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
-                          {(c.full_name?.[0] || c.email?.[0] || '?').toUpperCase()}
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredCustomers.map((c) => (
+                  <Card
+                    key={c.id}
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => handleRowClick(c)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        {c.avatar_url ? (
+                          <img src={c.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover" />
+                        ) : (
+                          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                            {(c.full_name?.[0] || c.email?.[0] || '?').toUpperCase()}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold truncate">{c.full_name || 'No name'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{c.email}</p>
                         </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">{c.full_name || 'No name'}</p>
-                        <p className="text-xs text-muted-foreground truncate">{c.email}</p>
+                        <Badge variant={c.is_blocked ? 'destructive' : 'default'} className="text-xs flex-shrink-0">
+                          {c.is_blocked ? 'Blocked' : 'Active'}
+                        </Badge>
                       </div>
-                      <Badge variant={c.is_blocked ? 'destructive' : 'default'} className="text-xs flex-shrink-0">
-                        {c.is_blocked ? 'Blocked' : 'Active'}
-                      </Badge>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="bg-muted/50 rounded-md p-2">
-                        <p className="text-xs text-muted-foreground">Orders</p>
-                        <p className="font-semibold text-sm">{c.order_count || 0}</p>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="bg-muted/50 rounded-md p-2">
+                          <p className="text-xs text-muted-foreground">Orders</p>
+                          <p className="font-semibold text-sm">{c.order_count || 0}</p>
+                        </div>
+                        <div className="bg-muted/50 rounded-md p-2">
+                          <p className="text-xs text-muted-foreground">Spent</p>
+                          <p className="font-semibold text-sm">₹{(c.total_spent || 0).toFixed(0)}</p>
+                        </div>
+                        <div className="bg-muted/50 rounded-md p-2">
+                          <p className="text-xs text-muted-foreground">Phone</p>
+                          <p className="font-semibold text-xs truncate">{c.mobile_number || '—'}</p>
+                        </div>
                       </div>
-                      <div className="bg-muted/50 rounded-md p-2">
-                        <p className="text-xs text-muted-foreground">Spent</p>
-                        <p className="font-semibold text-sm">₹{(c.total_spent || 0).toFixed(0)}</p>
-                      </div>
-                      <div className="bg-muted/50 rounded-md p-2">
-                        <p className="text-xs text-muted-foreground">Phone</p>
-                        <p className="font-semibold text-xs truncate">{c.mobile_number || '—'}</p>
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-2">
-                      Joined {new Date(c.created_at).toLocaleDateString()}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <p className="text-[10px] text-muted-foreground mt-2">
+                        Joined {new Date(c.created_at).toLocaleDateString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              {/* Infinite scroll sentinel for grid view */}
+              <div ref={sentinelRef} className="flex justify-center py-4">
+                {isLoadingMore && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span className="text-sm">Loading more customers...</span>
+                  </div>
+                )}
+              </div>
+            </>
           )
         )}
       </div>
