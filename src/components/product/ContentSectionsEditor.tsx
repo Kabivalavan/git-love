@@ -16,7 +16,7 @@ interface ContentSectionsEditorProps {
 const SECTION_TYPES = [
   { value: 'rich_text', label: 'Rich Text' },
   { value: 'faq', label: 'FAQ' },
-  { value: 'size_guide', label: 'Size Guide' },
+  { value: 'size_guide', label: 'Usage Guide' },
   { value: 'ingredients', label: 'Ingredients / Materials' },
   { value: 'before_after', label: 'Before & After' },
   { value: 'spotlight', label: 'Spotlight Cards' },
