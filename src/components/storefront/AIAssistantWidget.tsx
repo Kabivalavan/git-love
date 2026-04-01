@@ -102,20 +102,15 @@ export function AIAssistantWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
-  const { data: config } = useQuery({
-    queryKey: ['ai-assistant-config'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('store_settings')
-        .select('value')
-        .eq('key', 'ai_assistant')
-        .single();
-      return (data?.value as unknown as AIConfig) || null;
-    },
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
+  // Use global store config — no separate query needed
+  let globalAiConfig: any = null;
+  try {
+    const { useGlobalStore } = require('@/hooks/useGlobalStore');
+    const store = useGlobalStore();
+    globalAiConfig = store.aiAssistantConfig;
+  } catch {}
+
+  const config = (globalAiConfig as AIConfig | null) || null;
 
   const assistantName = config?.assistant_name || config?.button_text || 'AI';
 

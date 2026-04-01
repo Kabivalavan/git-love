@@ -7,15 +7,12 @@ import { AIAssistantWidget } from './AIAssistantWidget';
 import { ExitIntentPopup } from './ExitIntentPopup';
 import { cn } from '@/lib/utils';
 import { useCartCount } from '@/hooks/useCartQuery';
-import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface StorefrontLayoutProps {
   children: ReactNode;
 }
-
-const AI_CACHE_KEY = 'ai_enabled_cache';
 
 const baseMobileNavItems = [
   { icon: Home, label: 'Home', path: '/', fill: true },
@@ -23,10 +20,6 @@ const baseMobileNavItems = [
   { icon: User, label: 'Profile', path: '/account', fill: false },
   { icon: ShoppingCart, label: 'Cart', path: '/cart', fill: false },
 ];
-
-function getCachedAiEnabled(): boolean {
-  try { return localStorage.getItem(AI_CACHE_KEY) === '1'; } catch { return false; }
-}
 
 function AIPopupBubble({ onDismiss }: { onDismiss: () => void }) {
   useEffect(() => {
@@ -67,30 +60,13 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { data: aiConfig } = useQuery({
-    queryKey: ['ai-assistant-enabled-config'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('store_settings')
-        .select('value')
-        .eq('key', 'ai_assistant')
-        .maybeSingle();
-      const val = data?.value as { enabled?: boolean; show_popup?: boolean } | null;
-      const enabled = Boolean(val?.enabled);
-      try { localStorage.setItem(AI_CACHE_KEY, enabled ? '1' : '0'); } catch {}
-      return { enabled, showPopup: Boolean(val?.show_popup) };
-    },
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
-
-  const isAiEnabled = aiConfig?.enabled ?? getCachedAiEnabled();
-  const aiPopupEnabled = aiConfig?.showPopup ?? false;
+  // Use consolidated config from global store — no separate query
+  const { aiAssistantConfig } = useGlobalStore();
+  const isAiEnabled = Boolean(aiAssistantConfig?.enabled);
+  const aiPopupEnabled = Boolean(aiAssistantConfig?.show_popup);
 
   const dismissPopup = useCallback(() => setShowAiPopup(false), []);
 
-  // AI popup timing: show ONCE per session after 7s, then every 2min
   useEffect(() => {
     if (!isAiEnabled || !aiPopupEnabled) return;
     if (window.innerWidth > 1024) return;

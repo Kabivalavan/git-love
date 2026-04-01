@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Product } from '@/types/database';
+import { useGlobalStore } from '@/hooks/useGlobalStore';
 
 export interface ConversionSettings {
   exit_popup: {
@@ -52,10 +53,26 @@ const DEFAULT_SETTINGS: ConversionSettings = {
   },
 };
 
+/**
+ * Uses global store data when available (storefront), falls back to direct query (admin).
+ */
 export function useConversionSettings() {
+  // Try global store first (available on storefront pages)
+  let globalData: any = null;
+  try {
+    const store = useGlobalStore();
+    globalData = store.conversionOptimization;
+  } catch {
+    // Not inside GlobalStoreProvider (e.g. admin pages) — will use direct query
+  }
+
   return useQuery({
     queryKey: ['conversion-settings'],
     queryFn: async () => {
+      // If global store already provided data, use it
+      if (globalData) {
+        return { ...DEFAULT_SETTINGS, ...globalData } as ConversionSettings;
+      }
       const { data } = await supabase
         .from('store_settings')
         .select('value')
@@ -66,6 +83,8 @@ export function useConversionSettings() {
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
+    // If we already have global data, serve it instantly
+    ...(globalData ? { initialData: { ...DEFAULT_SETTINGS, ...globalData } as ConversionSettings } : {}),
   });
 }
 
@@ -75,7 +94,6 @@ export function useUpsellProducts(product: Product | undefined, enabled: boolean
     queryKey: ['upsell-products', product?.id],
     queryFn: async () => {
       if (!product?.category_id) return [];
-      // First check admin-defined upsell rules
       const { data: rules } = await supabase
         .from('cross_sell_rules')
         .select('target_product_id')
@@ -95,7 +113,6 @@ export function useUpsellProducts(product: Product | undefined, enabled: boolean
         return (data || []) as Product[];
       }
 
-      // Fallback: auto-detect higher-priced products in same category
       const { data } = await supabase
         .from('products')
         .select('*, category:categories(*), images:product_images(*)')
@@ -119,7 +136,6 @@ export function useCrossSellProducts(product: Product | undefined, enabled: bool
     queryKey: ['cross-sell-products', product?.id],
     queryFn: async () => {
       if (!product) return [];
-      // First check admin-defined cross-sell rules
       const { data: rules } = await supabase
         .from('cross_sell_rules')
         .select('target_product_id')
@@ -139,7 +155,6 @@ export function useCrossSellProducts(product: Product | undefined, enabled: bool
         return (data || []) as Product[];
       }
 
-      // Fallback: bestsellers from other categories
       const { data } = await supabase
         .from('products')
         .select('*, category:categories(*), images:product_images(*)')
