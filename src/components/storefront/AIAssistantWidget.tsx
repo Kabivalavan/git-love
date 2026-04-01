@@ -102,14 +102,8 @@ export function AIAssistantWidget() {
   const { user } = useAuth();
 
   // Use global store config — no separate query needed
-  let globalAiConfig: any = null;
-  try {
-    const { useGlobalStore } = require('@/hooks/useGlobalStore');
-    const store = useGlobalStore();
-    globalAiConfig = store.aiAssistantConfig;
-  } catch {}
-
-  const config = (globalAiConfig as AIConfig | null) || null;
+  const { aiAssistantConfig } = useGlobalStore();
+  const config = (aiAssistantConfig as AIConfig | null) || null;
 
   const assistantName = config?.assistant_name || config?.button_text || 'AI';
 
