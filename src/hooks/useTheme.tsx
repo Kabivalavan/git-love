@@ -9,14 +9,27 @@ interface ThemeContextType {
   isLoading: boolean;
   applyThemeToAdmin: boolean;
   setApplyThemeToAdmin: (apply: boolean) => void;
+  /** Called by GlobalStoreProvider to push theme from RPC data */
+  _setThemeFromRPC: (t: StorefrontTheme) => void;
+}
+
+const THEME_CACHE_KEY = 'storefront_theme_cache';
+
+function getCachedTheme(): StorefrontTheme {
+  try {
+    const cached = localStorage.getItem(THEME_CACHE_KEY);
+    if (cached) return cached as StorefrontTheme;
+  } catch {}
+  return 'default';
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: 'default',
   setTheme: () => {},
-  isLoading: true,
+  isLoading: false,
   applyThemeToAdmin: false,
   setApplyThemeToAdmin: () => {},
+  _setThemeFromRPC: () => {},
 });
 
 export const THEME_OPTIONS: { value: StorefrontTheme; label: string; description: string; colors: string[] }[] = [
@@ -32,17 +45,14 @@ export const THEME_OPTIONS: { value: StorefrontTheme; label: string; description
 ];
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<StorefrontTheme>('default');
-  const [isLoading, setIsLoading] = useState(true);
+  // Synchronous init from localStorage — no blank screen
+  const [theme, setThemeState] = useState<StorefrontTheme>(getCachedTheme);
+  const [isLoading, setIsLoading] = useState(false);
   const [applyThemeToAdmin, setApplyThemeToAdminState] = useState(() => {
     return localStorage.getItem('admin_apply_theme') === 'true';
   });
 
-  useEffect(() => {
-    fetchTheme();
-  }, []);
-
-  // Apply theme whenever theme/admin pref changes, and watch for route changes
+  // Apply theme attribute immediately from cached value
   const applyThemeAttribute = () => {
     const isAdminRoute = window.location.pathname.startsWith('/admin');
     if (theme !== 'default') {
@@ -72,34 +82,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
   }, [theme, applyThemeToAdmin]);
 
-  const fetchTheme = async () => {
-    try {
-      const { data } = await supabase
-        .from('store_settings')
-        .select('value')
-        .eq('key', 'storefront_theme')
-        .single();
-      if (data?.value) {
-        const val = data.value as { theme: StorefrontTheme };
-        const t = val.theme || 'default';
-        setThemeState(t);
-        // Apply immediately before React re-renders
-        if (t !== 'default') {
-          const isAdminRoute = window.location.pathname.startsWith('/admin');
-          const adminPref = localStorage.getItem('admin_apply_theme') === 'true';
-          if (!isAdminRoute || adminPref) {
-            document.documentElement.setAttribute('data-storefront-theme', t);
-          }
-        }
-      }
-    } catch {
-      // ignore fetch errors, use default
-    }
-    setIsLoading(false);
+  // Called by GlobalStoreProvider when RPC data arrives
+  const _setThemeFromRPC = (t: StorefrontTheme) => {
+    setThemeState(t);
+    try { localStorage.setItem(THEME_CACHE_KEY, t); } catch {}
   };
 
   const setTheme = async (newTheme: StorefrontTheme) => {
     setThemeState(newTheme);
+    try { localStorage.setItem(THEME_CACHE_KEY, newTheme); } catch {}
 
     const { data: existing } = await supabase
       .from('store_settings')
@@ -122,7 +113,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const setApplyThemeToAdmin = (apply: boolean) => {
     setApplyThemeToAdminState(apply);
     localStorage.setItem('admin_apply_theme', apply ? 'true' : 'false');
-    // Immediately update the attribute
     const isAdminRoute = window.location.pathname.startsWith('/admin');
     if (isAdminRoute && theme !== 'default') {
       if (apply) {
@@ -133,13 +123,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Block rendering until theme is loaded to prevent flash of wrong colors
-  if (isLoading) {
-    return null;
-  }
-
+  // NO BLOCKING — render children immediately with cached theme
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, isLoading, applyThemeToAdmin, setApplyThemeToAdmin }}>
+    <ThemeContext.Provider value={{ theme, setTheme, isLoading, applyThemeToAdmin, setApplyThemeToAdmin, _setThemeFromRPC }}>
       {children}
     </ThemeContext.Provider>
   );

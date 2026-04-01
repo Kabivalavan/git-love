@@ -1,25 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Facebook, Instagram, Twitter, Youtube, Mail, Phone, MapPin } from 'lucide-react';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
-import type { SocialLinks } from '@/types/database';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 
 export function Footer() {
-  const { storeInfo } = useGlobalStore();
-
-  // Use a long staleTime to avoid redundant fetches - this data rarely changes
-  const { data: socialLinks } = useQuery({
-    queryKey: ['footer-social-links'],
-    queryFn: async () => {
-      const { data } = await supabase.from('store_settings').select('value').eq('key', 'social_links').maybeSingle();
-      return (data?.value as unknown as SocialLinks) || null;
-    },
-    staleTime: 60 * 60 * 1000, // 1 hour
-    gcTime: 2 * 60 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-  });
+  const { storeInfo, socialLinks } = useGlobalStore();
 
   return (
     <footer className="bg-primary text-primary-foreground">

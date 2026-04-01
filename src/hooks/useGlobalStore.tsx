@@ -1,7 +1,8 @@
-import { createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
+import { createContext, useContext, ReactNode, useCallback, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Category, Offer, Product, Banner } from '@/types/database';
+import { useStorefrontTheme, StorefrontTheme } from '@/hooks/useTheme';
 
 interface StoreInfo {
   name?: string;
@@ -27,6 +28,23 @@ interface ReviewStats {
   [productId: string]: { avg_rating: number; review_count: number };
 }
 
+interface SocialLinks {
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  youtube?: string;
+}
+
+interface AIAssistantConfig {
+  enabled?: boolean;
+  show_popup?: boolean;
+  site_id?: string;
+  api_base?: string;
+  secret_key?: string;
+  button_text?: string;
+  assistant_name?: string;
+}
+
 interface GlobalStoreData {
   categories: Category[];
   offers: Offer[];
@@ -47,6 +65,10 @@ interface GlobalStoreData {
     totalDiscount: number;
     appliedOffers: { offer: Offer; discount: number }[];
   };
+  // Consolidated settings from RPC
+  aiAssistantConfig: AIAssistantConfig | null;
+  conversionOptimization: any | null;
+  socialLinks: SocialLinks | null;
 }
 
 const GlobalStoreContext = createContext<GlobalStoreData | null>(null);
@@ -58,6 +80,8 @@ const fetchGlobalData = async () => {
 };
 
 export function GlobalStoreProvider({ children }: { children: ReactNode }) {
+  const { _setThemeFromRPC } = useStorefrontTheme();
+
   const { data, isLoading } = useQuery({
     queryKey: ['global-store-data'],
     queryFn: fetchGlobalData,
@@ -68,6 +92,16 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
     refetchOnReconnect: false,
     retry: 2,
   });
+
+  // Sync theme from RPC when data arrives
+  useEffect(() => {
+    if (data?.storefront_theme) {
+      const themeVal = data.storefront_theme as { theme?: StorefrontTheme };
+      if (themeVal.theme) {
+        _setThemeFromRPC(themeVal.theme);
+      }
+    }
+  }, [data?.storefront_theme, _setThemeFromRPC]);
 
   const categories = useMemo(() => (data?.categories || []) as Category[], [data?.categories]);
   const offers = useMemo(() => (data?.offers || []) as unknown as Offer[], [data?.offers]);
@@ -83,6 +117,11 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
   const bundles = useMemo(() => (data?.bundles || []) as any[], [data?.bundles]);
   const reviewStats = useMemo(() => (data?.review_stats || {}) as ReviewStats, [data?.review_stats]);
 
+  // New consolidated settings
+  const aiAssistantConfig = (data?.ai_assistant || null) as AIAssistantConfig | null;
+  const conversionOptimization = data?.conversion_optimization || null;
+  const socialLinks = (data?.social_links || null) as SocialLinks | null;
+
   const getProductOffer = useCallback((product: Product, variantId?: string | null): ProductOffer | null => {
     if (!product || offers.length === 0) return null;
 
@@ -93,7 +132,6 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
       return true;
     });
 
-    // Find product-specific offer, checking variant_ids if applicable
     const productOffer = activeOffers.find(o => {
       if (o.product_id !== product.id) return false;
       const vids = (o as any).variant_ids as string[] | null;
@@ -101,7 +139,7 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
         return vids.includes(variantId);
       }
       if (vids && vids.length > 0 && !variantId) {
-        return false; // variant-specific offer but no variant provided
+        return false;
       }
       return true;
     });
@@ -179,7 +217,10 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
     isLoading,
     getProductOffer,
     calculateCartDiscount,
-  }), [categories, offers, banners, middleBanners, popupBanner, storeInfo, announcement, storefrontDisplay, bestsellers, featured, newArrivals, bundles, reviewStats, isLoading, getProductOffer, calculateCartDiscount]);
+    aiAssistantConfig,
+    conversionOptimization,
+    socialLinks,
+  }), [categories, offers, banners, middleBanners, popupBanner, storeInfo, announcement, storefrontDisplay, bestsellers, featured, newArrivals, bundles, reviewStats, isLoading, getProductOffer, calculateCartDiscount, aiAssistantConfig, conversionOptimization, socialLinks]);
 
   return (
     <GlobalStoreContext.Provider value={value}>
