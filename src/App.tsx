@@ -10,7 +10,7 @@ import { GlobalStoreProvider } from '@/hooks/useGlobalStore';
 import { ScrollToTop } from '@/components/ScrollToTop';
 import { ScrollToTopButton } from '@/components/ScrollToTopButton';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
-import { AdminLayout } from '@/components/admin/AdminLayout';
+import { LoadingBreather } from '@/components/storefront/LoadingBreather';
 
 import HomePage from './pages/store/Home';
 
@@ -83,40 +83,22 @@ const queryClient = new QueryClient({
 // Storefront loading fallback - shows within the layout shell
 function StorefrontLoadingFallback() {
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
-      <div className="animate-pulse rounded-xl bg-muted h-8 w-3/4" />
-      <div className="animate-pulse rounded-xl bg-muted h-4 w-1/2" />
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {[1, 2, 3, 4, 5, 6].map(i => (
-          <div key={i} className="space-y-3">
-            <div className="animate-pulse rounded-xl bg-muted aspect-square" />
-            <div className="animate-pulse rounded bg-muted h-4 w-3/4" />
-            <div className="animate-pulse rounded bg-muted h-4 w-1/2" />
-          </div>
-        ))}
-      </div>
-    </div>
+    <LoadingBreather compact subtext="Hold on while we load the next part of your storefront." />
   );
 }
 
 // Admin loading fallback - shows within the admin layout shell
 function AdminLoadingFallback() {
   return (
-    <div className="space-y-4">
-      <div className="animate-pulse rounded-xl bg-muted h-8 w-1/3" />
-      <div className="animate-pulse rounded-xl bg-muted h-4 w-1/4" />
-      <div className="animate-pulse rounded-xl bg-muted h-64 w-full" />
+    <div className="min-h-screen bg-background">
+      <LoadingBreather compact subtext="Hold on while we prepare the admin workspace." />
     </div>
   );
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, isLoading } = useAuth();
-  if (isLoading) return (
-    <AdminLayout>
-      <AdminLoadingFallback />
-    </AdminLayout>
-  );
+  if (isLoading) return <AdminLoadingFallback />;
   if (!user) return <Navigate to="/admin/login" replace />;
   if (!isAdmin) return <Navigate to="/" replace />;
   return <>{children}</>;
@@ -158,28 +140,28 @@ const AppRoutes = () => (
       </Route>
 
       {/* Admin */}
-      <Route path="/admin/login" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><AdminAuth /></Suspense>} />
-      <Route path="/admin" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminDashboard /></Suspense></AdminRoute>} />
-      <Route path="/admin/banners" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminBanners /></Suspense></AdminRoute>} />
-      <Route path="/admin/products" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminProducts /></Suspense></AdminRoute>} />
-      <Route path="/admin/categories" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminCategories /></Suspense></AdminRoute>} />
-      <Route path="/admin/offers" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminOffers /></Suspense></AdminRoute>} />
-      <Route path="/admin/coupons" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminCoupons /></Suspense></AdminRoute>} />
-      <Route path="/admin/orders" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminOrders /></Suspense></AdminRoute>} />
-      <Route path="/admin/deliveries" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminDeliveries /></Suspense></AdminRoute>} />
-      <Route path="/admin/payments" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminPayments /></Suspense></AdminRoute>} />
-      <Route path="/admin/expenses" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminExpenses /></Suspense></AdminRoute>} />
-      <Route path="/admin/customers" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminCustomers /></Suspense></AdminRoute>} />
-      <Route path="/admin/reports" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminReports /></Suspense></AdminRoute>} />
-      <Route path="/admin/settings" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminSettings /></Suspense></AdminRoute>} />
-      <Route path="/admin/analytics" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminAnalytics /></Suspense></AdminRoute>} />
-      <Route path="/admin/bundles" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminBundles /></Suspense></AdminRoute>} />
-      <Route path="/admin/notifications" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminNotifications /></Suspense></AdminRoute>} />
-      <Route path="/admin/activity-log" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminActivityLog /></Suspense></AdminRoute>} />
-      <Route path="/admin/sales-boost" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminConversionOptimization /></Suspense></AdminRoute>} />
-      <Route path="/admin/whatsapp-marketing" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminWhatsAppMarketing /></Suspense></AdminRoute>} />
-      <Route path="/admin/returns" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminReturns /></Suspense></AdminRoute>} />
-      <Route path="/admin/reports2" element={<AdminRoute><Suspense fallback={<AdminLayout><AdminLoadingFallback /></AdminLayout>}><AdminReports2 /></Suspense></AdminRoute>} />
+      <Route path="/admin/login" element={<Suspense fallback={<AdminLoadingFallback />}><AdminAuth /></Suspense>} />
+      <Route path="/admin" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminDashboard /></Suspense></AdminRoute>} />
+      <Route path="/admin/banners" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminBanners /></Suspense></AdminRoute>} />
+      <Route path="/admin/products" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminProducts /></Suspense></AdminRoute>} />
+      <Route path="/admin/categories" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminCategories /></Suspense></AdminRoute>} />
+      <Route path="/admin/offers" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminOffers /></Suspense></AdminRoute>} />
+      <Route path="/admin/coupons" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminCoupons /></Suspense></AdminRoute>} />
+      <Route path="/admin/orders" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminOrders /></Suspense></AdminRoute>} />
+      <Route path="/admin/deliveries" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminDeliveries /></Suspense></AdminRoute>} />
+      <Route path="/admin/payments" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminPayments /></Suspense></AdminRoute>} />
+      <Route path="/admin/expenses" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminExpenses /></Suspense></AdminRoute>} />
+      <Route path="/admin/customers" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminCustomers /></Suspense></AdminRoute>} />
+      <Route path="/admin/reports" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminReports /></Suspense></AdminRoute>} />
+      <Route path="/admin/settings" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminSettings /></Suspense></AdminRoute>} />
+      <Route path="/admin/analytics" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminAnalytics /></Suspense></AdminRoute>} />
+      <Route path="/admin/bundles" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminBundles /></Suspense></AdminRoute>} />
+      <Route path="/admin/notifications" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminNotifications /></Suspense></AdminRoute>} />
+      <Route path="/admin/activity-log" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminActivityLog /></Suspense></AdminRoute>} />
+      <Route path="/admin/sales-boost" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminConversionOptimization /></Suspense></AdminRoute>} />
+      <Route path="/admin/whatsapp-marketing" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminWhatsAppMarketing /></Suspense></AdminRoute>} />
+      <Route path="/admin/returns" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminReturns /></Suspense></AdminRoute>} />
+      <Route path="/admin/reports2" element={<AdminRoute><Suspense fallback={<AdminLoadingFallback />}><AdminReports2 /></Suspense></AdminRoute>} />
       <Route path="*" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><NotFound /></Suspense>} />
     </Routes>
   </>

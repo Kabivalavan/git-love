@@ -1,18 +1,18 @@
-import { ReactNode, useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { ReactNode, Suspense, lazy, useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, LayoutGrid, ShoppingCart, User, Sparkles } from 'lucide-react';
 import { Header } from './Header';
 import { Footer } from './Footer';
-import { AIAssistantWidget } from './AIAssistantWidget';
-import { ExitIntentPopup } from './ExitIntentPopup';
 import { cn } from '@/lib/utils';
 import { useCartCount } from '@/hooks/useCartQuery';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
-import { motion, AnimatePresence } from 'framer-motion';
 
 interface StorefrontLayoutProps {
   children: ReactNode;
 }
+
+const AIAssistantWidget = lazy(() => import('./AIAssistantWidget').then((module) => ({ default: module.AIAssistantWidget })));
+const ExitIntentPopup = lazy(() => import('./ExitIntentPopup').then((module) => ({ default: module.ExitIntentPopup })));
 
 const baseMobileNavItems = [
   { icon: Home, label: 'Home', path: '/', fill: true },
@@ -28,13 +28,7 @@ function AIPopupBubble({ onDismiss }: { onDismiss: () => void }) {
   }, [onDismiss]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.9 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 10, scale: 0.9 }}
-      transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-      className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-[100]"
-    >
+    <div className="absolute bottom-full left-1/2 z-[100] mb-2 -translate-x-1/2 animate-enter">
       <div
         className="relative bg-card border border-border rounded-2xl shadow-xl px-3 py-2 w-[180px] text-center cursor-pointer"
         onClick={() => {
@@ -48,7 +42,7 @@ function AIPopupBubble({ onDismiss }: { onDismiss: () => void }) {
         </p>
         <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-card border-r border-b border-border rotate-45" />
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -57,6 +51,7 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
   const cartCount = useCartCount();
   const isHomePage = location.pathname === '/';
   const [showAiPopup, setShowAiPopup] = useState(false);
+  const [enableEnhancements, setEnableEnhancements] = useState(false);
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -66,6 +61,11 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
   const aiPopupEnabled = Boolean(aiAssistantConfig?.show_popup);
 
   const dismissPopup = useCallback(() => setShowAiPopup(false), []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setEnableEnhancements(true), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!isAiEnabled || !aiPopupEnabled) return;
@@ -105,8 +105,12 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
       <Header />
       <main className="flex-1 pb-16 lg:pb-0">{children}</main>
       {isHomePage && <Footer />}
-      <AIAssistantWidget />
-      <ExitIntentPopup />
+      {enableEnhancements && (
+        <Suspense fallback={null}>
+          <AIAssistantWidget />
+          <ExitIntentPopup />
+        </Suspense>
+      )}
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border lg:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
         <div className="flex items-center justify-around h-[60px]">
           {mobileNavItems.map((item) => {
@@ -124,9 +128,7 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
                   onClick={() => window.dispatchEvent(new CustomEvent('ai-assistant:open'))}
                   className="flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors relative text-muted-foreground"
                 >
-                  <AnimatePresence>
-                    {showAiPopup && <AIPopupBubble onDismiss={dismissPopup} />}
-                  </AnimatePresence>
+                  {showAiPopup && <AIPopupBubble onDismiss={dismissPopup} />}
                   <span className="relative">
                     <item.icon className="h-[22px] w-[22px]" />
                   </span>
