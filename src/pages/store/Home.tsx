@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, X, ChevronRight as ArrowRight, Info } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
 import { Shimmer } from '@/components/ui/shimmer';
@@ -220,46 +219,37 @@ export default function HomePage() {
       <HomeNewArrivals />
 
       {/* Popup Banner */}
-      <AnimatePresence>
-        {showPopup && popupBanner && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-            onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
+      {showPopup && popupBanner && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
+        >
+          <div
+            className="relative max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
           >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
+            <button
+              onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
+              className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-card/80 text-foreground flex items-center justify-center hover:bg-card transition-colors"
             >
-              <button
-                onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
-                className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <Link
-                to={popupBanner.redirect_url || '/products'}
-                onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
-              >
-                <ResponsiveImage
-                  src={popupBanner.media_url}
-                  alt={popupBanner.title}
-                  className="w-full h-auto"
-                  widths={[320, 480, 640, 960]}
-                  sizes="(max-width: 768px) 90vw, 32rem"
-                  loading="lazy"
-                />
-              </Link>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <X className="h-4 w-4" />
+            </button>
+            <Link
+              to={popupBanner.redirect_url || '/products'}
+              onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
+            >
+              <ResponsiveImage
+                src={popupBanner.media_url}
+                alt={popupBanner.title}
+                className="w-full h-auto"
+                widths={[320, 480, 640, 960]}
+                sizes="(max-width: 768px) 90vw, 32rem"
+                loading="lazy"
+              />
+            </Link>
+          </div>
+        </div>
+      )}
     </StorefrontLayout>
   );
 }

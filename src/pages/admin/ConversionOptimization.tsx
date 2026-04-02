@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,6 +48,42 @@ interface CrossSellRule {
   source_product?: { name: string };
   target_product?: { name: string };
 }
+
+type RuleType = 'upsell' | 'cross_sell';
+
+interface AutoRulePreferences {
+  targetCount: number;
+  minWeight: number;
+  clearExisting: boolean;
+  preferBestsellers: boolean;
+  preferFeatured: boolean;
+  preferNameSimilarity: boolean;
+  preferPriceCompatibility: boolean;
+  diversifyCategories: boolean;
+}
+
+const DEFAULT_AUTO_PREFS: Record<RuleType, AutoRulePreferences> = {
+  upsell: {
+    targetCount: 3,
+    minWeight: 3,
+    clearExisting: true,
+    preferBestsellers: true,
+    preferFeatured: true,
+    preferNameSimilarity: true,
+    preferPriceCompatibility: true,
+    diversifyCategories: false,
+  },
+  cross_sell: {
+    targetCount: 4,
+    minWeight: 4,
+    clearExisting: true,
+    preferBestsellers: true,
+    preferFeatured: true,
+    preferNameSimilarity: true,
+    preferPriceCompatibility: true,
+    diversifyCategories: true,
+  },
+};
 
 export default function ConversionOptimization() {
   const [settings, setSettings] = useState<ConversionSettings>(DEFAULT_SETTINGS);
@@ -147,32 +184,50 @@ export default function ConversionOptimization() {
   };
 
   // Rule management
-  const [newRule, setNewRule] = useState({ source_id: '', target_id: '', type: 'cross_sell' });
+  const [newRule, setNewRule] = useState<{ source_id: string; target_ids: string[]; type: RuleType }>({ source_id: '', target_ids: [], type: 'cross_sell' });
+  const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
+  const [autoPrefs, setAutoPrefs] = useState<Record<RuleType, AutoRulePreferences>>(DEFAULT_AUTO_PREFS);
 
   const addRule = async () => {
-    if (!newRule.source_id || !newRule.target_id) {
-      toast({ title: 'Error', description: 'Select both source and target products', variant: 'destructive' });
+    if (!newRule.source_id || newRule.target_ids.length === 0) {
+      toast({ title: 'Error', description: 'Select one source product and at least one target product', variant: 'destructive' });
       return;
     }
-    if (newRule.source_id === newRule.target_id) {
+    if (newRule.target_ids.includes(newRule.source_id)) {
       toast({ title: 'Error', description: 'Source and target must be different', variant: 'destructive' });
       return;
     }
-    const { error } = await supabase.from('cross_sell_rules').insert({
-      source_product_id: newRule.source_id,
-      target_product_id: newRule.target_id,
-      rule_type: newRule.type,
-    });
-    if (error) toast({ title: 'Error', description: error.code === '23505' ? 'This rule already exists' : error.message, variant: 'destructive' });
+    const existingTargets = new Set(
+      crossSellRules
+        .filter((rule) => rule.rule_type === newRule.type && rule.source_product_id === newRule.source_id)
+        .map((rule) => rule.target_product_id)
+    );
+    const payload = Array.from(new Set(newRule.target_ids))
+      .filter((targetId) => targetId !== newRule.source_id && !existingTargets.has(targetId))
+      .map((targetId, index) => ({
+        source_product_id: newRule.source_id,
+        target_product_id: targetId,
+        rule_type: newRule.type,
+        sort_order: index,
+      }));
+
+    if (payload.length === 0) {
+      toast({ title: 'Nothing to add', description: 'All selected relationships already exist.' });
+      return;
+    }
+
+    const { error } = await supabase.from('cross_sell_rules').insert(payload);
+    if (error) toast({ title: 'Error', description: error.code === '23505' ? 'Some of these rules already exist' : error.message, variant: 'destructive' });
     else {
       toast({ title: 'Rule added' });
-      setNewRule({ source_id: '', target_id: '', type: 'cross_sell' });
+      setNewRule({ source_id: '', target_ids: [], type: newRule.type });
       refetchRules();
     }
   };
 
   const deleteRule = async (id: string) => {
     await supabase.from('cross_sell_rules').delete().eq('id', id);
+    setSelectedRuleIds((prev) => prev.filter((ruleId) => ruleId !== id));
     refetchRules();
   };
 
@@ -185,6 +240,141 @@ export default function ConversionOptimization() {
   }
 
   const getProductName = (id: string) => allProducts.find(p => p.id === id)?.name || id.slice(0, 8);
+  const getRulesByType = (ruleType: RuleType) => crossSellRules.filter((rule) => rule.rule_type === ruleType);
+  const upsellRules = getRulesByType('upsell');
+  const crossSellRuleList = getRulesByType('cross_sell');
+
+  const toggleManualTarget = (targetId: string) => {
+    setNewRule((prev) => ({
+      ...prev,
+      target_ids: prev.target_ids.includes(targetId)
+        ? prev.target_ids.filter((id) => id !== targetId)
+        : [...prev.target_ids, targetId],
+    }));
+  };
+
+  const toggleRuleSelection = (ruleId: string, checked: boolean) => {
+    setSelectedRuleIds((prev) =>
+      checked ? Array.from(new Set([...prev, ruleId])) : prev.filter((id) => id !== ruleId)
+    );
+  };
+
+  const toggleRuleSelectionForType = (ruleType: RuleType, checked: boolean) => {
+    const ids = getRulesByType(ruleType).map((rule) => rule.id);
+    setSelectedRuleIds((prev) =>
+      checked ? Array.from(new Set([...prev, ...ids])) : prev.filter((id) => !ids.includes(id))
+    );
+  };
+
+  const deleteSelectedRules = async (ruleType: RuleType) => {
+    const ids = getRulesByType(ruleType)
+      .map((rule) => rule.id)
+      .filter((id) => selectedRuleIds.includes(id));
+
+    if (ids.length === 0) {
+      toast({ title: 'No rules selected', description: 'Select one or more rules to delete.' });
+      return;
+    }
+
+    const { error } = await supabase.from('cross_sell_rules').delete().in('id', ids);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    setSelectedRuleIds((prev) => prev.filter((id) => !ids.includes(id)));
+    toast({ title: 'Rules deleted', description: `${ids.length} ${ruleType === 'upsell' ? 'upsell' : 'cross-sell'} rules removed.` });
+    refetchRules();
+  };
+
+  const generateAutoRules = async (ruleType: RuleType) => {
+    if (!allProducts.length) {
+      toast({ title: 'No products', variant: 'destructive' });
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const prefs = autoPrefs[ruleType];
+      if (prefs.clearExisting) {
+        await supabase.from('cross_sell_rules').delete().eq('rule_type', ruleType);
+      }
+
+      const { data: fullProducts, error } = await supabase
+        .from('products')
+        .select('id, name, price, category_id, is_bestseller, is_featured, is_active')
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      const products = fullProducts || [];
+      const rules: { source_product_id: string; target_product_id: string; rule_type: RuleType; sort_order: number }[] = [];
+
+      for (const source of products) {
+        const sourceWords = source.name.toLowerCase().split(/\s+/).filter((word) => word.length > 2);
+
+        const rankedCandidates = products
+          .filter((candidate) => candidate.id !== source.id)
+          .map((candidate) => {
+            let weight = 0;
+            const priceRatio = Number(candidate.price) / Math.max(Number(source.price), 1);
+            const sharedWords = sourceWords.filter((word) => candidate.name.toLowerCase().includes(word)).length;
+
+            if (ruleType === 'upsell') {
+              if (!source.category_id || candidate.category_id !== source.category_id) return null;
+              const minDiff = settings.upsell.price_diff_min / 100;
+              const priceDiff = (Number(candidate.price) - Number(source.price)) / Math.max(Number(source.price), 1);
+              if (priceDiff < minDiff) return null;
+              if (priceDiff <= 0.35) weight += 4;
+              else if (priceDiff <= 0.7) weight += 3;
+              else weight += 1;
+            } else {
+              if (candidate.category_id === source.category_id) {
+                return null;
+              }
+              if (prefs.preferPriceCompatibility) {
+                if (priceRatio >= 0.4 && priceRatio <= 2.25) weight += 3;
+                else if (priceRatio >= 0.25 && priceRatio <= 3.25) weight += 1;
+              }
+              if (prefs.diversifyCategories && candidate.category_id !== source.category_id) weight += 2;
+            }
+
+            if (prefs.preferBestsellers && candidate.is_bestseller) weight += 2;
+            if (prefs.preferFeatured && candidate.is_featured) weight += 1;
+            if (prefs.preferNameSimilarity) weight += Math.min(sharedWords, 2);
+
+            return { ...candidate, weight };
+          })
+          .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate) && candidate.weight >= prefs.minWeight)
+          .sort((a, b) => b.weight - a.weight || Number(a.price) - Number(b.price))
+          .slice(0, prefs.targetCount);
+
+        rankedCandidates.forEach((target, index) => {
+          rules.push({
+            source_product_id: source.id,
+            target_product_id: target.id,
+            rule_type: ruleType,
+            sort_order: index,
+          });
+        });
+      }
+
+      if (rules.length > 0) {
+        for (let index = 0; index < rules.length; index += 100) {
+          await supabase.from('cross_sell_rules').insert(rules.slice(index, index + 100));
+        }
+      }
+
+      toast({ title: 'Auto-generated', description: `Created ${rules.length} ${ruleType === 'upsell' ? 'upsell' : 'cross-sell'} rules` });
+      setSelectedRuleIds([]);
+      refetchRules();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <AdminLayout title="Sales Boost" description="Increase conversions, AOV, and reduce bounce rate">
@@ -443,25 +633,84 @@ export default function ConversionOptimization() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                 <div className="space-y-1">
                   <Label className="text-xs">When viewing…</Label>
-                  <Select value={newRule.source_id} onValueChange={(v) => setNewRule({ ...newRule, source_id: v, type: 'upsell' })}>
+                  <Select value={newRule.type === 'upsell' ? newRule.source_id : ''} onValueChange={(v) => setNewRule({ source_id: v, target_ids: [], type: 'upsell' })}>
                     <SelectTrigger><SelectValue placeholder="Source product" /></SelectTrigger>
                     <SelectContent>{allProducts.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Suggest upgrade to…</Label>
-                  <Select value={newRule.target_id} onValueChange={(v) => setNewRule({ ...newRule, target_id: v, type: 'upsell' })}>
-                    <SelectTrigger><SelectValue placeholder="Target product" /></SelectTrigger>
-                    <SelectContent>{allProducts.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                  </Select>
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="text-xs">Suggest multiple upgrades to…</Label>
+                  <div className="max-h-40 overflow-y-auto rounded-lg border border-border p-3 space-y-2">
+                    {allProducts.filter((p) => p.id !== newRule.source_id).map((product) => (
+                      <label key={product.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox checked={newRule.type === 'upsell' && newRule.target_ids.includes(product.id)} onCheckedChange={(checked) => {
+                          setNewRule((prev) => prev.type === 'upsell' ? prev : { ...prev, type: 'upsell' });
+                          toggleManualTarget(product.id);
+                        }} />
+                        <span>{product.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Selected: {newRule.type === 'upsell' ? newRule.target_ids.length : 0}</p>
                 </div>
-                <Button onClick={() => { setNewRule({ ...newRule, type: 'upsell' }); addRule(); }} className="gap-1"><Plus className="h-4 w-4" /> Add Rule</Button>
+                <Button onClick={() => { setNewRule((prev) => ({ ...prev, type: 'upsell' })); addRule(); }} className="gap-1"><Plus className="h-4 w-4" /> Add Rules</Button>
               </div>
               <Separator />
+              <div className="rounded-lg border border-border p-4 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label className="text-sm font-semibold">Auto-generate preferences</Label>
+                    <p className="text-xs text-muted-foreground">Choose how many upgrade matches to create and what the algorithm should prefer.</p>
+                  </div>
+                  <Button variant="outline" onClick={() => generateAutoRules('upsell')} disabled={isSaving} className="gap-2">
+                    <Zap className="h-4 w-4" /> Auto-Generate Upsell Rules
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Targets per product</Label>
+                    <Input type="number" min={1} max={6} value={autoPrefs.upsell.targetCount} onChange={(e) => setAutoPrefs((prev) => ({ ...prev, upsell: { ...prev.upsell, targetCount: Number(e.target.value) || 1 } }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Minimum weight</Label>
+                    <Input type="number" min={1} max={10} value={autoPrefs.upsell.minWeight} onChange={(e) => setAutoPrefs((prev) => ({ ...prev, upsell: { ...prev.upsell, minWeight: Number(e.target.value) || 1 } }))} />
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                    <div>
+                      <Label>Replace existing rules</Label>
+                      <p className="text-xs text-muted-foreground">Clear current auto/manual upsell rules first</p>
+                    </div>
+                    <Switch checked={autoPrefs.upsell.clearExisting} onCheckedChange={(checked) => setAutoPrefs((prev) => ({ ...prev, upsell: { ...prev.upsell, clearExisting: checked } }))} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    ['preferBestsellers', 'Prefer bestsellers'],
+                    ['preferFeatured', 'Prefer featured products'],
+                    ['preferNameSimilarity', 'Prefer similar naming'],
+                    ['preferPriceCompatibility', 'Prefer closer price jumps'],
+                  ].map(([key, label]) => (
+                    <label key={key} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm cursor-pointer">
+                      <Checkbox checked={autoPrefs.upsell[key as keyof AutoRulePreferences] as boolean} onCheckedChange={(checked) => setAutoPrefs((prev) => ({ ...prev, upsell: { ...prev.upsell, [key]: !!checked } }))} />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <div className="space-y-2">
-                {crossSellRules.filter(r => r.rule_type === 'upsell').map((rule) => (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox checked={upsellRules.length > 0 && upsellRules.every((rule) => selectedRuleIds.includes(rule.id))} onCheckedChange={(checked) => toggleRuleSelectionForType('upsell', !!checked)} />
+                    <span>Select all upsell rules</span>
+                  </label>
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => deleteSelectedRules('upsell')}>
+                    <Trash2 className="h-4 w-4" /> Delete selected
+                  </Button>
+                </div>
+                {upsellRules.map((rule) => (
                   <div key={rule.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-2 text-sm">
+                      <Checkbox checked={selectedRuleIds.includes(rule.id)} onCheckedChange={(checked) => toggleRuleSelection(rule.id, !!checked)} />
                       <Badge variant="outline">{getProductName(rule.source_product_id)}</Badge>
                       <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
                       <Badge variant="outline">{getProductName(rule.target_product_id)}</Badge>
@@ -471,83 +720,9 @@ export default function ConversionOptimization() {
                     </Button>
                   </div>
                 ))}
-                {crossSellRules.filter(r => r.rule_type === 'upsell').length === 0 && (
+                {upsellRules.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">No manual upsell rules yet. Use auto-generate or auto-detection will be used.</p>
                 )}
-              </div>
-
-              {/* Auto-Generate Upsell Rules */}
-              <Separator />
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Auto-Generate Upsell Rules</Label>
-                <p className="text-xs text-muted-foreground">
-                  Automatically find higher-priced alternatives in the same category using weighted matching (price proximity, bestseller status, rating).
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    if (!allProducts.length) { toast({ title: 'No products', variant: 'destructive' }); return; }
-                    setIsSaving(true);
-                    try {
-                      // Delete existing auto rules
-                      await supabase.from('cross_sell_rules').delete().eq('rule_type', 'upsell');
-
-                      // Fetch full product data for scoring
-                      const { data: fullProducts } = await supabase
-                        .from('products')
-                        .select('id, name, price, category_id, is_bestseller, is_featured, is_active')
-                        .eq('is_active', true);
-                      const products = fullProducts || [];
-
-                      const rules: { source_product_id: string; target_product_id: string; rule_type: string; sort_order: number }[] = [];
-
-                      for (const source of products) {
-                        if (!source.category_id) continue;
-                        const candidates = products
-                          .filter(p => p.id !== source.id && p.category_id === source.category_id && Number(p.price) > Number(source.price) * 1.1)
-                          .map(p => {
-                            let weight = 0;
-                            const priceDiff = (Number(p.price) - Number(source.price)) / Number(source.price);
-                            // Sweet spot: 15-50% higher
-                            if (priceDiff >= 0.15 && priceDiff <= 0.5) weight += 3;
-                            else if (priceDiff > 0.5 && priceDiff <= 1.0) weight += 1;
-                            if (p.is_bestseller) weight += 2;
-                            if (p.is_featured) weight += 1;
-                            // Name similarity bonus
-                            const srcWords = source.name.toLowerCase().split(/\s+/);
-                            const tgtWords = p.name.toLowerCase().split(/\s+/);
-                            const shared = srcWords.filter(w => w.length > 2 && tgtWords.includes(w)).length;
-                            weight += Math.min(shared, 2);
-                            return { ...p, weight };
-                          })
-                          .sort((a, b) => b.weight - a.weight)
-                          .slice(0, 3);
-
-                        candidates.forEach((target, i) => {
-                          if (target.weight >= 2) {
-                            rules.push({ source_product_id: source.id, target_product_id: target.id, rule_type: 'upsell', sort_order: i });
-                          }
-                        });
-                      }
-
-                      if (rules.length > 0) {
-                        // Batch insert in chunks of 100
-                        for (let i = 0; i < rules.length; i += 100) {
-                          await supabase.from('cross_sell_rules').insert(rules.slice(i, i + 100));
-                        }
-                      }
-                      toast({ title: 'Auto-generated', description: `Created ${rules.length} upsell rules` });
-                      refetchRules();
-                    } catch (err: any) {
-                      toast({ title: 'Error', description: err.message, variant: 'destructive' });
-                    }
-                    setIsSaving(false);
-                  }}
-                  disabled={isSaving}
-                  className="gap-2"
-                >
-                  <Zap className="h-4 w-4" /> Auto-Generate Upsell Rules
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -588,25 +763,85 @@ export default function ConversionOptimization() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                 <div className="space-y-1">
                   <Label className="text-xs">When viewing…</Label>
-                  <Select value={newRule.source_id} onValueChange={(v) => setNewRule({ ...newRule, source_id: v, type: 'cross_sell' })}>
+                  <Select value={newRule.type === 'cross_sell' ? newRule.source_id : ''} onValueChange={(v) => setNewRule({ source_id: v, target_ids: [], type: 'cross_sell' })}>
                     <SelectTrigger><SelectValue placeholder="Source product" /></SelectTrigger>
                     <SelectContent>{allProducts.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Also suggest…</Label>
-                  <Select value={newRule.target_id} onValueChange={(v) => setNewRule({ ...newRule, target_id: v, type: 'cross_sell' })}>
-                    <SelectTrigger><SelectValue placeholder="Target product" /></SelectTrigger>
-                    <SelectContent>{allProducts.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                  </Select>
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="text-xs">Also suggest multiple products…</Label>
+                  <div className="max-h-40 overflow-y-auto rounded-lg border border-border p-3 space-y-2">
+                    {allProducts.filter((p) => p.id !== newRule.source_id).map((product) => (
+                      <label key={product.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox checked={newRule.type === 'cross_sell' && newRule.target_ids.includes(product.id)} onCheckedChange={() => {
+                          setNewRule((prev) => prev.type === 'cross_sell' ? prev : { ...prev, type: 'cross_sell' });
+                          toggleManualTarget(product.id);
+                        }} />
+                        <span>{product.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Selected: {newRule.type === 'cross_sell' ? newRule.target_ids.length : 0}</p>
                 </div>
-                <Button onClick={() => { setNewRule({ ...newRule, type: 'cross_sell' }); addRule(); }} className="gap-1"><Plus className="h-4 w-4" /> Add Rule</Button>
+                <Button onClick={() => { setNewRule((prev) => ({ ...prev, type: 'cross_sell' })); addRule(); }} className="gap-1"><Plus className="h-4 w-4" /> Add Rules</Button>
               </div>
               <Separator />
+              <div className="rounded-lg border border-border p-4 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label className="text-sm font-semibold">Auto-generate preferences</Label>
+                    <p className="text-xs text-muted-foreground">Shape how complementary matches are drafted before generating them in bulk.</p>
+                  </div>
+                  <Button variant="outline" onClick={() => generateAutoRules('cross_sell')} disabled={isSaving} className="gap-2">
+                    <Zap className="h-4 w-4" /> Auto-Generate Cross-Sell Rules
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Targets per product</Label>
+                    <Input type="number" min={1} max={8} value={autoPrefs.cross_sell.targetCount} onChange={(e) => setAutoPrefs((prev) => ({ ...prev, cross_sell: { ...prev.cross_sell, targetCount: Number(e.target.value) || 1 } }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Minimum weight</Label>
+                    <Input type="number" min={1} max={10} value={autoPrefs.cross_sell.minWeight} onChange={(e) => setAutoPrefs((prev) => ({ ...prev, cross_sell: { ...prev.cross_sell, minWeight: Number(e.target.value) || 1 } }))} />
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                    <div>
+                      <Label>Replace existing rules</Label>
+                      <p className="text-xs text-muted-foreground">Clear current cross-sell relationships first</p>
+                    </div>
+                    <Switch checked={autoPrefs.cross_sell.clearExisting} onCheckedChange={(checked) => setAutoPrefs((prev) => ({ ...prev, cross_sell: { ...prev.cross_sell, clearExisting: checked } }))} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    ['preferBestsellers', 'Prefer bestsellers'],
+                    ['preferFeatured', 'Prefer featured products'],
+                    ['preferNameSimilarity', 'Prefer similar naming'],
+                    ['preferPriceCompatibility', 'Prefer price-compatible bundles'],
+                    ['diversifyCategories', 'Prefer different categories'],
+                  ].map(([key, label]) => (
+                    <label key={key} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm cursor-pointer">
+                      <Checkbox checked={autoPrefs.cross_sell[key as keyof AutoRulePreferences] as boolean} onCheckedChange={(checked) => setAutoPrefs((prev) => ({ ...prev, cross_sell: { ...prev.cross_sell, [key]: !!checked } }))} />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <div className="space-y-2">
-                {crossSellRules.filter(r => r.rule_type === 'cross_sell').map((rule) => (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox checked={crossSellRuleList.length > 0 && crossSellRuleList.every((rule) => selectedRuleIds.includes(rule.id))} onCheckedChange={(checked) => toggleRuleSelectionForType('cross_sell', !!checked)} />
+                    <span>Select all cross-sell rules</span>
+                  </label>
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => deleteSelectedRules('cross_sell')}>
+                    <Trash2 className="h-4 w-4" /> Delete selected
+                  </Button>
+                </div>
+                {crossSellRuleList.map((rule) => (
                   <div key={rule.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-2 text-sm">
+                      <Checkbox checked={selectedRuleIds.includes(rule.id)} onCheckedChange={(checked) => toggleRuleSelection(rule.id, !!checked)} />
                       <Badge variant="outline">{getProductName(rule.source_product_id)}</Badge>
                       <span className="text-muted-foreground">→</span>
                       <Badge variant="outline">{getProductName(rule.target_product_id)}</Badge>
@@ -616,76 +851,9 @@ export default function ConversionOptimization() {
                     </Button>
                   </div>
                 ))}
-                {crossSellRules.filter(r => r.rule_type === 'cross_sell').length === 0 && (
+                {crossSellRuleList.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">No cross-sell rules yet. Use auto-generate or bestsellers will be shown as fallback.</p>
                 )}
-              </div>
-
-              {/* Auto-Generate Cross-Sell Rules */}
-              <Separator />
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Auto-Generate Cross-Sell Rules</Label>
-                <p className="text-xs text-muted-foreground">
-                  Automatically pair products from different categories using weighted matching (price compatibility, bestseller/featured status, complementary categories).
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    if (!allProducts.length) { toast({ title: 'No products', variant: 'destructive' }); return; }
-                    setIsSaving(true);
-                    try {
-                      await supabase.from('cross_sell_rules').delete().eq('rule_type', 'cross_sell');
-
-                      const { data: fullProducts } = await supabase
-                        .from('products')
-                        .select('id, name, price, category_id, is_bestseller, is_featured, is_active')
-                        .eq('is_active', true);
-                      const products = fullProducts || [];
-
-                      const rules: { source_product_id: string; target_product_id: string; rule_type: string; sort_order: number }[] = [];
-
-                      for (const source of products) {
-                        const candidates = products
-                          .filter(p => p.id !== source.id && p.category_id !== source.category_id)
-                          .map(p => {
-                            let weight = 0;
-                            // Price compatibility: similar price range gets bonus
-                            const priceRatio = Number(p.price) / Number(source.price);
-                            if (priceRatio >= 0.3 && priceRatio <= 3.0) weight += 2;
-                            if (priceRatio >= 0.5 && priceRatio <= 2.0) weight += 1;
-                            if (p.is_bestseller) weight += 3;
-                            if (p.is_featured) weight += 1;
-                            // Different category bonus (complementary)
-                            if (p.category_id && p.category_id !== source.category_id) weight += 1;
-                            return { ...p, weight };
-                          })
-                          .sort((a, b) => b.weight - a.weight)
-                          .slice(0, 4);
-
-                        candidates.forEach((target, i) => {
-                          if (target.weight >= 3) {
-                            rules.push({ source_product_id: source.id, target_product_id: target.id, rule_type: 'cross_sell', sort_order: i });
-                          }
-                        });
-                      }
-
-                      if (rules.length > 0) {
-                        for (let i = 0; i < rules.length; i += 100) {
-                          await supabase.from('cross_sell_rules').insert(rules.slice(i, i + 100));
-                        }
-                      }
-                      toast({ title: 'Auto-generated', description: `Created ${rules.length} cross-sell rules` });
-                      refetchRules();
-                    } catch (err: any) {
-                      toast({ title: 'Error', description: err.message, variant: 'destructive' });
-                    }
-                    setIsSaving(false);
-                  }}
-                  disabled={isSaving}
-                  className="gap-2"
-                >
-                  <Zap className="h-4 w-4" /> Auto-Generate Cross-Sell Rules
-                </Button>
               </div>
             </CardContent>
           </Card>

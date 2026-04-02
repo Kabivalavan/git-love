@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Minus, Plus, Heart, ShoppingCart, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Star, Share2, Loader2, ChevronDown, Clock, Tag, Copy, Home, Package, Check, MapPin, Undo2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -94,23 +93,9 @@ export default function ProductDetailPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { trackEvent } = useAnalytics();
-  const { getProductOffer } = useGlobalStore();
+  const { getProductOffer, storefrontDisplay } = useGlobalStore();
   const { addToCart } = useCartMutations();
-
-  // Fetch storefront display settings for low stock text
-  const { data: lowStockSettings } = useQuery({
-    queryKey: ['storefront-display-settings'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('store_settings')
-        .select('value')
-        .eq('key', 'storefront_display')
-        .single();
-      return (data?.value as any) || { show_low_stock_badge: false, low_stock_threshold: 5, show_low_stock_text_on_product_page: false };
-    },
-    staleTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
+  const lowStockSettings = storefrontDisplay || { show_low_stock_badge: false, low_stock_threshold: 5, show_low_stock_text_on_product_page: false };
 
   // ⚡ SINGLE RPC CALL — replaces 5 separate queries
   const { data: pageData, isLoading, error: pageError } = useProductPageData(slug);
