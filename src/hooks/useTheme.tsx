@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export type StorefrontTheme = 'default' | 'minimal' | 'elegant' | 'playful' | 'bold' | 'nature' | 'tech' | 'sunset' | 'ocean';
@@ -44,51 +44,44 @@ export const THEME_OPTIONS: { value: StorefrontTheme; label: string; description
   { value: 'ocean', label: 'Ocean Breeze', description: 'Cool teal and aqua ocean vibes', colors: ['#0891B2', '#F0FDFA', '#E0F7FA'] },
 ];
 
+function applyThemeToDOM(theme: StorefrontTheme, applyToAdmin: boolean) {
+  const isAdminRoute = window.location.pathname.startsWith('/admin');
+  if (theme !== 'default') {
+    if (isAdminRoute && !applyToAdmin) {
+      document.documentElement.removeAttribute('data-storefront-theme');
+    } else {
+      document.documentElement.setAttribute('data-storefront-theme', theme);
+    }
+  } else {
+    document.documentElement.removeAttribute('data-storefront-theme');
+  }
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Synchronous init from localStorage — no blank screen
   const [theme, setThemeState] = useState<StorefrontTheme>(getCachedTheme);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const [applyThemeToAdmin, setApplyThemeToAdminState] = useState(() => {
     return localStorage.getItem('admin_apply_theme') === 'true';
   });
 
-  // Apply theme attribute immediately from cached value
-  const applyThemeAttribute = () => {
-    const isAdminRoute = window.location.pathname.startsWith('/admin');
-    if (theme !== 'default') {
-      if (isAdminRoute && !applyThemeToAdmin) {
-        document.documentElement.removeAttribute('data-storefront-theme');
-      } else {
-        document.documentElement.setAttribute('data-storefront-theme', theme);
-      }
-    } else {
-      document.documentElement.removeAttribute('data-storefront-theme');
-    }
-  };
-
+  // Apply theme on mount and when theme/admin pref changes
   useEffect(() => {
-    applyThemeAttribute();
+    applyThemeToDOM(theme, applyThemeToAdmin);
   }, [theme, applyThemeToAdmin]);
 
-  // Listen for URL changes (popstate + MutationObserver for SPA nav)
+  // Re-apply on SPA navigation via popstate only (no MutationObserver)
   useEffect(() => {
-    const handler = () => applyThemeAttribute();
+    const handler = () => applyThemeToDOM(theme, applyThemeToAdmin);
     window.addEventListener('popstate', handler);
-    const observer = new MutationObserver(handler);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => {
-      window.removeEventListener('popstate', handler);
-      observer.disconnect();
-    };
+    return () => window.removeEventListener('popstate', handler);
   }, [theme, applyThemeToAdmin]);
 
-  // Called by GlobalStoreProvider when RPC data arrives
-  const _setThemeFromRPC = (t: StorefrontTheme) => {
+  const _setThemeFromRPC = useCallback((t: StorefrontTheme) => {
     setThemeState(t);
     try { localStorage.setItem(THEME_CACHE_KEY, t); } catch {}
-  };
+  }, []);
 
-  const setTheme = async (newTheme: StorefrontTheme) => {
+  const setTheme = useCallback(async (newTheme: StorefrontTheme) => {
     setThemeState(newTheme);
     try { localStorage.setItem(THEME_CACHE_KEY, newTheme); } catch {}
 
@@ -108,22 +101,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         .from('store_settings')
         .insert({ key: 'storefront_theme', value: { theme: newTheme } as any });
     }
-  };
+  }, []);
 
-  const setApplyThemeToAdmin = (apply: boolean) => {
+  const setApplyThemeToAdmin = useCallback((apply: boolean) => {
     setApplyThemeToAdminState(apply);
     localStorage.setItem('admin_apply_theme', apply ? 'true' : 'false');
-    const isAdminRoute = window.location.pathname.startsWith('/admin');
-    if (isAdminRoute && theme !== 'default') {
-      if (apply) {
-        document.documentElement.setAttribute('data-storefront-theme', theme);
-      } else {
-        document.documentElement.removeAttribute('data-storefront-theme');
-      }
-    }
-  };
+    applyThemeToDOM(theme, apply);
+  }, [theme]);
 
-  // NO BLOCKING — render children immediately with cached theme
   return (
     <ThemeContext.Provider value={{ theme, setTheme, isLoading, applyThemeToAdmin, setApplyThemeToAdmin, _setThemeFromRPC }}>
       {children}
