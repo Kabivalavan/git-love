@@ -336,97 +336,88 @@ export function AIAssistantWidget() {
 
   return (
     <>
-      {/* Floating button - desktop only (mobile uses bottom nav) */}
-      <AnimatePresence>
-        {!isOpen && (
-          <motion.button
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            onClick={() => {
-              setIsOpen(true);
-              if (!sessionStarted) startSession();
-            }}
-            className={cn(
-              "fixed z-[9998] h-14 w-14 rounded-full",
-              "bg-gradient-to-br from-primary to-primary/80",
-              "text-primary-foreground shadow-lg",
-              "hover:shadow-xl hover:scale-110",
-              "transition-all duration-300",
-              "flex items-center justify-center",
-              "hidden lg:flex",
-              "bottom-6 right-6"
-            )}
-            title={assistantName}
-          >
-            <Sparkles className="h-6 w-6" />
-          </motion.button>
-        )}
-      </AnimatePresence>
+      {/* Floating button - desktop only */}
+      {!isOpen && (
+        <button
+          onClick={() => {
+            setIsOpen(true);
+            if (!sessionStarted) startSession();
+          }}
+          className={cn(
+            "fixed z-[9998] h-14 w-14 rounded-full",
+            "bg-gradient-to-br from-primary to-primary/80",
+            "text-primary-foreground shadow-lg",
+            "hover:shadow-xl hover:scale-110",
+            "transition-all duration-300",
+            "flex items-center justify-center",
+            "hidden lg:flex",
+            "bottom-6 right-6",
+            "animate-scale-in"
+          )}
+          title={assistantName}
+        >
+          <Sparkles className="h-6 w-6" />
+        </button>
+      )}
 
       {/* Chat panel */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className={cn(
-              "fixed z-[9999] flex flex-col",
-              "bg-card border border-border rounded-2xl shadow-2xl overflow-hidden",
-              "bottom-[76px] right-4 lg:bottom-6 lg:right-6",
-              "w-[360px] max-w-[calc(100vw-32px)]",
-              "h-[calc(100vh-160px)] max-h-[520px] lg:h-[520px] lg:max-h-[calc(100vh-120px)]"
-            )}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-primary-foreground/20 flex items-center justify-center">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm leading-tight">{assistantName}</h3>
-                  <p className="text-[10px] opacity-80">Shopping Assistant</p>
-                </div>
+      {isOpen && (
+        <div
+          className={cn(
+            "fixed z-[9999] flex flex-col",
+            "bg-card border border-border rounded-2xl shadow-2xl overflow-hidden",
+            "bottom-[76px] right-4 lg:bottom-6 lg:right-6",
+            "w-[360px] max-w-[calc(100vw-32px)]",
+            "h-[calc(100vh-160px)] max-h-[520px] lg:h-[520px] lg:max-h-[calc(100vh-120px)]",
+            "animate-slide-up"
+          )}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-primary-foreground/20 flex items-center justify-center">
+                <Sparkles className="h-4 w-4" />
               </div>
-              <div className="flex items-center gap-1">
-                {sessionStarted && (
-                  <button
-                    onClick={handleRestart}
-                    className="h-8 w-8 rounded-full hover:bg-primary-foreground/20 flex items-center justify-center transition-colors"
-                    title="Start over"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                  </button>
-                )}
+              <div>
+                <h3 className="font-bold text-sm leading-tight">{assistantName}</h3>
+                <p className="text-[10px] opacity-80">Shopping Assistant</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              {sessionStarted && (
                 <button
-                  onClick={() => setIsOpen(false)}
+                  onClick={handleRestart}
                   className="h-8 w-8 rounded-full hover:bg-primary-foreground/20 flex items-center justify-center transition-colors"
+                  title="Start over"
                 >
-                  <X className="h-4 w-4" />
+                  <RotateCcw className="h-4 w-4" />
                 </button>
-              </div>
+              )}
+              <button
+                onClick={() => setIsOpen(false)}
+                className="h-8 w-8 rounded-full hover:bg-primary-foreground/20 flex items-center justify-center transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
+          </div>
 
-            {/* Messages area */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-muted/30">
-              {messages.map((msg, i) => (
-                <MessageBubble
-                  key={i}
-                  message={msg}
-                  selectedOptions={i === messages.length - 1 && msg.type === 'question' ? selectedOptions : undefined}
-                  onOptionSelect={i === messages.length - 1 && msg.type === 'question' ? handleOptionSelect : undefined}
-                  onContinue={i === messages.length - 1 && msg.type === 'question' ? handleContinue : undefined}
-                  onProductClick={handleProductClick}
-                />
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          {/* Messages area */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-muted/30">
+            {messages.map((msg, i) => (
+              <MessageBubble
+                key={i}
+                message={msg}
+                selectedOptions={i === messages.length - 1 && msg.type === 'question' ? selectedOptions : undefined}
+                onOptionSelect={i === messages.length - 1 && msg.type === 'question' ? handleOptionSelect : undefined}
+                onContinue={i === messages.length - 1 && msg.type === 'question' ? handleContinue : undefined}
+                onProductClick={handleProductClick}
+              />
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -442,39 +433,27 @@ interface MessageBubbleProps {
 function MessageBubble({ message, selectedOptions, onOptionSelect, onContinue, onProductClick }: MessageBubbleProps) {
   if (message.role === 'user') {
     return (
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="flex justify-end"
-      >
+      <div className="flex justify-end animate-slide-in-right">
         <div className="bg-primary text-primary-foreground px-4 py-2.5 rounded-2xl rounded-br-md max-w-[85%] text-sm">
           {message.text}
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   if (message.type === 'greeting') {
     return (
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="flex justify-start"
-      >
+      <div className="flex justify-start animate-slide-in-left">
         <div className="bg-card border border-border px-4 py-2.5 rounded-2xl rounded-bl-md max-w-[85%] text-sm text-foreground shadow-sm">
           {message.text}
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   if (message.type === 'thinking') {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="flex justify-start"
-      >
+      <div className="flex justify-start animate-fade-in">
         <div className="bg-card border border-border px-4 py-3 rounded-2xl rounded-bl-md shadow-sm">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div className="flex gap-1">
@@ -485,32 +464,24 @@ function MessageBubble({ message, selectedOptions, onOptionSelect, onContinue, o
             {message.text}
           </div>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   if (message.type === 'error') {
     return (
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="flex justify-start"
-      >
+      <div className="flex justify-start animate-slide-in-left">
         <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-2.5 rounded-2xl rounded-bl-md max-w-[85%] text-sm">
           {message.text}
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   if (message.type === 'question') {
     const q = message.question;
     return (
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="space-y-2"
-      >
+      <div className="space-y-2 animate-slide-in-left">
         <div className="flex justify-start">
           <div className="bg-card border border-border px-4 py-2.5 rounded-2xl rounded-bl-md max-w-[90%] shadow-sm">
             <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-1">
@@ -544,9 +515,7 @@ function MessageBubble({ message, selectedOptions, onOptionSelect, onContinue, o
         </div>
 
         {onContinue && (
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+          <button
             onClick={onContinue}
             disabled={!selectedOptions || selectedOptions.length === 0}
             className={cn(
@@ -557,33 +526,27 @@ function MessageBubble({ message, selectedOptions, onOptionSelect, onContinue, o
             )}
           >
             Continue <ChevronRight className="h-3.5 w-3.5" />
-          </motion.button>
+          </button>
         )}
-      </motion.div>
+      </div>
     );
   }
 
   if (message.type === 'recommendations') {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-2"
-      >
+      <div className="space-y-2 animate-slide-up">
         <div className="flex justify-start">
           <div className="bg-card border border-border px-4 py-2.5 rounded-2xl rounded-bl-md shadow-sm text-sm text-foreground">
             ✨ Here are my top picks for you!
           </div>
         </div>
         {message.recs.map((rec, ri) => (
-          <motion.a
+          <a
             key={ri}
             href={rec.productUrl || '#'}
             onClick={() => onProductClick?.(rec.productUrl || '')}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: ri * 0.1 }}
-            className="block bg-card border border-border rounded-2xl p-3 hover:shadow-md transition-shadow"
+            className="block bg-card border border-border rounded-2xl p-3 hover:shadow-md transition-shadow animate-fade-in"
+            style={{ animationDelay: `${ri * 100}ms` }}
           >
             <div className="flex gap-3">
               {rec.imageUrl && (
@@ -609,9 +572,9 @@ function MessageBubble({ message, selectedOptions, onOptionSelect, onContinue, o
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground self-center flex-shrink-0" />
             </div>
-          </motion.a>
+          </a>
         ))}
-      </motion.div>
+      </div>
     );
   }
 
