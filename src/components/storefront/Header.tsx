@@ -50,7 +50,7 @@ export function Header() {
       )}
 
       {/* Curved dark header */}
-      <div className="bg-primary rounded-b-[28px] shadow-lg relative" style={{ zIndex: 60 }}>
+      <div className="bg-primary rounded-b-[28px] shadow-lg relative min-h-[100px] lg:min-h-[120px]" style={{ zIndex: 60 }}>
         {/* Main header row */}
         <div className="container mx-auto px-4 pt-3 pb-5">
           {/* Top row: Logo/back + actions */}
