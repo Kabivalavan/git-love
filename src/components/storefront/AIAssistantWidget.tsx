@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Sparkles, ChevronRight, RotateCcw } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { cn as cnUtil } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { cn } from '@/lib/utils';

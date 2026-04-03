@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigationType } from 'react-router-dom';
 import { X, Copy, Gift, CheckCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+
 import { useConversionSettings, trackConversionEvent } from '@/hooks/useConversionOptimization';
 import { cn } from '@/lib/utils';
 
