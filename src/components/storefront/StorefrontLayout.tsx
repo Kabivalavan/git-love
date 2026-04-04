@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Home, LayoutGrid, ShoppingCart, User, Sparkles } from 'lucide-react';
 import { Header } from './Header';
 import { Footer } from './Footer';
-import { LoadingBreather } from './LoadingBreather';
+import { Shimmer } from '@/components/ui/shimmer';
 import { cn } from '@/lib/utils';
 import { useCartCount } from '@/hooks/useCartQuery';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
@@ -102,9 +102,50 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
     ];
   }, [isAiEnabled]);
 
-  // Gate render: first-ever visit with no cache shows breather until RPC completes
+  // Gate render: first-ever visit with no cache shows shimmer skeleton until RPC completes
   if (isLoading && !hasCachedData) {
-    return <LoadingBreather message="Setting up your store" subtext="Hang tight, we're loading everything for you." />;
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        {/* Header shimmer */}
+        <div className="sticky top-0 z-40 border-b border-border bg-card">
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+            <Shimmer className="h-8 w-32" />
+            <div className="flex items-center gap-3">
+              <Shimmer className="h-8 w-48 hidden md:block" />
+              <Shimmer className="h-8 w-8 rounded-full" />
+              <Shimmer className="h-8 w-8 rounded-full" />
+            </div>
+          </div>
+        </div>
+        {/* Hero banner shimmer */}
+        <Shimmer className="w-full aspect-[2/1] sm:aspect-[2.5/1] lg:aspect-[3/1] rounded-none" />
+        {/* Categories shimmer */}
+        <div className="container mx-auto px-4 py-6">
+          <Shimmer className="h-7 w-40 mb-5" />
+          <div className="grid grid-cols-2 gap-3 lg:flex lg:gap-8">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Shimmer key={i} className="h-24 lg:h-28 lg:w-24 rounded-2xl lg:rounded-full" />
+            ))}
+          </div>
+        </div>
+        {/* Products shimmer */}
+        <div className="container mx-auto px-4 py-6">
+          <Shimmer className="h-7 w-48 mb-5" />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-lg border bg-card overflow-hidden">
+                <Shimmer className="h-48 w-full rounded-none" />
+                <div className="p-3 space-y-2">
+                  <Shimmer className="h-4 w-3/4" />
+                  <Shimmer className="h-3 w-1/2" />
+                  <Shimmer className="h-5 w-20" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
