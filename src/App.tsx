@@ -10,7 +10,7 @@ import { GlobalStoreProvider } from '@/hooks/useGlobalStore';
 import { ScrollToTop } from '@/components/ScrollToTop';
 import { ScrollToTopButton } from '@/components/ScrollToTopButton';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
-import { LoadingBreather } from '@/components/storefront/LoadingBreather';
+import { Shimmer, ShimmerProductGrid, ShimmerTable } from '@/components/ui/shimmer';
 
 import HomePage from './pages/store/Home';
 
