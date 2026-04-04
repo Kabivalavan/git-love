@@ -80,18 +80,24 @@ const queryClient = new QueryClient({
   },
 });
 
-// Storefront loading fallback - shows within the layout shell
+// Storefront loading fallback - shimmer skeleton
 function StorefrontLoadingFallback() {
   return (
-    <LoadingBreather compact subtext="Hold on while we load the next part of your storefront." />
+    <div className="container mx-auto px-4 py-8">
+      <ShimmerProductGrid items={4} />
+    </div>
   );
 }
 
-// Admin loading fallback - shows within the admin layout shell
+// Admin loading fallback - shimmer skeleton
 function AdminLoadingFallback() {
   return (
-    <div className="min-h-screen bg-background">
-      <LoadingBreather compact subtext="Hold on while we prepare the admin workspace." />
+    <div className="min-h-screen bg-background p-6 space-y-6">
+      <div className="flex items-center gap-4">
+        <Shimmer className="h-8 w-48" />
+        <Shimmer className="h-8 w-24" />
+      </div>
+      <ShimmerTable rows={8} columns={5} />
     </div>
   );
 }
