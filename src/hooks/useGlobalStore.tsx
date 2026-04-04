@@ -60,18 +60,31 @@ interface GlobalStoreData {
   bundles: any[];
   reviewStats: ReviewStats;
   isLoading: boolean;
+  hasCachedData: boolean;
   getProductOffer: (product: Product, variantId?: string | null) => ProductOffer | null;
   calculateCartDiscount: (products: { product: Product; quantity: number }[]) => {
     totalDiscount: number;
     appliedOffers: { offer: Offer; discount: number }[];
   };
-  // Consolidated settings from RPC
   aiAssistantConfig: AIAssistantConfig | null;
   conversionOptimization: any | null;
   socialLinks: SocialLinks | null;
 }
 
 const GlobalStoreContext = createContext<GlobalStoreData | null>(null);
+
+const STORE_CACHE_KEY = 'cached_store_info';
+
+function getCachedStoreInfo(): StoreInfo | null {
+  try {
+    const raw = localStorage.getItem(STORE_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function setCachedStoreInfo(info: StoreInfo) {
+  try { localStorage.setItem(STORE_CACHE_KEY, JSON.stringify({ name: info.name, logo_url: info.logo_url, favicon_url: info.favicon_url })); } catch {}
+}
 
 const fetchGlobalData = async () => {
   const { data, error } = await supabase.rpc('get_homepage_data');
@@ -103,12 +116,21 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
     }
   }, [data?.storefront_theme, _setThemeFromRPC]);
 
+  // Cache storeInfo to localStorage when RPC data arrives
+  useEffect(() => {
+    const info = data?.store_info;
+    if (info) setCachedStoreInfo(info as StoreInfo);
+  }, [data?.store_info]);
+
+  const cachedInfo = useMemo(() => getCachedStoreInfo(), []);
+  const hasCachedData = cachedInfo !== null;
+
   const categories = useMemo(() => (data?.categories || []) as Category[], [data?.categories]);
   const offers = useMemo(() => (data?.offers || []) as unknown as Offer[], [data?.offers]);
   const banners = useMemo(() => (data?.banners || []) as unknown as Banner[], [data?.banners]);
   const middleBanners = useMemo(() => (data?.middle_banners || []) as unknown as Banner[], [data?.middle_banners]);
   const popupBanner = (data?.popup_banner || null) as unknown as Banner | null;
-  const storeInfo = (data?.store_info || null) as StoreInfo | null;
+  const storeInfo = (data?.store_info || cachedInfo || null) as StoreInfo | null;
   const announcement = (data?.announcement || null) as AnnouncementSettings | null;
   const storefrontDisplay = data?.storefront_display || null;
   const bestsellers = useMemo(() => (data?.bestsellers || []) as Product[], [data?.bestsellers]);
@@ -117,7 +139,6 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
   const bundles = useMemo(() => (data?.bundles || []) as any[], [data?.bundles]);
   const reviewStats = useMemo(() => (data?.review_stats || {}) as ReviewStats, [data?.review_stats]);
 
-  // New consolidated settings
   const aiAssistantConfig = (data?.ai_assistant || null) as AIAssistantConfig | null;
   const conversionOptimization = data?.conversion_optimization || null;
   const socialLinks = (data?.social_links || null) as SocialLinks | null;
@@ -215,12 +236,13 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
     bundles,
     reviewStats,
     isLoading,
+    hasCachedData,
     getProductOffer,
     calculateCartDiscount,
     aiAssistantConfig,
     conversionOptimization,
     socialLinks,
-  }), [categories, offers, banners, middleBanners, popupBanner, storeInfo, announcement, storefrontDisplay, bestsellers, featured, newArrivals, bundles, reviewStats, isLoading, getProductOffer, calculateCartDiscount, aiAssistantConfig, conversionOptimization, socialLinks]);
+  }), [categories, offers, banners, middleBanners, popupBanner, storeInfo, announcement, storefrontDisplay, bestsellers, featured, newArrivals, bundles, reviewStats, isLoading, hasCachedData, getProductOffer, calculateCartDiscount, aiAssistantConfig, conversionOptimization, socialLinks]);
 
   return (
     <GlobalStoreContext.Provider value={value}>
