@@ -116,12 +116,21 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
     }
   }, [data?.storefront_theme, _setThemeFromRPC]);
 
+  // Cache storeInfo to localStorage when RPC data arrives
+  useEffect(() => {
+    const info = data?.store_info;
+    if (info) setCachedStoreInfo(info as StoreInfo);
+  }, [data?.store_info]);
+
+  const cachedInfo = useMemo(() => getCachedStoreInfo(), []);
+  const hasCachedData = cachedInfo !== null;
+
   const categories = useMemo(() => (data?.categories || []) as Category[], [data?.categories]);
   const offers = useMemo(() => (data?.offers || []) as unknown as Offer[], [data?.offers]);
   const banners = useMemo(() => (data?.banners || []) as unknown as Banner[], [data?.banners]);
   const middleBanners = useMemo(() => (data?.middle_banners || []) as unknown as Banner[], [data?.middle_banners]);
   const popupBanner = (data?.popup_banner || null) as unknown as Banner | null;
-  const storeInfo = (data?.store_info || null) as StoreInfo | null;
+  const storeInfo = (data?.store_info || cachedInfo || null) as StoreInfo | null;
   const announcement = (data?.announcement || null) as AnnouncementSettings | null;
   const storefrontDisplay = data?.storefront_display || null;
   const bestsellers = useMemo(() => (data?.bestsellers || []) as Product[], [data?.bestsellers]);
@@ -130,7 +139,6 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
   const bundles = useMemo(() => (data?.bundles || []) as any[], [data?.bundles]);
   const reviewStats = useMemo(() => (data?.review_stats || {}) as ReviewStats, [data?.review_stats]);
 
-  // New consolidated settings
   const aiAssistantConfig = (data?.ai_assistant || null) as AIAssistantConfig | null;
   const conversionOptimization = data?.conversion_optimization || null;
   const socialLinks = (data?.social_links || null) as SocialLinks | null;
