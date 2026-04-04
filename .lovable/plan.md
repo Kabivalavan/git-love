@@ -1,112 +1,53 @@
 
 
-## Plan: Storefront Sub-3s Load — Eliminate Render-Blocking Waterfall
+## Plan: Eliminate Theme & Store Info Flash on Storefront Entry
 
-### Root Cause Analysis
+### Problem
 
-The 7-10s load time comes from a **sequential waterfall of blocking fetches**:
+On first load (or cleared cache), the storefront briefly shows the **default theme** (blue/white) and a generic "Store" name before the RPC data arrives and applies the admin-configured theme/logo/name. This "flash of wrong content" (FOWC) is caused by:
 
-```text
-JS Bundle (1-2s)
-  → ThemeProvider fetches theme (BLOCKS ALL RENDERING — returns null)     ~400ms
-    → AuthProvider getSession() + profile + role (sequential chain)       ~800ms
-      → GlobalStoreProvider calls get_homepage_data RPC                   ~600ms
-      → StorefrontLayout fires 4 more individual queries:
-          - ai_assistant config
-          - conversion_optimization config  
-          - cart (2 requests: cart → cart_items)
-          - social_links (footer)
-Total waterfall: ~3-4s of network time stacked sequentially
-```
+1. **Theme**: `getCachedTheme()` returns `'default'` when `localStorage` has no cache yet
+2. **Store info**: `storeInfo` is `null` until `get_homepage_data` RPC completes, so the Header shows "Store" as fallback text and no logo
+3. **No loading gate**: The Header and StorefrontLayout render immediately with empty/default data while the RPC is still in-flight
 
-Additionally, `ai_assistant` setting is fetched **twice** (once in StorefrontLayout, once in AIAssistantWidget).
+### Strategy: Cache Everything + Show Breather Until Data Arrives
 
-### Strategy: Parallel-First, Zero-Blocking Architecture
+**Two-pronged approach:**
 
-**Principle**: Nothing blocks rendering. All data loads in parallel. The user sees the shell + shimmers instantly.
+1. **Cache store identity in localStorage** alongside theme — so repeat visits are instant
+2. **For first-ever visit (cold cache)**: keep the LoadingBreather visible until RPC data arrives, then render the storefront with correct theme/branding in one paint
 
 ### Changes
 
-#### 1. Remove ThemeProvider render-blocking (biggest win)
+#### 1. Cache store info in localStorage (like theme)
+**File**: `src/hooks/useGlobalStore.tsx`
+- On RPC success, persist `storeInfo` (name, logo_url, favicon_url) and theme to localStorage
+- On mount, read cached storeInfo as initial value so the Header renders correctly even before RPC completes
+- Add a `hasCachedData` boolean that's true when localStorage has prior store data
+
+#### 2. Gate storefront render on first data load
+**File**: `src/components/storefront/StorefrontLayout.tsx`
+- Check `isLoading` from global store AND whether we have cached data
+- If `isLoading && !hasCachedData` (first-ever visit, no cache): show the `LoadingBreather` instead of the shell
+- If we have cached data: render immediately with cached values (no flash), then silently update when RPC completes
+
+#### 3. Sync theme to DOM before first paint on cached visits  
 **File**: `src/hooks/useTheme.tsx`
-- Remove the `if (isLoading) return null;` line that blocks the entire app tree
-- Instead, read cached theme from `localStorage` synchronously on mount as the initial value
-- Apply theme attribute immediately from cache, then update silently when fetch completes
-- This alone saves ~400-800ms of blank screen
+- Already reads from localStorage on mount — no change needed here
+- The `_setThemeFromRPC` callback already updates cache — good
 
-#### 2. Consolidate storefront settings into `get_homepage_data` RPC
-**Database**: Update `get_homepage_data` function to also return:
-- `ai_assistant` config
-- `conversion_optimization` config  
-- `storefront_theme` config
+#### 4. Header uses cached storeInfo seamlessly
+**File**: `src/components/storefront/Header.tsx`
+- No changes needed — it already reads `storeInfo` from global store. Once we seed the global store with cached values, it renders correctly from the start.
 
-This eliminates 3 separate `store_settings` queries. The RPC already fetches `store_info`, `announcement`, `storefront_display` from `store_settings` — just add 3 more keys in the same function.
+### Result
 
-**Files affected**:
-- `src/hooks/useGlobalStore.tsx` — expose `aiConfig`, `conversionSettings`, `themeConfig` from RPC response
-- `src/hooks/useTheme.tsx` — consume theme from global store instead of separate fetch
-- `src/components/storefront/StorefrontLayout.tsx` — use `aiConfig` from global store, remove separate `useQuery` for ai_assistant
-- `src/components/storefront/AIAssistantWidget.tsx` — use `aiConfig` from global store, remove duplicate query
-- `src/hooks/useConversionOptimization.tsx` — use global store, remove separate query
-- `src/components/storefront/ExitIntentPopup.tsx` — consume from global store
-- `src/components/storefront/Footer.tsx` — move `social_links` into the RPC too
+| Scenario | Before | After |
+|----------|--------|-------|
+| First visit (no cache) | Flash of default theme + "Store" text for 1-2s | LoadingBreather shown until RPC completes, then correct theme + branding in one paint |
+| Repeat visit (cached) | Flash of default then correct | Instant correct theme + branding from localStorage, RPC updates silently |
 
-#### 3. Don't block on auth for anonymous visitors
-**File**: `src/hooks/useAuth.tsx`
-- The `getSession()` call is fine, but ensure it doesn't block the GlobalStoreProvider from mounting
-- Currently it doesn't technically block GlobalStoreProvider, but the **ThemeProvider does** (step 1 fixes this)
-
-#### 4. Defer cart fetch for logged-out users
-**File**: `src/hooks/useCartQuery.tsx`
-- Already gated on `!!user` — this is fine, no change needed
-
-#### 5. Eager HomePage import (already done)
-- `HomePage` is already non-lazy in App.tsx — good, no change needed
-
-### Request Count: Before vs After
-
-| Before | After |
-|--------|-------|
-| `storefront_theme` setting | Eliminated (in RPC) |
-| `get_homepage_data` RPC | `get_homepage_data` RPC (expanded) |
-| `ai_assistant` setting (x2!) | Eliminated (in RPC) |
-| `conversion_optimization` setting | Eliminated (in RPC) |
-| `social_links` setting | Eliminated (in RPC) |
-| `profiles` query | Kept (auth-dependent) |
-| `user_roles` query | Kept (auth-dependent) |
-| `cart` + `cart_items` (2 req) | Kept (auth-dependent) |
-| **~9 requests** | **~4 requests** (1 RPC + auth chain) |
-
-### Loading Timeline: After
-
-```text
-JS Bundle (1-2s)
-  → Instant shell render (cached theme, no blocking)
-  → Parallel:
-      ├── getSession() + profile/role (auth)        ~600ms
-      ├── get_homepage_data RPC (all data)           ~500ms  
-      └── cart (only if logged in)                   ~300ms
-  → Content visible: ~2-2.5s total
-```
-
-### Technical Details
-
-**Database migration**: Update `get_homepage_data` to add:
-```sql
-'ai_assistant', (SELECT s.value FROM store_settings s WHERE s.key = 'ai_assistant'),
-'conversion_optimization', (SELECT s.value FROM store_settings s WHERE s.key = 'conversion_optimization'),
-'storefront_theme', (SELECT s.value FROM store_settings s WHERE s.key = 'storefront_theme'),
-'social_links', (SELECT s.value FROM store_settings s WHERE s.key = 'social_links')
-```
-
-**ThemeProvider cache**: On mount, read `localStorage.getItem('storefront_theme_cache')` synchronously. After RPC data arrives, update cache. No render blocking.
-
-**Files to modify** (7 files + 1 migration):
-1. `get_homepage_data` RPC — add 4 settings keys
-2. `src/hooks/useTheme.tsx` — remove blocking, use localStorage cache
-3. `src/hooks/useGlobalStore.tsx` — expose new settings from RPC
-4. `src/components/storefront/StorefrontLayout.tsx` — remove ai_assistant query
-5. `src/components/storefront/AIAssistantWidget.tsx` — use global store
-6. `src/hooks/useConversionOptimization.tsx` — use global store for storefront
-7. `src/components/storefront/Footer.tsx` — use global store for social_links
+### Files to modify (2 files)
+1. `src/hooks/useGlobalStore.tsx` — add localStorage cache for storeInfo, expose `hasCachedData`
+2. `src/components/storefront/StorefrontLayout.tsx` — show LoadingBreather when no cached data and RPC is loading
 
