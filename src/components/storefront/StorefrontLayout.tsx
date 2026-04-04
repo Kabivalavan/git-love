@@ -57,8 +57,8 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Use consolidated config from global store — no separate query
-  const { aiAssistantConfig } = useGlobalStore();
+  // Use consolidated config from global store
+
   const isAiEnabled = Boolean(aiAssistantConfig?.enabled);
   const aiPopupEnabled = Boolean(aiAssistantConfig?.show_popup);
 
