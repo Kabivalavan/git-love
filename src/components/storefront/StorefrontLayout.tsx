@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Home, LayoutGrid, ShoppingCart, User, Sparkles } from 'lucide-react';
 import { Header } from './Header';
 import { Footer } from './Footer';
-import { LoadingBreather } from './LoadingBreather';
+import { Shimmer } from '@/components/ui/shimmer';
 import { cn } from '@/lib/utils';
 import { useCartCount } from '@/hooks/useCartQuery';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
