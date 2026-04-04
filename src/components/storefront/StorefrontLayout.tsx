@@ -102,6 +102,11 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
     ];
   }, [isAiEnabled]);
 
+  // Gate render: first-ever visit with no cache shows breather until RPC completes
+  if (isLoading && !hasCachedData) {
+    return <LoadingBreather message="Setting up your store" subtext="Hang tight, we're loading everything for you." />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-background">
       <Header />
