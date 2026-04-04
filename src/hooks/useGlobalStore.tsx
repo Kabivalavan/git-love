@@ -73,6 +73,19 @@ interface GlobalStoreData {
 
 const GlobalStoreContext = createContext<GlobalStoreData | null>(null);
 
+const STORE_CACHE_KEY = 'cached_store_info';
+
+function getCachedStoreInfo(): StoreInfo | null {
+  try {
+    const raw = localStorage.getItem(STORE_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function setCachedStoreInfo(info: StoreInfo) {
+  try { localStorage.setItem(STORE_CACHE_KEY, JSON.stringify({ name: info.name, logo_url: info.logo_url, favicon_url: info.favicon_url })); } catch {}
+}
+
 const fetchGlobalData = async () => {
   const { data, error } = await supabase.rpc('get_homepage_data');
   if (error) throw error;
