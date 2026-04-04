@@ -51,6 +51,7 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
   const location = useLocation();
   const cartCount = useCartCount();
   const isHomePage = location.pathname === '/';
+  const { isLoading, hasCachedData, aiAssistantConfig } = useGlobalStore();
   const [showAiPopup, setShowAiPopup] = useState(false);
   const [enableEnhancements, setEnableEnhancements] = useState(false);
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

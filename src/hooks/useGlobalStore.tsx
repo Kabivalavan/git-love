@@ -236,12 +236,13 @@ export function GlobalStoreProvider({ children }: { children: ReactNode }) {
     bundles,
     reviewStats,
     isLoading,
+    hasCachedData,
     getProductOffer,
     calculateCartDiscount,
     aiAssistantConfig,
     conversionOptimization,
     socialLinks,
-  }), [categories, offers, banners, middleBanners, popupBanner, storeInfo, announcement, storefrontDisplay, bestsellers, featured, newArrivals, bundles, reviewStats, isLoading, getProductOffer, calculateCartDiscount, aiAssistantConfig, conversionOptimization, socialLinks]);
+  }), [categories, offers, banners, middleBanners, popupBanner, storeInfo, announcement, storefrontDisplay, bestsellers, featured, newArrivals, bundles, reviewStats, isLoading, hasCachedData, getProductOffer, calculateCartDiscount, aiAssistantConfig, conversionOptimization, socialLinks]);
 
   return (
     <GlobalStoreContext.Provider value={value}>
