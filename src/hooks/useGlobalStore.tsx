@@ -60,12 +60,12 @@ interface GlobalStoreData {
   bundles: any[];
   reviewStats: ReviewStats;
   isLoading: boolean;
+  hasCachedData: boolean;
   getProductOffer: (product: Product, variantId?: string | null) => ProductOffer | null;
   calculateCartDiscount: (products: { product: Product; quantity: number }[]) => {
     totalDiscount: number;
     appliedOffers: { offer: Offer; discount: number }[];
   };
-  // Consolidated settings from RPC
   aiAssistantConfig: AIAssistantConfig | null;
   conversionOptimization: any | null;
   socialLinks: SocialLinks | null;
