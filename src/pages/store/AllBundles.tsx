@@ -8,7 +8,7 @@ import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { SEOHead } from '@/components/seo/SEOHead';
 
 export default function AllBundlesPage() {
-  const { bundles, isLoading } = useGlobalStore();
+  const { bundles, isFullLoading: isLoading } = useGlobalStore();
 
   return (
     <StorefrontLayout>

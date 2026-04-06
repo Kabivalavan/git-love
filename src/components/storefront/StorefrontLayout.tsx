@@ -57,8 +57,6 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Use consolidated config from global store
-
   const isAiEnabled = Boolean(aiAssistantConfig?.enabled);
   const aiPopupEnabled = Boolean(aiAssistantConfig?.show_popup);
 
@@ -102,11 +100,10 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
     ];
   }, [isAiEnabled]);
 
-  // Gate render: first-ever visit with no cache shows shimmer skeleton until RPC completes
+  // Show shimmer skeleton only on first-ever visit with zero cached data
   if (isLoading && !hasCachedData) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
-        {/* Header shimmer */}
         <div className="sticky top-0 z-40 border-b border-border bg-card">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Shimmer className="h-8 w-32" />
@@ -117,9 +114,7 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
             </div>
           </div>
         </div>
-        {/* Hero banner shimmer */}
         <Shimmer className="w-full aspect-[2/1] sm:aspect-[2.5/1] lg:aspect-[3/1] rounded-none" />
-        {/* Categories shimmer */}
         <div className="container mx-auto px-4 py-6">
           <Shimmer className="h-7 w-40 mb-5" />
           <div className="grid grid-cols-2 gap-3 lg:flex lg:gap-8">
@@ -128,7 +123,6 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
             ))}
           </div>
         </div>
-        {/* Products shimmer */}
         <div className="container mx-auto px-4 py-6">
           <Shimmer className="h-7 w-48 mb-5" />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

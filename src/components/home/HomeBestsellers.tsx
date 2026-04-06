@@ -36,7 +36,7 @@ function BestsellerShimmer() {
 }
 
 export default function HomeBestsellers() {
-  const { bestsellers: products, reviewStats, storefrontDisplay, getProductOffer, isLoading } = useGlobalStore();
+  const { bestsellers: products, reviewStats, storefrontDisplay, getProductOffer, isFullLoading: isLoading } = useGlobalStore();
   const { handleAddToCart, handleAddToWishlist } = useHomeAddToCart();
   const { ref, isVisible } = useLazySection({ rootMargin: '300px' });
 

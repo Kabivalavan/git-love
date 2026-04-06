@@ -30,7 +30,7 @@ function BundleShimmer() {
 }
 
 export default function HomeBundles() {
-  const { bundles, isLoading } = useGlobalStore();
+  const { bundles, isFullLoading: isLoading } = useGlobalStore();
   const { ref, isVisible } = useLazySection();
 
   if (bundles.length === 0 && !isLoading) return null;
