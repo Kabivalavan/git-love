@@ -1756,6 +1756,7 @@ export type Database = {
       generate_order_number: { Args: never; Returns: string }
       generate_refund_number: { Args: never; Returns: string }
       generate_return_number: { Args: never; Returns: string }
+      get_homepage_critical: { Args: never; Returns: Json }
       get_homepage_data: { Args: never; Returns: Json }
       get_product_page_data: { Args: { p_slug: string }; Returns: Json }
       get_user_role: {
