@@ -34,7 +34,7 @@ function FeaturedShimmer() {
 }
 
 export default function HomeFeatured() {
-  const { featured: products, reviewStats, storefrontDisplay, getProductOffer, isLoading } = useGlobalStore();
+  const { featured: products, reviewStats, storefrontDisplay, getProductOffer, isFullLoading: isLoading } = useGlobalStore();
   const { handleAddToCart, handleAddToWishlist } = useHomeAddToCart();
   const { ref, isVisible } = useLazySection();
 

@@ -36,7 +36,7 @@ function NewArrivalsShimmer() {
 }
 
 export default function HomeNewArrivals() {
-  const { newArrivals: products, reviewStats, storefrontDisplay, getProductOffer, isLoading } = useGlobalStore();
+  const { newArrivals: products, reviewStats, storefrontDisplay, getProductOffer, isFullLoading: isLoading } = useGlobalStore();
   const { handleAddToCart, handleAddToWishlist } = useHomeAddToCart();
   const { ref, isVisible } = useLazySection();
 
