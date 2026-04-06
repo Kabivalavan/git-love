@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, X, ChevronRight as ArrowRight, Info } from 'lucide-react';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
@@ -7,30 +7,31 @@ import { Shimmer } from '@/components/ui/shimmer';
 import { ResponsiveImage } from '@/components/ui/responsive-image';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { SEOHead } from '@/components/seo/SEOHead';
-import HomeBestsellers from '@/components/home/HomeBestsellers';
-import HomeMiddleBanners from '@/components/home/HomeMiddleBanners';
-import HomeFeatured from '@/components/home/HomeFeatured';
-import HomeBundles from '@/components/home/HomeBundles';
-import HomeNewArrivals from '@/components/home/HomeNewArrivals';
 
-function HeroBannerShimmer() {
-  return (
-    <div className="relative">
-      <Shimmer className="w-full aspect-[2/1] sm:aspect-[2.5/1] lg:aspect-[3/1] rounded-none" />
-    </div>
-  );
-}
+// Lazy-load below-fold sections
+const HomeBestsellers = lazy(() => import('@/components/home/HomeBestsellers'));
+const HomeMiddleBanners = lazy(() => import('@/components/home/HomeMiddleBanners'));
+const HomeFeatured = lazy(() => import('@/components/home/HomeFeatured'));
+const HomeBundles = lazy(() => import('@/components/home/HomeBundles'));
+const HomeNewArrivals = lazy(() => import('@/components/home/HomeNewArrivals'));
 
-function CategoryShimmer() {
+function ProductSectionShimmer() {
   return (
-    <section className="container mx-auto px-4 py-6">
-      <Shimmer className="h-7 w-40 mb-5" />
-      <div className="grid grid-cols-2 gap-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Shimmer key={i} className="h-24 rounded-2xl" />
+    <div className="container mx-auto px-4 py-6">
+      <Shimmer className="h-7 w-48 mb-5" />
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="rounded-lg border bg-card overflow-hidden">
+            <Shimmer className="h-48 w-full rounded-none" />
+            <div className="p-3 space-y-2">
+              <Shimmer className="h-4 w-3/4" />
+              <Shimmer className="h-3 w-1/2" />
+              <Shimmer className="h-5 w-20" />
+            </div>
+          </div>
         ))}
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -38,7 +39,7 @@ export default function HomePage() {
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showPopup, setShowPopup] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const { categories, banners: allBanners, middleBanners, popupBanner, storeInfo, announcement, isLoading: isGlobalLoading } = useGlobalStore();
+  const { categories, banners: allBanners, middleBanners, popupBanner, storeInfo, announcement, isCriticalLoading } = useGlobalStore();
 
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768);
@@ -46,14 +47,11 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', handler);
   }, []);
 
-  // Filter banners by device visibility
   const banners = allBanners.filter(b => isMobile ? (b as any).show_on_mobile !== false : (b as any).show_on_desktop !== false);
 
   useEffect(() => {
     if (banners.length > 1) {
-      const interval = setInterval(() => {
-        setCurrentBanner((prev) => (prev + 1) % banners.length);
-      }, 5000);
+      const interval = setInterval(() => setCurrentBanner((prev) => (prev + 1) % banners.length), 5000);
       return () => clearInterval(interval);
     }
   }, [banners.length]);
@@ -67,6 +65,9 @@ export default function HomePage() {
       }
     }
   }, [popupBanner]);
+
+  // Use isCriticalLoading for above-fold shimmer (not full isLoading)
+  const showAboveFoldShimmer = isCriticalLoading && banners.length === 0 && categories.length === 0;
 
   return (
     <StorefrontLayout>
@@ -83,8 +84,10 @@ export default function HomePage() {
       />
 
       {/* Hero Banner */}
-      {isGlobalLoading ? (
-        <HeroBannerShimmer />
+      {showAboveFoldShimmer ? (
+        <div className="relative">
+          <Shimmer className="w-full aspect-[2/1] sm:aspect-[2.5/1] lg:aspect-[3/1] rounded-none" />
+        </div>
       ) : banners.length > 0 ? (
         <section className="relative">
           <div className="relative overflow-hidden aspect-[2/1] sm:aspect-[2.5/1] lg:aspect-[3/1]">
@@ -138,7 +141,7 @@ export default function HomePage() {
         </section>
       ) : null}
 
-      {/* Promo/Announcement inline banner */}
+      {/* Announcement */}
       {announcement?.is_active && announcement?.text && (
         <div className="container mx-auto px-4 mt-4">
           <div className="bg-primary/10 border border-primary/20 rounded-2xl px-4 py-3">
@@ -152,9 +155,16 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* All Categories - 2-column grid cards like reference */}
-      {isGlobalLoading ? (
-        <CategoryShimmer />
+      {/* Categories */}
+      {showAboveFoldShimmer ? (
+        <section className="container mx-auto px-4 py-6">
+          <Shimmer className="h-7 w-40 mb-5" />
+          <div className="grid grid-cols-2 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Shimmer key={i} className="h-24 rounded-2xl" />
+            ))}
+          </div>
+        </section>
       ) : categories.length > 0 ? (
         <section className="container mx-auto px-4 py-6 md:py-10">
           <div className="flex items-center justify-between mb-5">
@@ -163,20 +173,12 @@ export default function HomePage() {
               View All <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-
-          {/* Mobile: 2-column grid cards with image */}
           <div className="grid grid-cols-2 gap-3 lg:hidden">
             {categories.filter(c => !c.parent_id).map((category) => (
-              <Link
-                key={category.id}
-                to={`/category/${category.slug}`}
-                className="group flex items-center gap-3 p-3 bg-card rounded-2xl border border-border hover:shadow-md transition-all"
-              >
+              <Link key={category.id} to={`/category/${category.slug}`} className="group flex items-center gap-3 p-3 bg-card rounded-2xl border border-border hover:shadow-md transition-all">
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors truncate">{category.name}</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                    {category.description || 'Shop now'}
-                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{category.description || 'Shop now'}</p>
                 </div>
                 <div className="w-14 h-14 rounded-xl overflow-hidden bg-muted flex-shrink-0">
                   {category.image_url ? (
@@ -190,8 +192,6 @@ export default function HomePage() {
               </Link>
             ))}
           </div>
-
-          {/* Desktop: Horizontal scroll with circle icons */}
           <div className="hidden lg:flex gap-8 overflow-x-auto pb-2 scrollbar-thin">
             {categories.filter(c => !c.parent_id).map((category) => (
               <Link key={category.id} to={`/category/${category.slug}`} className="group text-center flex flex-col items-center flex-shrink-0">
@@ -211,41 +211,32 @@ export default function HomePage() {
         </section>
       ) : null}
 
-      {/* Product sections */}
-      <HomeBestsellers />
-      <HomeMiddleBanners middleBanners={middleBanners} />
-      <HomeFeatured />
-      <HomeBundles />
-      <HomeNewArrivals />
+      {/* Below-fold sections — lazy loaded */}
+      <Suspense fallback={<ProductSectionShimmer />}>
+        <HomeBestsellers />
+      </Suspense>
+      <Suspense fallback={null}>
+        <HomeMiddleBanners middleBanners={middleBanners} />
+      </Suspense>
+      <Suspense fallback={<ProductSectionShimmer />}>
+        <HomeFeatured />
+      </Suspense>
+      <Suspense fallback={null}>
+        <HomeBundles />
+      </Suspense>
+      <Suspense fallback={<ProductSectionShimmer />}>
+        <HomeNewArrivals />
+      </Suspense>
 
       {/* Popup Banner */}
       {showPopup && popupBanner && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in"
-          onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
-        >
-          <div
-            className="relative max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl animate-scale-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
-              className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-card/80 text-foreground flex items-center justify-center hover:bg-card transition-colors"
-            >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}>
+          <div className="relative max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }} className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-card/80 text-foreground flex items-center justify-center hover:bg-card transition-colors">
               <X className="h-4 w-4" />
             </button>
-            <Link
-              to={popupBanner.redirect_url || '/products'}
-              onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}
-            >
-              <ResponsiveImage
-                src={popupBanner.media_url}
-                alt={popupBanner.title}
-                className="w-full h-auto"
-                widths={[320, 480, 640, 960]}
-                sizes="(max-width: 768px) 90vw, 32rem"
-                loading="lazy"
-              />
+            <Link to={popupBanner.redirect_url || '/products'} onClick={() => { setShowPopup(false); sessionStorage.setItem('popup_banner_dismissed', 'true'); }}>
+              <ResponsiveImage src={popupBanner.media_url} alt={popupBanner.title} className="w-full h-auto" widths={[320, 480, 640, 960]} sizes="(max-width: 768px) 90vw, 32rem" loading="lazy" />
             </Link>
           </div>
         </div>
