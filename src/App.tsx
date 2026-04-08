@@ -92,7 +92,7 @@ function StorefrontLoadingFallback() {
 // Admin loading fallback - shimmer skeleton
 function AdminLoadingFallback() {
   return (
-    <div className="min-h-screen bg-background p-6 space-y-6">
+    <div className="px-4 md:px-6 pt-5 pb-6 space-y-6">
       <div className="flex items-center gap-4">
         <Shimmer className="h-8 w-48" />
         <Shimmer className="h-8 w-24" />
