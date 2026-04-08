@@ -10,6 +10,7 @@ import { GlobalStoreProvider } from '@/hooks/useGlobalStore';
 import { ScrollToTop } from '@/components/ScrollToTop';
 import { ScrollToTopButton } from '@/components/ScrollToTopButton';
 import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
+import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Shimmer, ShimmerProductGrid, ShimmerTable } from '@/components/ui/shimmer';
 
 import HomePage from './pages/store/Home';
@@ -92,13 +93,15 @@ function StorefrontLoadingFallback() {
 // Admin loading fallback - shimmer skeleton
 function AdminLoadingFallback() {
   return (
-    <div className="px-4 md:px-6 pt-5 pb-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Shimmer className="h-8 w-48" />
-        <Shimmer className="h-8 w-24" />
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Shimmer className="h-8 w-48" />
+          <Shimmer className="h-8 w-24" />
+        </div>
+        <ShimmerTable rows={8} columns={5} />
       </div>
-      <ShimmerTable rows={8} columns={5} />
-    </div>
+    </AdminLayout>
   );
 }
 
