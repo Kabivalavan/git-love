@@ -5,6 +5,7 @@ import { Header } from './Header';
 import { Footer } from './Footer';
 import { Shimmer } from '@/components/ui/shimmer';
 import { cn } from '@/lib/utils';
+import { ScrollToTopButton } from '@/components/ScrollToTopButton';
 import { useCartCount } from '@/hooks/useCartQuery';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 
