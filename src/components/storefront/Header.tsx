@@ -93,7 +93,7 @@ export function Header() {
             {/* Right actions */}
             <div className="flex items-center gap-1 ml-auto">
               {user && (
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-primary-foreground hover:bg-primary-foreground/10 hidden lg:flex" asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-primary-foreground hover:bg-primary-foreground/10" asChild>
                   <Link to="/wishlist"><Heart className="h-5 w-5" /></Link>
                 </Button>
               )}

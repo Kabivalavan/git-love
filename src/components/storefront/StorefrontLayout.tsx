@@ -5,6 +5,7 @@ import { Header } from './Header';
 import { Footer } from './Footer';
 import { Shimmer } from '@/components/ui/shimmer';
 import { cn } from '@/lib/utils';
+import { ScrollToTopButton } from '@/components/ScrollToTopButton';
 import { useCartCount } from '@/hooks/useCartQuery';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 
@@ -145,7 +146,7 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-background">
       <Header />
-      <main className="flex-1 pb-16 lg:pb-0">{children}</main>
+      <main className="flex-1 pb-20 lg:pb-0">{children}</main>
       {isHomePage && <Footer />}
       {enableEnhancements && (
         <Suspense fallback={null}>
@@ -153,6 +154,7 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
           <ExitIntentPopup />
         </Suspense>
       )}
+      <ScrollToTopButton />
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border lg:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
         <div className="flex items-center justify-around h-[60px]">
           {mobileNavItems.map((item) => {

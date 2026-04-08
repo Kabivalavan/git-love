@@ -916,7 +916,7 @@ export default function CheckoutPage() {
                           return (
                             <div key={item.id} className="flex justify-between text-sm gap-2">
                               <div className="flex-1 min-w-0">
-                                <p className="truncate font-medium">{item.product.name}</p>
+                                <p className="font-medium text-sm break-words">{item.product.name}</p>
                                 {item.variant && (
                                   <p className="text-xs text-muted-foreground">{item.variant.name}{item.variant.sku ? ` · ${item.variant.sku}` : ''}</p>
                                 )}
