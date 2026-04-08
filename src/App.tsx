@@ -116,7 +116,6 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 const AppRoutes = () => (
   <>
     <ScrollToTop />
-    <ScrollToTopButton />
     <Routes>
       {/* Public Storefront */}
       <Route path="/" element={<HomePage />} />
