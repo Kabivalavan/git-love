@@ -246,7 +246,7 @@ export default function CartPage() {
                     </Link>
                     <div className="flex-1 min-w-0">
                       <Link to={`/product/${item.product.slug}`}>
-                        <h3 className="font-semibold text-sm md:text-base text-foreground hover:text-primary transition-colors line-clamp-1">{item.product.name}</h3>
+                        <h3 className="font-semibold text-sm md:text-base text-foreground hover:text-primary transition-colors line-clamp-2 break-words">{item.product.name}</h3>
                       </Link>
                       {item.variant && <Badge variant="outline" className="text-[10px] mt-0.5 rounded-full">{item.variant.name}</Badge>}
 

@@ -86,7 +86,8 @@ export default function ProductDetailPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', comment: '', images: [] as string[] });
-  const [visibleReviewCount, setVisibleReviewCount] = useState(4);
+  const [visibleReviewCount, setVisibleReviewCount] = useState(3);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; reviewText?: string } | null>(null);
   const [couponsExpanded, setCouponsExpanded] = useState(false);
   const [showStickyBar, setShowStickyBar] = useState(false);
   const buyNowRef = useRef<HTMLButtonElement>(null);
@@ -123,7 +124,7 @@ export default function ProductDetailPage() {
     setCurrentImageIndex(0);
     setQuantity(1);
     setSelectedVariant(null);
-    setVisibleReviewCount(4);
+    setVisibleReviewCount(3);
   }, [slug]);
 
   useEffect(() => {
@@ -700,9 +701,13 @@ export default function ProductDetailPage() {
               {(review as any).images && Array.isArray((review as any).images) && (review as any).images.length > 0 && (
                 <div className="flex gap-2 mt-2">
                   {((review as any).images as string[]).map((img, idx) => (
-                    <a key={idx} href={img} target="_blank" rel="noopener noreferrer" className="w-14 h-14 rounded-lg overflow-hidden border border-border flex-shrink-0">
+                    <button
+                      key={idx}
+                      onClick={() => setLightboxImage({ url: img, reviewText: review.comment || review.title || '' })}
+                      className="w-14 h-14 rounded-lg overflow-hidden border border-border flex-shrink-0 hover:opacity-80 transition-opacity"
+                    >
                       <img src={img} alt="Review" className="w-full h-full object-cover" />
-                    </a>
+                    </button>
                   ))}
                 </div>
               )}
@@ -710,7 +715,7 @@ export default function ProductDetailPage() {
             </div>
           ))}
           {reviews.length > visibleReviewCount && (
-            <Button variant="ghost" className="w-full mt-2" onClick={() => setVisibleReviewCount(prev => prev + 4)}>
+            <Button variant="ghost" className="w-full mt-2" onClick={() => setVisibleReviewCount(prev => prev + 3)}>
               Show More Reviews ({reviews.length - visibleReviewCount} remaining)
             </Button>
           )}
@@ -759,6 +764,38 @@ export default function ProductDetailPage() {
               {isAddingToCart ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
               Add
             </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Review Image Lightbox */}
+      <AnimatePresence>
+        {lightboxImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4"
+            onClick={() => setLightboxImage(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="relative max-w-lg w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img src={lightboxImage.url} alt="Review" className="w-full rounded-xl max-h-[70vh] object-contain" />
+              {lightboxImage.reviewText && (
+                <p className="text-white text-sm mt-3 text-center">{lightboxImage.reviewText}</p>
+              )}
+              <button
+                onClick={() => setLightboxImage(null)}
+                className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-card text-foreground flex items-center justify-center shadow-lg"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
