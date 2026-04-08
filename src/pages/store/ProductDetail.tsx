@@ -306,7 +306,7 @@ export default function ProductDetailPage() {
         image={images[0]?.image_url}
         jsonLd={productJsonLd}
       />
-      <div className="mx-auto w-full max-w-[1440px] px-4 py-4 md:px-6 md:py-6 overflow-hidden">
+      <div className="mx-auto w-full max-w-[1440px] px-4 py-4 md:px-6 md:py-6 overflow-hidden pb-36 lg:pb-6">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-3 mb-4">
           <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center flex-shrink-0 hover:bg-muted transition-colors">
