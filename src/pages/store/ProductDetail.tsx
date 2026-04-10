@@ -729,7 +729,19 @@ export default function ProductDetailPage() {
               {relatedProducts.map((rp) => (
                 <ProductCard key={rp.id} product={rp} onAddToCart={async (p) => {
                   if (!user) { toast({ title: 'Please login' }); return; }
-                  addToCart.mutate({ product: p, quantity: 1 });
+                  // Fetch default variant
+                  let variantId: string | null = null;
+                  try {
+                    const { data: variants } = await supabase
+                      .from('product_variants')
+                      .select('id')
+                      .eq('product_id', p.id)
+                      .eq('is_active', true)
+                      .order('sort_order', { ascending: true })
+                      .limit(1);
+                    if (variants && variants.length > 0) variantId = variants[0].id;
+                  } catch { /* fallback */ }
+                  addToCart.mutate({ product: p, quantity: 1, variantId });
                 }} productOffer={getProductOffer(rp)} />
               ))}
             </div>
