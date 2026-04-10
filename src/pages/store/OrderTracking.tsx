@@ -79,18 +79,18 @@ import { ArrowLeft, Package, Truck, CheckCircle, MapPin, RotateCcw } from 'lucid
          <Card>
            <CardHeader><CardTitle className="text-lg">Order Status</CardTitle></CardHeader>
            <CardContent>
-             <div className="flex justify-between relative">
-               <div className="absolute top-5 left-0 right-0 h-0.5 bg-muted">
-                 <div className="h-full bg-primary transition-all" style={{ width: `${(currentStep / 4) * 100}%` }} />
-               </div>
-               {orderSteps.map((step, index) => (
-                 <div key={step.status} className="flex flex-col items-center relative z-10">
-                   <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", index <= currentStep ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-                     <step.icon className="h-5 w-5" />
-                   </div>
-                   <span className={cn("text-xs mt-2", index === currentStep ? "font-semibold text-primary" : "text-muted-foreground")}>{step.label}</span>
-                 </div>
-               ))}
+              <div className="flex justify-between relative">
+                <div className="absolute top-5 left-0 right-0 h-0.5 bg-gray-200 dark:bg-gray-700">
+                  <div className="h-full bg-green-500 transition-all" style={{ width: `${(currentStep / 4) * 100}%` }} />
+                </div>
+                {orderSteps.map((step, index) => (
+                  <div key={step.status} className="flex flex-col items-center relative z-10">
+                    <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", index <= currentStep ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400")}>
+                      <step.icon className="h-5 w-5" />
+                    </div>
+                    <span className={cn("text-xs mt-2", index === currentStep ? "font-semibold text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-400")}>{step.label}</span>
+                  </div>
+                ))}
              </div>
            </CardContent>
          </Card>

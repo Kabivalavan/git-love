@@ -217,7 +217,9 @@ export default function AdminCoupons() {
         toast({ title: 'Success', description: 'Coupon updated successfully' });
         log({ action: 'update', entityType: 'coupon', entityId: selectedCoupon.id, details: { name: formData.code } });
         setIsFormOpen(false);
+        // Force full re-fetch to get latest data including updated dates
         queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.coupons });
+        fetchInitial();
       }
     } else {
       const { error } = await supabase.from('coupons').insert([couponData]);
