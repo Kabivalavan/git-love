@@ -263,7 +263,7 @@ export default function AdminOrders() {
       log({ action: 'status_change', entityType: 'order', entityId: selectedOrder.id, details: { order_number: selectedOrder.order_number, from: selectedOrder.status, to: newStatus } });
       toast({ title: 'Status updated' });
       setSelectedOrder({ ...selectedOrder, status: newStatus });
-      fetchOrders();
+      // Don't re-fetch entire list; just update the local item in cache silently
     }
     setIsUpdating(false);
   };

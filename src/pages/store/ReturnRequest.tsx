@@ -60,6 +60,7 @@ export default function ReturnRequestPage() {
   });
   const [existingReturns, setExistingReturns] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
+  const [variantReturnableMap, setVariantReturnableMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (user && orderId) fetchData();
@@ -72,12 +73,13 @@ export default function ReturnRequestPage() {
     const [orderRes, itemsRes, settingsRes, returnsRes] = await Promise.all([
       supabase.from('orders').select('*').eq('id', orderId).eq('user_id', user.id).single(),
       supabase.from('order_items').select('*').eq('order_id', orderId),
-      supabase.from('store_settings').select('value').eq('key', 'return_settings').single(),
+      supabase.from('store_settings').select('value').eq('key', 'return_settings').maybeSingle(),
       supabase.from('returns').select('id, return_items(order_item_id)').eq('order_id', orderId).eq('user_id', user.id).neq('status', 'rejected' as any),
     ]);
 
     setOrder(orderRes.data as unknown as Order);
-    setItems((itemsRes.data || []) as unknown as OrderItem[]);
+    const fetchedItems = (itemsRes.data || []) as unknown as OrderItem[];
+    setItems(fetchedItems);
 
     if (settingsRes.data?.value) {
       setReturnSettings(settingsRes.data.value as unknown as ReturnSettings);
@@ -88,6 +90,18 @@ export default function ReturnRequestPage() {
       (r.return_items || []).forEach((ri: any) => { if (ri.order_item_id) returned.push(ri.order_item_id); });
     });
     setExistingReturns(returned);
+
+    // Fetch variant returnability
+    const variantIds = fetchedItems.filter(i => i.variant_id).map(i => i.variant_id!);
+    if (variantIds.length > 0) {
+      const { data } = await supabase
+        .from('product_variants')
+        .select('id, is_returnable')
+        .in('id', variantIds);
+      const map: Record<string, boolean> = {};
+      (data || []).forEach((v: any) => { map[v.id] = v.is_returnable !== false; });
+      setVariantReturnableMap(map);
+    }
 
     setIsLoading(false);
   };
@@ -205,7 +219,7 @@ export default function ReturnRequestPage() {
   if (!order || order.status !== 'delivered') {
     return (
       <div className="py-12 max-w-lg mx-auto text-center">
-        <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
         <h2 className="text-xl font-bold mb-2">Return Not Available</h2>
         <p className="text-muted-foreground">Returns can only be raised for delivered orders.</p>
         <Button asChild className="mt-4"><Link to="/account">Back to Orders</Link></Button>
@@ -226,28 +240,8 @@ export default function ReturnRequestPage() {
     );
   }
 
-  // Filter items: not already returned AND check variant/product returnable status
-  const [variantReturnableMap, setVariantReturnableMap] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    const fetchReturnability = async () => {
-      const variantIds = items.filter(i => i.variant_id).map(i => i.variant_id!);
-      if (variantIds.length > 0) {
-        const { data } = await supabase
-          .from('product_variants')
-          .select('id, is_returnable')
-          .in('id', variantIds);
-        const map: Record<string, boolean> = {};
-        (data || []).forEach((v: any) => { map[v.id] = v.is_returnable !== false; });
-        setVariantReturnableMap(map);
-      }
-    };
-    if (items.length > 0) fetchReturnability();
-  }, [items]);
-
   const returnableItems = items.filter(i => {
     if (existingReturns.includes(i.id)) return false;
-    // Check if variant is returnable
     if (i.variant_id && variantReturnableMap[i.variant_id] === false) return false;
     return true;
   });
@@ -321,7 +315,7 @@ export default function ReturnRequestPage() {
       {/* Step 3: Proof */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">3. Upload Proof Images {returnSettings.requireImageProof && <span className="text-destructive">*</span>}</CardTitle>
+          <CardTitle className="text-base">3. Upload Proof Images {returnSettings.requireImageProof && <span className="text-red-500">*</span>}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-2 mb-3">
@@ -330,7 +324,7 @@ export default function ReturnRequestPage() {
                 <img src={img} alt="" className="w-full h-full object-cover rounded-lg border" />
                 <button
                   onClick={() => setProofImages(prev => prev.filter((_, idx) => idx !== i))}
-                  className="absolute -top-1 -right-1 bg-destructive text-white rounded-full h-5 w-5 flex items-center justify-center"
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center"
                 >
                   <X className="h-3 w-3" />
                 </button>

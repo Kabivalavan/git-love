@@ -154,7 +154,7 @@ export function StorefrontLayout({ children }: StorefrontLayoutProps) {
           <ExitIntentPopup />
         </Suspense>
       )}
-      <ScrollToTopButton />
+      {/* ScrollToTopButton removed from storefront per user request */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border lg:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
         <div className="flex items-center justify-around h-[60px]">
           {mobileNavItems.map((item) => {

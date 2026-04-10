@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { TrendingUp, ShoppingBag, ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ResponsiveImage } from '@/components/ui/responsive-image';
+import { supabase } from '@/integrations/supabase/client';
 import { useConversionSettings, useUpsellProducts, useCrossSellProducts, trackConversionEvent } from '@/hooks/useConversionOptimization';
 import { useCartMutations } from '@/hooks/useCartQuery';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,7 +24,7 @@ function RecommendationCard({ product: p, onTrack }: { product: Product; onTrack
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!user) {
@@ -32,7 +33,21 @@ function RecommendationCard({ product: p, onTrack }: { product: Product; onTrack
       return;
     }
     onTrack();
-    addToCart.mutate({ product: p, quantity: 1, variantId: null });
+    // Fetch default variant (first active variant sorted by sort_order)
+    let defaultVariantId: string | null = null;
+    try {
+      const { data: variants } = await supabase
+        .from('product_variants')
+        .select('id')
+        .eq('product_id', p.id)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .limit(1);
+      if (variants && variants.length > 0) {
+        defaultVariantId = variants[0].id;
+      }
+    } catch { /* fallback to null */ }
+    addToCart.mutate({ product: p, quantity: 1, variantId: defaultVariantId });
   };
 
   return (
@@ -126,7 +141,7 @@ export function CrossSellUpsell({ product }: CrossSellUpsellProps) {
   if (upsellProducts.length === 0 && crossSellProducts.length === 0) return null;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 mt-8">
       {upsellProducts.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
