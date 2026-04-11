@@ -108,9 +108,9 @@ export default function MyReturnsPage() {
                 <div className="flex items-center gap-1 overflow-x-auto pb-1">
                   {statusSteps.map((step, i) => (
                     <div key={step} className="flex items-center">
-                      <div className={`h-2 w-2 rounded-full flex-shrink-0 ${i <= currentStep ? 'bg-primary' : 'bg-muted'}`} />
+                      <div className={`h-2 w-2 rounded-full flex-shrink-0 ${i <= currentStep ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
                       {i < statusSteps.length - 1 && (
-                        <div className={`h-0.5 w-6 flex-shrink-0 ${i < currentStep ? 'bg-primary' : 'bg-muted'}`} />
+                        <div className={`h-0.5 w-6 flex-shrink-0 ${i < currentStep ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
                       )}
                     </div>
                   ))}
