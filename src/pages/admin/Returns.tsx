@@ -87,6 +87,7 @@ export default function AdminReturns() {
     hasMore,
     sentinelRef,
     fetchInitial,
+    refetch,
   } = usePaginatedFetch<ReturnRecord>({
     pageSize: 24,
     fetchFn: fetchReturnsFn,
@@ -99,7 +100,7 @@ export default function AdminReturns() {
   }, [fetchInitial]);
 
   const returns = returnsRaw as ReturnRecord[];
-  const refetchReturns = useCallback(() => fetchInitial(), [fetchInitial]);
+  const refetchReturns = useCallback(() => refetch(), [refetch]);
 
   const filtered = returns.filter(r => {
     if (statusFilter !== 'all' && r.status !== statusFilter) return false;

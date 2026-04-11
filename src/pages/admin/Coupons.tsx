@@ -90,7 +90,7 @@ export default function AdminCoupons() {
     }
   }, [toast]);
 
-  const { items: couponsRaw, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial } = usePaginatedFetch<Coupon>({
+  const { items: couponsRaw, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial, refetch } = usePaginatedFetch<Coupon>({
     pageSize: 30,
     fetchFn: fetchCouponsFn,
     cacheKey: 'admin-coupons-paginated',
@@ -182,6 +182,7 @@ export default function AdminCoupons() {
       log({ action: 'delete', entityType: 'coupon', entityId: selectedCoupon.id, details: { name: selectedCoupon.code } });
       setIsDetailOpen(false);
       queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.coupons });
+      refetch();
     }
     setIsDeleting(false);
   };
@@ -217,9 +218,8 @@ export default function AdminCoupons() {
         toast({ title: 'Success', description: 'Coupon updated successfully' });
         log({ action: 'update', entityType: 'coupon', entityId: selectedCoupon.id, details: { name: formData.code } });
         setIsFormOpen(false);
-        // Force full re-fetch to get latest data including updated dates
         queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.coupons });
-        fetchInitial();
+        refetch();
       }
     } else {
       const { error } = await supabase.from('coupons').insert([couponData]);
@@ -230,6 +230,7 @@ export default function AdminCoupons() {
         log({ action: 'create', entityType: 'coupon', details: { name: formData.code } });
         setIsFormOpen(false);
         queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.coupons });
+        refetch();
       }
     }
     setIsSaving(false);
