@@ -147,7 +147,14 @@ export default function ProductsPage() {
         query = query.in('category_id', [category.id, ...childIds]);
       }
     }
-    if (selectedCategories.length > 0) query = query.in('category_id', selectedCategories);
+    if (selectedCategories.length > 0) {
+      // Include children of selected parent categories
+      const expandedIds = new Set(selectedCategories);
+      selectedCategories.forEach(catId => {
+        categories.filter(c => c.parent_id === catId).forEach(child => expandedIds.add(child.id));
+      });
+      query = query.in('category_id', Array.from(expandedIds));
+    }
     if (isFeatured) query = query.eq('is_featured', true);
     if (isBestseller) query = query.eq('is_bestseller', true);
     if (showInStock) query = query.gt('stock_quantity', 0);
@@ -248,24 +255,55 @@ export default function ProductsPage() {
   const seoDescription = currentCategory?.description
     || `Browse our collection of ${pageTitle.toLowerCase()}. Free shipping on orders above ₹500.`;
 
+  const parentCategories = categories.filter(c => !c.parent_id);
+
   const FilterContent = () => (
     <div className="space-y-6">
       <div>
         <h3 className="font-semibold mb-3">Categories</h3>
         <div className="space-y-2">
-          {categories.filter(c => !c.parent_id).map((cat) => (
-            <div key={cat.id} className="flex items-center gap-2">
-              <Checkbox
-                id={cat.id}
-                checked={selectedCategories.includes(cat.id)}
-                onCheckedChange={(checked) => {
-                  if (checked) setSelectedCategories([...selectedCategories, cat.id]);
-                  else setSelectedCategories(selectedCategories.filter(id => id !== cat.id));
-                }}
-              />
-              <Label htmlFor={cat.id} className="text-sm cursor-pointer">{cat.name}</Label>
-            </div>
-          ))}
+          {parentCategories.map((cat) => {
+            const isParentSelected = selectedCategories.includes(cat.id);
+            const childCats = categories.filter(c => c.parent_id === cat.id);
+            return (
+              <div key={cat.id}>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={cat.id}
+                    checked={isParentSelected}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedCategories([...selectedCategories, cat.id]);
+                      } else {
+                        // Remove parent and all its children
+                        const childIds = childCats.map(c => c.id);
+                        setSelectedCategories(selectedCategories.filter(id => id !== cat.id && !childIds.includes(id)));
+                      }
+                    }}
+                  />
+                  <Label htmlFor={cat.id} className="text-sm cursor-pointer">{cat.name}</Label>
+                </div>
+                {/* Show subcategories when parent is selected */}
+                {isParentSelected && childCats.length > 0 && (
+                  <div className="ml-6 mt-1 space-y-1.5">
+                    {childCats.map((sub) => (
+                      <div key={sub.id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={sub.id}
+                          checked={selectedCategories.includes(sub.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) setSelectedCategories([...selectedCategories, sub.id]);
+                            else setSelectedCategories(selectedCategories.filter(id => id !== sub.id));
+                          }}
+                        />
+                        <Label htmlFor={sub.id} className="text-xs cursor-pointer text-muted-foreground">{sub.name}</Label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
       <div>

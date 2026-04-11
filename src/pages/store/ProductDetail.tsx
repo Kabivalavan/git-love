@@ -211,6 +211,7 @@ export default function ProductDetailPage() {
     setIsSubmittingReview(true);
     const { error } = await supabase.from('reviews').insert({
       product_id: product.id, user_id: user.id, rating: reviewForm.rating, title: reviewForm.title || null, comment: reviewForm.comment || null, is_approved: true, is_verified: true,
+      images: reviewForm.images.length > 0 ? reviewForm.images as any : [],
     });
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
     else {

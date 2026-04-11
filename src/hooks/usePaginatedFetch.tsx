@@ -20,6 +20,11 @@ type CachedPage<T> = {
 const paginatedCache = new Map<string, CachedPage<unknown>>();
 const inFlightInitialRequests = new Map<string, Promise<{ data: unknown[]; count: number }>>();
 
+/** Clear cache for a specific key so next fetchInitial does a real fetch */
+export function invalidatePaginatedCache(key: string) {
+  paginatedCache.delete(key);
+}
+
 function dedupeById<T>(list: T[]): T[] {
   const seen = new Set<string>();
   return list.filter((item) => {
@@ -46,7 +51,7 @@ export function usePaginatedFetch<T>({
   const pageRef = useRef(0);
   const isFetchingRef = useRef(false);
 
-  const fetchInitial = useCallback(async () => {
+  const fetchInitial = useCallback(async (forceRefresh = false) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     setIsLoading(true);
@@ -55,7 +60,7 @@ export function usePaginatedFetch<T>({
     let initialRequest: Promise<{ data: T[]; count: number }> | null = null;
 
     try {
-      if (cacheKey) {
+      if (cacheKey && !forceRefresh) {
         const cached = paginatedCache.get(cacheKey) as CachedPage<T> | undefined;
         if (cached && Date.now() - cached.updatedAt < cacheTimeMs) {
           setItems(cached.items);
@@ -66,10 +71,15 @@ export function usePaginatedFetch<T>({
         }
       }
 
+      // Clear stale cache when force refreshing
+      if (cacheKey && forceRefresh) {
+        paginatedCache.delete(cacheKey);
+      }
+
       const loadInitial = async () => fetchFn(0, pageSize - 1);
       let request: Promise<{ data: T[]; count: number }>;
 
-      if (cacheKey) {
+      if (cacheKey && !forceRefresh) {
         const inFlight = inFlightInitialRequests.get(cacheKey) as Promise<{ data: T[]; count: number }> | undefined;
         if (inFlight) {
           request = inFlight;
@@ -159,6 +169,9 @@ export function usePaginatedFetch<T>({
     requireUserScroll,
   });
 
+  /** Force refresh helper — clears cache and re-fetches */
+  const refetch = useCallback(() => fetchInitial(true), [fetchInitial]);
+
   return {
     items,
     setItems,
@@ -169,5 +182,6 @@ export function usePaginatedFetch<T>({
     sentinelRef,
     fetchInitial,
     fetchMore,
+    refetch,
   };
 }

@@ -73,7 +73,7 @@ export default function AdminProducts() {
     }
   }, [toast]);
 
-  const { items: products, isLoading: isProductsLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial } = usePaginatedFetch<Product>({
+  const { items: products, isLoading: isProductsLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial, refetch } = usePaginatedFetch<Product>({
     pageSize: 30,
     fetchFn: fetchProductsFn,
     cacheKey: 'admin-products-paginated',
@@ -106,7 +106,7 @@ export default function AdminProducts() {
     [ADMIN_KEYS.products as unknown as string[]]
   );
 
-  const refreshProducts = () => { fetchInitial(); };
+  const refreshProducts = () => { refetch(); };
 
   const handleRowClick = async (product: Product) => {
     const variants = await fetchProductVariants(product.id);
@@ -192,6 +192,7 @@ export default function AdminProducts() {
       log({ action: 'delete', entityType: 'product', entityId: selectedProduct.id, details: { name: selectedProduct.name } });
       toast({ title: 'Success', description: 'Product deleted successfully' });
       setIsDetailOpen(false);
+      refetch();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
@@ -283,6 +284,7 @@ export default function AdminProducts() {
       log({ action: selectedProduct ? 'update' : 'create', entityType: 'product', entityId: productId, details: { name: formData.name } });
       toast({ title: 'Success', description: `Product ${selectedProduct ? 'updated' : 'created'} successfully` });
       setIsFormOpen(false);
+      refetch();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }

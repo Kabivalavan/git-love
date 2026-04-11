@@ -883,7 +883,7 @@ export default function CheckoutPage() {
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-3 max-h-64 overflow-y-auto">
+                <div className="space-y-3 max-h-64 overflow-y-auto overflow-x-hidden">
                   {(() => {
                     // Group bundle items together
                     const bundleGroups: Record<string, CartItemWithProduct[]> = {};

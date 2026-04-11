@@ -1545,6 +1545,7 @@ export type Database = {
           comment: string | null
           created_at: string | null
           id: string
+          images: Json | null
           is_approved: boolean | null
           is_verified: boolean | null
           product_id: string
@@ -1557,6 +1558,7 @@ export type Database = {
           comment?: string | null
           created_at?: string | null
           id?: string
+          images?: Json | null
           is_approved?: boolean | null
           is_verified?: boolean | null
           product_id: string
@@ -1569,6 +1571,7 @@ export type Database = {
           comment?: string | null
           created_at?: string | null
           id?: string
+          images?: Json | null
           is_approved?: boolean | null
           is_verified?: boolean | null
           product_id?: string

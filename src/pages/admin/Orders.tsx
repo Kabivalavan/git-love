@@ -79,7 +79,7 @@ export default function AdminOrders() {
     }
   }, []);
 
-  const { items: orders, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial: fetchOrders } = usePaginatedFetch<Order>({
+  const { items: orders, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial: fetchOrders, refetch: refetchOrders } = usePaginatedFetch<Order>({
     pageSize: 30,
     fetchFn: fetchOrdersFn,
     cacheKey: 'admin-orders',
