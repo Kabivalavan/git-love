@@ -62,6 +62,7 @@ export default function AdminDeliveries() {
     totalCount,
     sentinelRef,
     fetchInitial,
+    refetch,
   } = usePaginatedFetch<Delivery>({
     fetchFn,
     pageSize: 30,
