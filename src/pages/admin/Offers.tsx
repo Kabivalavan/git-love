@@ -124,7 +124,7 @@ export default function AdminOffers() {
     }
   }, [toast]);
 
-  const { items: offersRaw, isLoading: offersLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial } = usePaginatedFetch<Offer>({
+  const { items: offersRaw, isLoading: offersLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial, refetch } = usePaginatedFetch<Offer>({
     pageSize: 30,
     fetchFn: fetchOffersFn,
     cacheKey: 'admin-offers-paginated',
@@ -236,6 +236,7 @@ export default function AdminOffers() {
       log({ action: 'delete', entityType: 'offer', entityId: selectedOffer.id, details: { name: selectedOffer.name, type: selectedOffer.type, value: selectedOffer.value } });
       setIsDetailOpen(false);
       queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.offers });
+      refetch();
     }
     setIsDeleting(false);
   };
@@ -288,6 +289,7 @@ export default function AdminOffers() {
         log({ action: 'update', entityType: 'offer', entityId: selectedOffer.id, details: { name: formData.name, type: formData.type, value: formData.value } });
         setIsFormOpen(false);
         queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.offers });
+        refetch();
       }
     } else {
       const { error } = await supabase.from('offers').insert([offerData]);
@@ -298,6 +300,7 @@ export default function AdminOffers() {
         log({ action: 'create', entityType: 'offer', details: { name: formData.name, type: formData.type, value: formData.value } });
         setIsFormOpen(false);
         queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.offers });
+        refetch();
       }
     }
     setIsSaving(false);

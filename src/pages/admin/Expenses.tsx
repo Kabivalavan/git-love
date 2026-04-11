@@ -91,7 +91,7 @@ export default function AdminExpenses() {
     }
   }, [toast]);
 
-  const { items: expensesRaw, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial } = usePaginatedFetch<Expense>({
+  const { items: expensesRaw, isLoading, isLoadingMore, hasMore, sentinelRef, fetchInitial, refetch } = usePaginatedFetch<Expense>({
     pageSize: 30,
     fetchFn: fetchExpensesFn,
     cacheKey: 'admin-expenses-paginated',
@@ -173,7 +173,7 @@ export default function AdminExpenses() {
     setIsDeleting(true);
     const { error } = await supabase.from('expenses').delete().eq('id', selectedExpense.id);
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else { toast({ title: 'Success', description: 'Expense deleted' }); log({ action: 'delete', entityType: 'expense', entityId: selectedExpense.id, details: { name: selectedExpense.description } }); setIsDetailOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); }
+    else { toast({ title: 'Success', description: 'Expense deleted' }); log({ action: 'delete', entityType: 'expense', entityId: selectedExpense.id, details: { name: selectedExpense.description } }); setIsDetailOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); refetch(); }
     setIsDeleting(false);
   };
 
@@ -194,11 +194,11 @@ export default function AdminExpenses() {
     if (selectedExpense) {
       const { error } = await supabase.from('expenses').update(expenseData).eq('id', selectedExpense.id);
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      else { toast({ title: 'Success', description: 'Expense updated' }); log({ action: 'update', entityType: 'expense', entityId: selectedExpense.id, details: { name: formData.description } }); setIsFormOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); }
+      else { toast({ title: 'Success', description: 'Expense updated' }); log({ action: 'update', entityType: 'expense', entityId: selectedExpense.id, details: { name: formData.description } }); setIsFormOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); refetch(); }
     } else {
       const { error } = await supabase.from('expenses').insert([expenseData]);
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      else { toast({ title: 'Success', description: 'Expense added' }); log({ action: 'create', entityType: 'expense', details: { name: formData.description } }); setIsFormOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); }
+      else { toast({ title: 'Success', description: 'Expense added' }); log({ action: 'create', entityType: 'expense', details: { name: formData.description } }); setIsFormOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); refetch(); }
     }
     setIsSaving(false);
   };
