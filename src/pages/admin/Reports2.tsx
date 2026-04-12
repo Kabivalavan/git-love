@@ -152,7 +152,16 @@ export default function Reports2() {
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
     const prevAOV = prevTotalOrders > 0 ? prevRevenue / prevTotalOrders : 0;
     const paidRevenue = fo.filter(o => o.payment_status === 'paid').reduce((s, o) => s + Number(o.total || 0), 0);
-    const profit = paidRevenue - totalExpenses;
+
+    // Refund calculations — only count completed refunds (success status)
+    const completedRefunds = refunds.filter((r: any) => r.status === 'success');
+    const refundTotal = completedRefunds.reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
+    const allRefundTotal = refunds.reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
+    const netRevenue = totalRevenue - refundTotal;
+    const profit = paidRevenue - refundTotal - totalExpenses;
+
+    // Refunded order IDs for excluding from top products
+    const refundedOrderIds = new Set(completedRefunds.map((r: any) => r.order_id).filter(Boolean));
 
     const codOrders = fo.filter(o => o.payment_method === 'cod');
     const onlineOrders = fo.filter(o => o.payment_method === 'online');
@@ -165,22 +174,29 @@ export default function Reports2() {
     const ordersChange = prevTotalOrders > 0 ? ((totalOrders - prevTotalOrders) / prevTotalOrders) * 100 : 0;
     const aovChange = prevAOV > 0 ? ((avgOrderValue - prevAOV) / prevAOV) * 100 : 0;
 
-    // Revenue trend by day
-    const revenueByDay: Record<string, { revenue: number; profit: number; orders: number }> = {};
+    // Revenue trend by day — subtract daily refunds
+    const revenueByDay: Record<string, { revenue: number; profit: number; orders: number; refunds: number }> = {};
     fo.forEach(o => {
       const day = toDayLabel(o.created_at);
       if (!day) return;
-      if (!revenueByDay[day]) revenueByDay[day] = { revenue: 0, profit: 0, orders: 0 };
+      if (!revenueByDay[day]) revenueByDay[day] = { revenue: 0, profit: 0, orders: 0, refunds: 0 };
       revenueByDay[day].revenue += Number(o.total || 0);
       revenueByDay[day].orders += 1;
       if (o.payment_status === 'paid') revenueByDay[day].profit += Number(o.total || 0);
+    });
+    // Subtract refunds from respective days
+    completedRefunds.forEach((r: any) => {
+      const day = toDayLabel(r.created_at);
+      if (!day || !revenueByDay[day]) return;
+      revenueByDay[day].refunds += Number(r.amount || 0);
     });
     const totalDays = Object.keys(revenueByDay).length || 1;
     const dailyExpense = totalExpenses / totalDays;
     const revenueTrend = Object.entries(revenueByDay).map(([date, d]) => ({
       date,
       revenue: Math.round(d.revenue),
-      profit: Math.round(d.profit - dailyExpense),
+      netRevenue: Math.round(d.revenue - d.refunds),
+      profit: Math.round(d.profit - d.refunds - dailyExpense),
       orders: d.orders,
     }));
 
@@ -193,11 +209,13 @@ export default function Reports2() {
       { name: 'Packed', value: statusCounts['packed'] || 0, fill: '#f59e0b' },
       { name: 'Shipped', value: statusCounts['shipped'] || 0, fill: '#8b5cf6' },
       { name: 'Delivered', value: statusCounts['delivered'] || 0, fill: '#06b6d8' },
-    ];
+      { name: 'Returned', value: statusCounts['returned'] || 0, fill: '#ef4444' },
+      { name: 'Cancelled', value: statusCounts['cancelled'] || 0, fill: '#6b7280' },
+    ].filter(s => s.value > 0);
 
-    // Top products
+    // Top products — exclude fully refunded orders
     const filteredOrderIds = new Set(fo.map((order) => order.id));
-    const filteredOrderItems = orderItems.filter((item: any) => filteredOrderIds.has(item.order_id));
+    const filteredOrderItems = orderItems.filter((item: any) => filteredOrderIds.has(item.order_id) && !refundedOrderIds.has(item.order_id));
     const productMap: Record<string, { name: string; qty: number; revenue: number }> = {};
     filteredOrderItems.forEach((item: any) => {
       const key = item.product_id || item.product_name;
@@ -239,21 +257,26 @@ export default function Reports2() {
 
     // Cashflow
     const paymentsReceived = payments.filter((p: any) => p.status === 'paid').reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-    const refundTotal = refunds.reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
+
+    // Refund rate
+    const refundRate = totalRevenue > 0 ? (refundTotal / totalRevenue) * 100 : 0;
 
     // AI Insights
     const insights: string[] = [];
     if (totalOrders > 0 && codPct > 60) insights.push(`⚠️ COD orders at ${codPct.toFixed(0)}% — consider incentivizing online payments`);
     if (topProducts[0]) insights.push(`🔥 "${topProducts[0].name}" generating ₹${Math.round(topProducts[0].revenue).toLocaleString()} revenue`);
-    if (totalOrders > 0 && profit < 0) insights.push(`📉 Net profit is negative — review expenses (₹${Math.round(totalExpenses).toLocaleString()})`);
+    if (totalOrders > 0 && profit < 0) insights.push(`📉 Net profit is negative — review expenses (₹${Math.round(totalExpenses).toLocaleString()}) and refunds (₹${Math.round(refundTotal).toLocaleString()})`);
     if (pendingDeliveries > 5) insights.push(`🚚 ${pendingDeliveries} deliveries pending — follow up for faster fulfillment`);
     if (codPendingAmount > 0) insights.push(`💵 ₹${Math.round(codPendingAmount).toLocaleString()} COD payments pending collection`);
     if (revenueChange > 20) insights.push(`📈 Revenue up ${revenueChange.toFixed(0)}% vs previous period — great momentum!`);
     if (revenueChange < -10) insights.push(`📉 Revenue down ${Math.abs(revenueChange).toFixed(0)}% — investigate drop`);
     if (totalRevenue > 0 && totalDiscount > totalRevenue * 0.15) insights.push(`🎯 Discounts are ${((totalDiscount / totalRevenue) * 100).toFixed(0)}% of revenue — review discount strategy`);
+    if (refundRate > 10) insights.push(`🔄 Refund rate at ${refundRate.toFixed(1)}% of revenue — investigate return reasons`);
+    if (refundTotal > 0 && refundRate <= 10) insights.push(`🔄 ₹${Math.round(refundTotal).toLocaleString()} refunded (${refundRate.toFixed(1)}% of revenue)`);
 
     return {
       totalRevenue,
+      netRevenue,
       totalOrders,
       avgOrderValue,
       profit,
@@ -275,6 +298,7 @@ export default function Reports2() {
       delStatusMap,
       paymentsReceived,
       refundTotal,
+      allRefundTotal,
       insights,
       paidRevenue,
     };
