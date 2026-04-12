@@ -364,8 +364,10 @@ export default function Reports2() {
       ) : (
         <>
           {/* KPI Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 mb-6">
-            <KPICard title="Revenue" value={fmt(analytics.totalRevenue)} change={analytics.revenueChange} icon={DollarSign} />
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-9 gap-3 mb-6">
+            <KPICard title="Gross Revenue" value={fmt(analytics.totalRevenue)} change={analytics.revenueChange} icon={DollarSign} />
+            <KPICard title="Net Revenue" value={fmt(analytics.netRevenue)} icon={DollarSign} />
+            <KPICard title="Refunds" value={fmt(analytics.refundTotal)} icon={RefreshCw} />
             <KPICard title="Profit" value={fmt(analytics.profit)} icon={analytics.profit >= 0 ? TrendingUp : TrendingDown} />
             <KPICard title="Orders" value={String(analytics.totalOrders)} change={analytics.ordersChange} icon={ShoppingCart} />
             <KPICard title="AOV" value={fmt(analytics.avgOrderValue)} change={analytics.aovChange} icon={TrendingUp} />
