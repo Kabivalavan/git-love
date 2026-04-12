@@ -55,7 +55,7 @@ export async function fetchReports2Dataset(params: Reports2QueryParams): Promise
       .limit(5000),
     supabase
       .from('refunds')
-      .select('id, amount, status, created_at')
+      .select('id, amount, status, order_id, created_at')
       .gte('created_at', params.fromISO)
       .lte('created_at', params.toISO)
       .limit(5000),
