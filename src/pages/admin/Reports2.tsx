@@ -407,7 +407,8 @@ export default function Reports2() {
                     <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                     <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }} />
                     <Legend />
-                    <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2.5} dot={false} name="Revenue (₹)" />
+                    <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2.5} dot={false} name="Gross Revenue (₹)" />
+                    <Line type="monotone" dataKey="netRevenue" stroke="#8b5cf6" strokeWidth={2} dot={false} name="Net Revenue (₹)" strokeDasharray="5 3" />
                     <Line type="monotone" dataKey="profit" stroke="#22c55e" strokeWidth={2.5} dot={false} name="Profit (₹)" />
                   </LineChart>
                 </ResponsiveContainer>
