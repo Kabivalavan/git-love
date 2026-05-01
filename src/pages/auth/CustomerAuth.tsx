@@ -72,9 +72,25 @@ export default function CustomerAuth() {
           return;
         }
 
-        const { error } = await signIn(formData.email, formData.password);
+        let loginEmail = formData.identifier.trim();
+        const isPhone = /^[6-9]\d{9}$/.test(loginEmail);
+        if (isPhone) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('mobile_number', loginEmail)
+            .maybeSingle();
+          if (!profile?.email) {
+            toast({ title: 'Login failed', description: 'No account found with this mobile number', variant: 'destructive' });
+            setIsLoading(false);
+            return;
+          }
+          loginEmail = profile.email;
+        }
+
+        const { error } = await signIn(loginEmail, formData.password);
         if (error) {
-          toast({ title: 'Login failed', description: 'Invalid email or password', variant: 'destructive' });
+          toast({ title: 'Login failed', description: 'Invalid credentials', variant: 'destructive' });
         } else {
           toast({ title: 'Welcome back!' });
           navigate('/');
