@@ -159,7 +159,7 @@ export default function CustomerAuth() {
               {isLogin ? 'Welcome Back' : 'Create Account'}
             </CardTitle>
             <CardDescription className="text-white/60 text-sm">
-              {isLogin ? 'Sign in with your email' : 'Start shopping in minutes'}
+              {isLogin ? 'Sign in with email or mobile' : 'Start shopping in minutes'}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-2">
