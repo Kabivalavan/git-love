@@ -35,6 +35,7 @@ export default function CustomerAuth() {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
+    identifier: '',
     mobileNumber: '',
     password: '',
     confirmPassword: '',
