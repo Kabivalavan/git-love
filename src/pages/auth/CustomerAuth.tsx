@@ -7,10 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
-import { ShoppingBag, ArrowLeft, Phone, Lock, User as UserIcon, Mail } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, Phone, Lock, User as UserIcon, Mail, AtSign } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const loginSchema = z.object({
-  email: z.string().email('Enter a valid email address'),
+  identifier: z.string().refine(
+    (val) => /^[6-9]\d{9}$/.test(val) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+    { message: 'Enter a valid email or 10-digit mobile number' }
+  ),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
