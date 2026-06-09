@@ -636,26 +636,24 @@ export default function CheckoutPage() {
             await clearCartAndRedirect(orderNumber);
           },
           onFailure: async (error) => {
-            // Mark order as cancelled and payment as failed directly
-            await Promise.all([
-              supabase.from('orders').update({ status: 'cancelled' as any, payment_status: 'failed' as any }).eq('id', order.id),
-              supabase.from('payments').update({ status: 'failed' as any }).eq('order_id', order.id),
-            ]);
+            // Use service-role edge function for reliable cancellation
+            try {
+              await supabase.functions.invoke('cancel-pending-order', {
+                body: { order_id: order.id, reason: error || 'payment_cancelled' },
+              });
+            } catch (e) {
+              // Fallback: best-effort direct update
+              await supabase.from('orders').update({ status: 'cancelled' as any, payment_status: 'failed' as any }).eq('id', order.id);
+            }
 
-            // Release linked hold if payment fails
-            await supabase.rpc('release_stock_hold', {
-              p_user_id: user.id,
-              p_order_id: order.id,
-            });
-            
             trackEvent('payment_failed', {
               metadata: { order_id: order.id, error: error || 'unknown' },
             });
 
-            toast({ 
-              title: 'Payment Failed', 
-              description: error || 'Please try again or choose a different payment method', 
-              variant: 'destructive' 
+            toast({
+              title: 'Payment Cancelled',
+              description: 'Your order was cancelled. You can place a new order anytime.',
+              variant: 'destructive',
             });
             setIsPlacingOrder(false);
           },

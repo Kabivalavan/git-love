@@ -139,30 +139,37 @@ export default function AdminExpenses() {
     return result;
   }, [expenses, filterCategory, filterDateRange, customDateFrom, customDateTo]);
 
+  // Backend-computed KPIs — accurate regardless of pagination
+  const [backendSummary, setBackendSummary] = useState<{
+    total_records: number;
+    total_amount: number;
+    this_month_total: number;
+    last_month_total: number;
+    category_breakdown: Array<{ category: string; total: number }>;
+  } | null>(null);
+
+  useEffect(() => {
+    const p_from = filterDateRange === 'custom' ? (customDateFrom || null) : null;
+    const p_to = filterDateRange === 'custom' ? (customDateTo || null) : null;
+    supabase.rpc('get_expenses_summary', {
+      p_from: p_from as any,
+      p_to: p_to as any,
+      p_category: filterCategory === 'all' ? null : filterCategory,
+    }).then(({ data, error }) => {
+      if (!error && data) setBackendSummary(data as any);
+    });
+  }, [filterCategory, filterDateRange, customDateFrom, customDateTo, expenses.length]);
+
   const summary = useMemo(() => {
-    const now = new Date();
-    const thisMonthExpenses = expenses.filter(e => {
-      const d = new Date(e.date);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    });
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthExpenses = expenses.filter(e => {
-      const d = new Date(e.date);
-      return d.getMonth() === lastMonth.getMonth() && d.getFullYear() === lastMonth.getFullYear();
-    });
-    const thisMonthTotal = thisMonthExpenses.reduce((s, e) => s + Number(e.amount), 0);
-    const lastMonthTotal = lastMonthExpenses.reduce((s, e) => s + Number(e.amount), 0);
+    const thisMonthTotal = Number(backendSummary?.this_month_total ?? 0);
+    const lastMonthTotal = Number(backendSummary?.last_month_total ?? 0);
     const percentChange = lastMonthTotal > 0 ? ((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100 : thisMonthTotal > 0 ? 100 : 0;
-    const total = expenses.reduce((s, e) => s + Number(e.amount), 0);
-
-    const categoryBreakdown: Record<string, number> = {};
-    thisMonthExpenses.forEach(e => {
-      categoryBreakdown[e.category] = (categoryBreakdown[e.category] || 0) + Number(e.amount);
-    });
-    const sortedCategories = Object.entries(categoryBreakdown).sort((a, b) => b[1] - a[1]);
-
-    return { total, thisMonthTotal, lastMonthTotal, percentChange, sortedCategories, totalRecords: expenses.length };
-  }, [expenses]);
+    const total = Number(backendSummary?.total_amount ?? 0);
+    const totalRecords = Number(backendSummary?.total_records ?? 0);
+    const sortedCategories: Array<[string, number]> = (backendSummary?.category_breakdown || [])
+      .map(c => [c.category, Number(c.total)] as [string, number]);
+    return { total, thisMonthTotal, lastMonthTotal, percentChange, sortedCategories, totalRecords };
+  }, [backendSummary]);
 
   const handleRowClick = (expense: Expense) => { setSelectedExpense(expense); setIsDetailOpen(true); };
   const handleEdit = () => { if (selectedExpense) { setFormData(selectedExpense); setIsDetailOpen(false); setIsFormOpen(true); } };
@@ -445,25 +452,64 @@ export default function AdminExpenses() {
         isDeleting={isDeleting}
       >
         {selectedExpense && (
-          <div className="space-y-6">
-            <DetailSection title="Expense Info">
-              <DetailField label="Date" value={new Date(selectedExpense.date).toLocaleDateString()} />
-              <DetailField label="Category" value={getCatLabel(selectedExpense.category)} />
-              <DetailField label="Amount" value={`₹${Number(selectedExpense.amount).toLocaleString()}`} />
-            </DetailSection>
-            <div className="col-span-2"><DetailField label="Description" value={selectedExpense.description} /></div>
-            {selectedExpense.notes && <div className="col-span-2"><DetailField label="Notes" value={selectedExpense.notes} /></div>}
-            {selectedExpense.receipt_url && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase">Receipt</p>
-                <img
-                  src={selectedExpense.receipt_url}
-                  alt="Receipt"
-                  className="max-w-full h-auto rounded-lg border cursor-pointer"
-                  onClick={() => setReceiptViewUrl(selectedExpense.receipt_url)}
-                />
+          <div className="space-y-5">
+            {/* Header card: amount + category + date */}
+            <div className={`rounded-xl border p-5 ${getAmountBadgeClass(Number(selectedExpense.amount))}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wider opacity-70 mb-1">Amount</p>
+                  <p className="text-3xl font-bold">₹{Number(selectedExpense.amount).toLocaleString()}</p>
+                </div>
+                <div className="text-right">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-white/60 dark:bg-black/20`}>
+                    <span className={`w-2 h-2 rounded-full ${getCatColor(selectedExpense.category)}`} />
+                    {getCatLabel(selectedExpense.category)}
+                  </span>
+                  <p className="text-xs opacity-70 mt-2">{new Date(selectedExpense.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Description</p>
+              <p className="text-sm text-foreground leading-relaxed">{selectedExpense.description}</p>
+            </div>
+
+            {/* Notes */}
+            {selectedExpense.notes && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Notes</p>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap bg-muted/40 rounded-lg p-3 border">{selectedExpense.notes}</p>
               </div>
             )}
+
+            {/* Receipt */}
+            {selectedExpense.receipt_url && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Receipt</p>
+                <button
+                  type="button"
+                  className="block w-full rounded-lg overflow-hidden border hover:ring-2 hover:ring-primary/40 transition"
+                  onClick={() => setReceiptViewUrl(selectedExpense.receipt_url)}
+                >
+                  <img src={selectedExpense.receipt_url} alt="Receipt" className="w-full max-h-64 object-contain bg-muted" />
+                </button>
+                <p className="text-[10px] text-muted-foreground text-center">Click to enlarge</p>
+              </div>
+            )}
+
+            {/* Meta */}
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t text-xs">
+              <div>
+                <p className="text-muted-foreground">Recorded</p>
+                <p className="font-medium text-foreground mt-0.5">{new Date(selectedExpense.created_at).toLocaleString('en-IN')}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Reference ID</p>
+                <p className="font-mono text-[10px] text-foreground mt-0.5 truncate">{selectedExpense.id}</p>
+              </div>
+            </div>
           </div>
         )}
       </DetailPanel>

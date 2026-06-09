@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Mail, Loader2, Users, CheckCircle, XCircle, Search, AlertTriangle } from 'lucide-react';
+import { Mail, Loader2, Users, CheckCircle, XCircle, Search, AlertTriangle, Upload, X, Image as ImageIcon } from 'lucide-react';
 
 interface Customer {
   user_id: string;
@@ -37,7 +37,29 @@ export function BulkEmail() {
   const [showResults, setShowResults] = useState(false);
   const [progress, setProgress] = useState({ sent: 0, total: 0 });
   const [smtpConnected, setSmtpConnected] = useState<boolean | null>(null);
+  const [imgUploading, setImgUploading] = useState(false);
+  const imgFileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const handleImageUpload = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Image too large', description: 'Max 5MB allowed.', variant: 'destructive' });
+      return;
+    }
+    setImgUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `bulk-email/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from('store').upload(path, file, { upsert: false });
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('store').getPublicUrl(path);
+      setImageUrl(publicUrl);
+    } catch (e: any) {
+      toast({ title: 'Upload failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setImgUploading(false);
+    }
+  };
 
   useEffect(() => {
     fetchCustomers();
@@ -236,13 +258,30 @@ export function BulkEmail() {
               </p>
             </div>
             <div>
-              <Label className="text-xs">Image URL (optional)</Label>
-              <Input
-                value={imageUrl}
-                onChange={e => setImageUrl(e.target.value)}
-                placeholder="https://example.com/promo-banner.jpg"
-                className="mt-1"
-              />
+              <Label className="text-xs flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Image (URL or upload)</Label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  value={imageUrl}
+                  onChange={e => setImageUrl(e.target.value)}
+                  placeholder="https://example.com/promo.jpg"
+                  className="flex-1"
+                />
+                <input
+                  ref={imgFileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+                />
+                <Button type="button" variant="outline" size="icon" onClick={() => imgFileRef.current?.click()} disabled={imgUploading}>
+                  {imgUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                </Button>
+                {imageUrl && (
+                  <Button type="button" variant="outline" size="icon" onClick={() => setImageUrl('')}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               {imageUrl.trim() && (
                 <div className="mt-2 rounded-lg overflow-hidden border border-border">
                   <img src={imageUrl} alt="Preview" className="w-full h-32 object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />

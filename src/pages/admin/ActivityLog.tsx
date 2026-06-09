@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable, Column } from '@/components/admin/DataTable';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { Activity, User, Package, ShoppingCart, Users, Receipt, Image, Percent, Truck, Layers, Settings, Filter, Clock, Hash, FileText, LayoutGrid, List, Loader2 } from 'lucide-react';
+import { Activity, User, Package, ShoppingCart, Users, Receipt, Image, Percent, Truck, Layers, Settings, Filter, Clock, Hash, FileText, LayoutGrid, List, Loader2, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -21,7 +22,7 @@ interface ActivityLog {
   details: Record<string, any>;
   created_at: string;
   ip_address: string | null;
-  profile?: { full_name: string | null; email: string | null };
+  profile?: { full_name: string | null; email: string | null } | null;
 }
 
 const ACTION_COLORS: Record<string, string> = {
@@ -45,11 +46,15 @@ const ENTITY_TYPES = ['product', 'order', 'customer', 'category', 'banner', 'cou
 const ACTIONS = ['create', 'update', 'delete', 'status_change', 'block', 'unblock', 'refund', 'export'];
 const PAGE_SIZE = 30;
 
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'object') return JSON.stringify(value);
+  const s = String(value);
+  return s.length > 80 ? s.slice(0, 80) + '…' : s;
+}
+
 export default function AdminActivityLog() {
-  const [logs, setLogs] = useState<ActivityLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
   const [filterEntity, setFilterEntity] = useState('all');
   const [filterAction, setFilterAction] = useState('all');
   const [filterDate, setFilterDate] = useState('all');
@@ -58,83 +63,104 @@ export default function AdminActivityLog() {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const profileMapRef = useRef<Map<string, any>>(new Map());
 
-  const fetchLogs = useCallback(async (offset: number, append = false) => {
-    if (append) setIsLoadingMore(true); else setIsLoading(true);
+  const dateRange = useMemo(() => {
+    if (filterDate === 'all') return { from: null, to: null };
+    const days = parseInt(filterDate);
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    return { from: from.toISOString(), to: new Date().toISOString() };
+  }, [filterDate]);
 
-    const { data, error } = await supabase
-      .from('activity_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1);
+  // KPI summary via backend RPC (accurate, independent of pagination)
+  const { data: summary } = useQuery({
+    queryKey: ['admin-activity-log-summary', filterEntity, filterAction, filterDate],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_activity_log_summary', {
+        p_from: dateRange.from,
+        p_to: dateRange.to,
+        p_entity: filterEntity === 'all' ? null : filterEntity,
+        p_action: filterAction === 'all' ? null : filterAction,
+      });
+      if (error) throw error;
+      return data as { total: number; today: number; creates: number; updates: number; deletes: number };
+    },
+    staleTime: 60 * 1000,
+  });
 
-    if (!error && data) {
-      // Fetch profiles for new user_ids
-      const newUserIds = [...new Set(data.map((l: any) => l.user_id))].filter(id => !profileMapRef.current.has(id));
+  // Infinite paginated logs cached by React Query — no refetch on revisit within staleTime
+  const infinite = useInfiniteQuery({
+    queryKey: ['admin-activity-logs', filterEntity, filterAction, filterDate],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const offset = pageParam as number;
+      let q = supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (filterEntity !== 'all') q = q.eq('entity_type', filterEntity);
+      if (filterAction !== 'all') q = q.eq('action', filterAction);
+      if (dateRange.from) q = q.gte('created_at', dateRange.from);
+
+      const { data, error } = await q;
+      if (error) throw error;
+
+      // Enrich profiles (cached across pages)
+      const newUserIds = [...new Set((data || []).map((l: any) => l.user_id))].filter(
+        (id) => id && !profileMapRef.current.has(id)
+      );
       if (newUserIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, full_name, email')
-          .in('user_id', newUserIds);
+          .in('user_id', newUserIds as string[]);
         (profiles || []).forEach((p: any) => profileMapRef.current.set(p.user_id, p));
       }
+      return (data || []).map((l: any) => ({ ...l, profile: profileMapRef.current.get(l.user_id) || null })) as ActivityLog[];
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage || lastPage.length < PAGE_SIZE) return undefined;
+      return allPages.reduce((sum, p) => sum + p.length, 0);
+    },
+    staleTime: 5 * 60 * 1000, // 5 min — avoid refetch when returning to page
+    gcTime: 15 * 60 * 1000,
+  });
 
-      const enriched = data.map((l: any) => ({
-        ...l,
-        profile: profileMapRef.current.get(l.user_id) || null,
-      }));
-
-      if (append) {
-        setLogs(prev => [...prev, ...enriched]);
-      } else {
-        setLogs(enriched);
-      }
-      setHasMore(data.length === PAGE_SIZE);
+  // Dedupe by id to prevent React duplicate-key crashes on overlapping pages
+  const logs = useMemo<ActivityLog[]>(() => {
+    const all = infinite.data?.pages.flat() || [];
+    const seen = new Set<string>();
+    const out: ActivityLog[] = [];
+    for (const l of all) {
+      if (!l?.id || seen.has(l.id)) continue;
+      seen.add(l.id);
+      out.push(l);
     }
-    setIsLoading(false);
-    setIsLoadingMore(false);
-  }, []);
+    return out;
+  }, [infinite.data]);
 
-  useEffect(() => { fetchLogs(0); }, [fetchLogs]);
+  const isLoading = infinite.isLoading;
+  const isLoadingMore = infinite.isFetchingNextPage;
+  const hasMore = infinite.hasNextPage;
 
-  // Infinite scroll observer
+  // Infinite scroll observer with safety guards
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && hasMore && !isLoadingMore && !isLoading) {
-          fetchLogs(logs.length, true);
+          infinite.fetchNextPage();
         }
       },
-      { rootMargin: '200px' }
+      { rootMargin: '300px' }
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, isLoadingMore, isLoading, logs.length, fetchLogs]);
+  }, [hasMore, isLoadingMore, isLoading, infinite]);
 
-  const filteredLogs = useMemo(() => {
-    let result = logs;
-    if (filterEntity !== 'all') result = result.filter(l => l.entity_type === filterEntity);
-    if (filterAction !== 'all') result = result.filter(l => l.action === filterAction);
-    if (filterDate !== 'all') {
-      const now = new Date();
-      const days = parseInt(filterDate);
-      const start = new Date(now);
-      start.setDate(start.getDate() - days);
-      result = result.filter(l => new Date(l.created_at) >= start);
-    }
-    return result;
-  }, [logs, filterEntity, filterAction, filterDate]);
-
-  const stats = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayCount = logs.filter(l => new Date(l.created_at) >= today).length;
-    const creates = logs.filter(l => l.action === 'create').length;
-    const updates = logs.filter(l => l.action === 'update' || l.action === 'status_change').length;
-    const deletes = logs.filter(l => l.action === 'delete').length;
-    return { total: logs.length, todayCount, creates, updates, deletes };
-  }, [logs]);
+  const stats = summary || { total: 0, today: 0, creates: 0, updates: 0, deletes: 0 };
 
   const getDescription = (log: ActivityLog) => {
     const name = log.details?.name || log.details?.order_number || log.details?.code || log.entity_id || '';
@@ -147,7 +173,7 @@ export default function AdminActivityLog() {
       case 'block': return `Blocked customer: ${name}`;
       case 'unblock': return `Unblocked customer: ${name}`;
       case 'refund': return `Refunded: ${name}`;
-      case 'export': return `Exported ${entityLabel}`;
+      case 'export': return `${log.details?.name || `Exported ${entityLabel}`}`;
       default: return `${log.action} on ${entityLabel}`;
     }
   };
@@ -164,7 +190,7 @@ export default function AdminActivityLog() {
           <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold">
             {(l.profile?.full_name?.[0] || l.profile?.email?.[0] || '?').toUpperCase()}
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <span className="text-sm truncate">{l.profile?.full_name || l.profile?.email || 'Unknown'}</span>
             <Badge variant="outline" className="text-[9px] w-fit px-1 py-0">Admin</Badge>
           </div>
@@ -188,25 +214,21 @@ export default function AdminActivityLog() {
     },
   ];
 
-  const renderDetailValue = (key: string, value: any): string => {
-    if (value === null || value === undefined) return '-';
-    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-    if (typeof value === 'object') return JSON.stringify(value);
-    return String(value);
-  };
+  const changes = (selectedLog?.details?.changes || {}) as Record<string, { from: unknown; to: unknown }>;
+  const hasChanges = Object.keys(changes).length > 0;
 
   return (
     <AdminLayout title="Activity Log" description="Audit trail of all admin actions">
       <div className="space-y-6">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Today</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{stats.todayCount}</p></CardContent></Card>
+        {/* Backend-computed KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Total</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{stats.total.toLocaleString()}</p></CardContent></Card>
+          <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Today</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{stats.today}</p></CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Creates</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-green-600">{stats.creates}</p></CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Updates</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-blue-600">{stats.updates}</p></CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Deletes</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-red-600">{stats.deletes}</p></CardContent></Card>
         </div>
 
-        {/* Filters + View Toggle */}
         <div className="flex flex-wrap gap-3 items-center">
           <Select value={filterEntity} onValueChange={setFilterEntity}>
             <SelectTrigger className="w-[150px]"><Filter className="h-3 w-3 mr-1" /><SelectValue placeholder="Entity" /></SelectTrigger>
@@ -242,11 +264,10 @@ export default function AdminActivityLog() {
           </div>
         </div>
 
-        {/* Table View */}
         {viewMode === 'table' && (
           <DataTable<ActivityLog>
             columns={columns}
-            data={filteredLogs}
+            data={logs}
             isLoading={isLoading}
             onRowClick={(log) => setSelectedLog(log)}
             searchable
@@ -257,17 +278,16 @@ export default function AdminActivityLog() {
           />
         )}
 
-        {/* Grid View */}
         {viewMode === 'grid' && (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {isLoading ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <Card key={i} className="animate-pulse"><CardContent className="p-4 h-28" /></Card>
               ))
-            ) : filteredLogs.length === 0 ? (
+            ) : logs.length === 0 ? (
               <div className="col-span-full text-center py-12 text-muted-foreground">No activity logged yet.</div>
             ) : (
-              filteredLogs.map(log => {
+              logs.map(log => {
                 const Icon = ENTITY_ICONS[log.entity_type] || Activity;
                 return (
                   <Card key={log.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedLog(log)}>
@@ -288,8 +308,8 @@ export default function AdminActivityLog() {
                             <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground">
                               {(log.profile?.full_name?.[0] || '?').toUpperCase()}
                             </div>
-                            <span className="text-xs text-muted-foreground">{log.profile?.full_name || 'Admin'}</span>
-                            <span className="text-xs text-muted-foreground ml-auto">{format(new Date(log.created_at), 'dd MMM, HH:mm')}</span>
+                            <span className="text-xs text-muted-foreground truncate">{log.profile?.full_name || 'Admin'}</span>
+                            <span className="text-xs text-muted-foreground ml-auto whitespace-nowrap">{format(new Date(log.created_at), 'dd MMM, HH:mm')}</span>
                           </div>
                         </div>
                       </div>
@@ -301,20 +321,20 @@ export default function AdminActivityLog() {
           </div>
         )}
 
-        {/* Infinite scroll sentinel */}
         <div ref={sentinelRef} className="flex justify-center py-4">
-          {isLoadingMore && (
+          {isLoadingMore ? (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
               <span className="text-sm">Loading more...</span>
             </div>
-          )}
+          ) : !hasMore && logs.length > 0 ? (
+            <span className="text-xs text-muted-foreground">End of activity log</span>
+          ) : null}
         </div>
       </div>
 
-      {/* Detail Dialog */}
       <Dialog open={!!selectedLog} onOpenChange={(open) => { if (!open) setSelectedLog(null); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {selectedLog && (() => {
@@ -343,9 +363,6 @@ export default function AdminActivityLog() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Package className="h-3 w-3" /> Entity</div>
                   <p className="text-sm font-medium text-foreground capitalize">{selectedLog.entity_type}</p>
-                  {(selectedLog.details?.name || selectedLog.details?.order_number || selectedLog.details?.code) && (
-                    <p className="text-xs text-muted-foreground">{selectedLog.details?.name || selectedLog.details?.order_number || selectedLog.details?.code}</p>
-                  )}
                 </div>
                 {selectedLog.entity_id && (
                   <div className="space-y-1">
@@ -353,32 +370,61 @@ export default function AdminActivityLog() {
                     <p className="text-xs font-mono text-muted-foreground break-all">{selectedLog.entity_id}</p>
                   </div>
                 )}
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Clock className="h-3 w-3" /> Timestamp</div>
-                  <p className="text-sm text-foreground">{format(new Date(selectedLog.created_at), 'dd MMM yyyy, hh:mm:ss a')}</p>
-                </div>
-                {selectedLog.ip_address && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">IP Address</div>
-                    <p className="text-sm font-mono text-foreground">{selectedLog.ip_address}</p>
-                  </div>
-                )}
               </div>
-              {selectedLog.details && Object.keys(selectedLog.details).length > 0 && (
+
+              {/* Field-level diff */}
+              {hasChanges && (
                 <>
                   <Separator />
                   <div>
                     <div className="flex items-center gap-1.5 mb-3">
                       <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Change Details</p>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Field Changes ({Object.keys(changes).length})</p>
                     </div>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                      {Object.entries(selectedLog.details).map(([key, value]) => (
-                        <div key={key} className="flex items-start justify-between gap-4 py-1.5 border-b border-border/50 last:border-0">
-                          <span className="text-xs font-medium text-muted-foreground capitalize min-w-[100px]">{key.replace(/_/g, ' ')}</span>
-                          <span className="text-sm text-foreground text-right break-all">{renderDetailValue(key, value)}</span>
-                        </div>
-                      ))}
+                    <div className="rounded-lg border overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted/50 text-xs text-muted-foreground">
+                            <th className="text-left px-3 py-2 font-medium">Field</th>
+                            <th className="text-left px-3 py-2 font-medium">Before</th>
+                            <th className="px-2 py-2 w-6" />
+                            <th className="text-left px-3 py-2 font-medium">After</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(changes).map(([field, diff]) => (
+                            <tr key={field} className="border-t">
+                              <td className="px-3 py-2 font-medium text-foreground capitalize">{field.replace(/_/g, ' ')}</td>
+                              <td className="px-3 py-2 text-red-600 dark:text-red-400 break-all max-w-[180px]">{formatValue(diff?.from)}</td>
+                              <td className="px-1 py-2 text-muted-foreground"><ArrowRight className="h-3 w-3" /></td>
+                              <td className="px-3 py-2 text-green-600 dark:text-green-400 break-all max-w-[180px]">{formatValue(diff?.to)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Other details */}
+              {selectedLog.details && Object.keys(selectedLog.details).filter(k => k !== 'changes').length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Additional Info</p>
+                    </div>
+                    <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                      {Object.entries(selectedLog.details)
+                        .filter(([k]) => k !== 'changes')
+                        .map(([key, value]) => (
+                          <div key={key} className="flex items-start justify-between gap-4 py-1.5 border-b border-border/50 last:border-0">
+                            <span className="text-xs font-medium text-muted-foreground capitalize min-w-[100px]">{key.replace(/_/g, ' ')}</span>
+                            <span className="text-sm text-foreground text-right break-all">{formatValue(value)}</span>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 </>
