@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Loader2, Users, CheckCircle, XCircle, Search, Image as ImageIcon, AlertTriangle } from 'lucide-react';
+import { Send, Loader2, Users, CheckCircle, XCircle, Search, Upload, X, AlertTriangle, Paperclip } from 'lucide-react';
 
 interface Customer {
   user_id: string;
@@ -19,22 +19,33 @@ interface Customer {
 
 interface SendResult {
   phone: string;
-  name: string;
+  name: string | null;
   status: 'sent' | 'failed';
   error?: string;
+}
+
+type MediaType = 'image' | 'video' | 'document';
+
+function detectMediaType(file: File): MediaType {
+  if (file.type.startsWith('image/')) return 'image';
+  if (file.type.startsWith('video/')) return 'video';
+  return 'document';
 }
 
 export function BulkWhatsApp() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaUrl, setMediaUrl] = useState<string>('');
+  const [mediaUploading, setMediaUploading] = useState(false);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [results, setResults] = useState<SendResult[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [waConnected, setWaConnected] = useState<boolean | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -46,10 +57,8 @@ export function BulkWhatsApp() {
     const { data } = await supabase.from('store_settings').select('value').eq('key', 'whatsapp').maybeSingle();
     if (data?.value) {
       const v = data.value as any;
-      setWaConnected(!!(v.api_token && v.phone_number_id));
-    } else {
-      setWaConnected(false);
-    }
+      setWaConnected(!!(v.api_token && v.phone_number_id && v.api_url));
+    } else setWaConnected(false);
   };
 
   const fetchCustomers = async () => {
@@ -73,18 +82,42 @@ export function BulkWhatsApp() {
   });
 
   const toggleAll = () => {
-    if (selected.size === filtered.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(filtered.map(c => c.user_id)));
-    }
+    if (selected.size === filtered.length) setSelected(new Set());
+    else setSelected(new Set(filtered.map(c => c.user_id)));
   };
 
   const toggleOne = (id: string) => {
     const next = new Set(selected);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
+    if (next.has(id)) next.delete(id); else next.add(id);
     setSelected(next);
+  };
+
+  const handleFile = async (file: File) => {
+    if (file.size > 15 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Max 15MB allowed by WhatsApp.', variant: 'destructive' });
+      return;
+    }
+    setMediaFile(file);
+    setMediaUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'bin';
+      const path = `bulk-whatsapp/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from('store').upload(path, file, { upsert: false });
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('store').getPublicUrl(path);
+      setMediaUrl(publicUrl);
+    } catch (e: any) {
+      toast({ title: 'Upload failed', description: e.message, variant: 'destructive' });
+      setMediaFile(null);
+    } finally {
+      setMediaUploading(false);
+    }
+  };
+
+  const clearMedia = () => {
+    setMediaFile(null);
+    setMediaUrl('');
+    if (fileRef.current) fileRef.current.value = '';
   };
 
   const handleSend = async () => {
@@ -98,47 +131,39 @@ export function BulkWhatsApp() {
     }
 
     setIsSending(true);
-    const sendResults: SendResult[] = [];
+    setShowResults(false);
 
-    for (const userId of selected) {
-      const customer = customers.find(c => c.user_id === userId);
-      if (!customer?.mobile_number) {
-        sendResults.push({ phone: 'N/A', name: customer?.full_name || 'Unknown', status: 'failed', error: 'No phone number' });
-        continue;
-      }
+    const recipients = Array.from(selected)
+      .map(id => customers.find(c => c.user_id === id))
+      .filter(Boolean)
+      .map(c => ({ phone: c!.mobile_number || '', name: c!.full_name }));
 
-      const phone = customer.mobile_number.replace(/\D/g, '');
-      const intlPhone = phone.startsWith('91') ? phone : `91${phone}`;
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-bulk-send', {
+        body: {
+          recipients,
+          message,
+          media_url: mediaUrl || null,
+          media_type: mediaFile ? detectMediaType(mediaFile) : null,
+        },
+      });
 
-      // Personalize message
-      const personalizedMsg = message
-        .replace(/\{\{name\}\}/g, customer.full_name || 'there')
-        .replace(/\{\{phone\}\}/g, customer.mobile_number || '');
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
 
-      // Build WhatsApp URL with image if provided
-      let waUrl = `https://wa.me/${intlPhone}?text=${encodeURIComponent(personalizedMsg)}`;
-      if (imageUrl.trim()) {
-        waUrl += `\n${imageUrl.trim()}`;
-      }
-
-      // Open WhatsApp Web for each (manual sending via web.whatsapp)
-      try {
-        window.open(waUrl, '_blank');
-        sendResults.push({ phone: customer.mobile_number, name: customer.full_name || 'Unknown', status: 'sent' });
-      } catch (e: any) {
-        sendResults.push({ phone: customer.mobile_number, name: customer.full_name || 'Unknown', status: 'failed', error: e.message });
-      }
-
-      // Small delay between opens
-      await new Promise(r => setTimeout(r, 500));
+      const payload = data as any;
+      setResults(payload.results || []);
+      setShowResults(true);
+      toast({
+        title: `Sent ${payload.sent} / ${recipients.length}`,
+        description: payload.failed > 0 ? `${payload.failed} failed — see results below.` : undefined,
+        variant: payload.failed > 0 ? 'destructive' : 'default',
+      });
+    } catch (e: any) {
+      toast({ title: 'Send failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsSending(false);
     }
-
-    setResults(sendResults);
-    setShowResults(true);
-    setIsSending(false);
-    toast({
-      title: `Sent to ${sendResults.filter(r => r.status === 'sent').length} / ${sendResults.length} customers`,
-    });
   };
 
   const sentCount = results.filter(r => r.status === 'sent').length;
@@ -163,7 +188,6 @@ export function BulkWhatsApp() {
   return (
     <div className="space-y-4">
       <div className="grid md:grid-cols-2 gap-4">
-        {/* Message Composer */}
         <Card>
           <CardHeader className="py-3 px-4">
             <CardTitle className="text-sm">Compose Message</CardTitle>
@@ -183,26 +207,55 @@ export function BulkWhatsApp() {
               </p>
             </div>
             <div>
-              <Label className="text-xs flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Image URL (optional)</Label>
-              <Input
-                value={imageUrl}
-                onChange={e => setImageUrl(e.target.value)}
-                placeholder="https://example.com/promo.jpg"
-                className="mt-1"
-              />
+              <Label className="text-xs flex items-center gap-1"><Paperclip className="h-3 w-3" /> Media (optional — image / video / document, max 15MB)</Label>
+              {!mediaFile ? (
+                <div className="mt-1">
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                    onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+                    className="hidden"
+                  />
+                  <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => fileRef.current?.click()}>
+                    <Upload className="h-3.5 w-3.5 mr-2" /> Choose file
+                  </Button>
+                </div>
+              ) : (
+                <div className="mt-1 flex items-center gap-2 p-2 rounded border bg-muted/30">
+                  {mediaUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : detectMediaType(mediaFile) === 'image' && mediaUrl ? (
+                    <img src={mediaUrl} alt="preview" className="h-10 w-10 rounded object-cover" />
+                  ) : (
+                    <Paperclip className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs truncate">{mediaFile.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {(mediaFile.size / 1024).toFixed(0)} KB · {detectMediaType(mediaFile)}
+                    </p>
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={clearMedia}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
             <Button
               className="w-full"
               onClick={handleSend}
-              disabled={isSending || selected.size === 0 || !message.trim()}
+              disabled={isSending || mediaUploading || selected.size === 0 || !message.trim()}
             >
               {isSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
               Send to {selected.size} Customer{selected.size !== 1 ? 's' : ''}
             </Button>
+            <p className="text-[10px] text-muted-foreground text-center">
+              Sent via your connected WhatsApp Business API
+            </p>
           </CardContent>
         </Card>
 
-        {/* Customer Selection */}
         <Card>
           <CardHeader className="py-3 px-4">
             <div className="flex items-center justify-between">
@@ -223,10 +276,7 @@ export function BulkWhatsApp() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <Checkbox
-                checked={selected.size === filtered.length && filtered.length > 0}
-                onCheckedChange={toggleAll}
-              />
+              <Checkbox checked={selected.size === filtered.length && filtered.length > 0} onCheckedChange={toggleAll} />
               <span className="text-xs text-muted-foreground">Select All ({filtered.length})</span>
             </div>
             <div className="max-h-[300px] overflow-y-auto space-y-1">
@@ -254,7 +304,6 @@ export function BulkWhatsApp() {
         </Card>
       </div>
 
-      {/* Send Results */}
       {showResults && results.length > 0 && (
         <Card>
           <CardHeader className="py-3 px-4">
@@ -273,14 +322,14 @@ export function BulkWhatsApp() {
             </div>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <div className="max-h-[200px] overflow-y-auto space-y-1">
+            <div className="max-h-[260px] overflow-y-auto space-y-1">
               {results.map((r, i) => (
-                <div key={i} className="flex items-center justify-between text-xs p-1.5 rounded bg-muted/30">
-                  <span>{r.name} ({r.phone})</span>
+                <div key={i} className="flex items-center justify-between text-xs p-1.5 rounded bg-muted/30 gap-2">
+                  <span className="truncate flex-1">{r.name || 'Unknown'} ({r.phone})</span>
                   {r.status === 'sent' ? (
                     <Badge className="bg-green-100 text-green-800 text-[10px]">Sent</Badge>
                   ) : (
-                    <Badge className="bg-red-100 text-red-800 text-[10px]">{r.error || 'Failed'}</Badge>
+                    <Badge className="bg-red-100 text-red-800 text-[10px] max-w-[180px] truncate">{r.error || 'Failed'}</Badge>
                   )}
                 </div>
               ))}
