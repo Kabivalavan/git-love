@@ -61,8 +61,12 @@ export default function MyOrdersPage() {
       <h2 className="text-xl font-semibold">My Orders</h2>
       {orders.map((order) => {
         const cfg = statusConfig[order.status] || statusConfig.new;
+        const isCancelled = order.status === 'cancelled';
         return (
-          <Card key={order.id} className="hover:shadow-md transition-shadow">
+          <Card
+            key={order.id}
+            className={`hover:shadow-md transition-shadow ${isCancelled ? 'bg-red-50/70 dark:bg-red-950/20 border-red-200 dark:border-red-900/40' : ''}`}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-1 min-w-0 flex-1">
@@ -71,6 +75,11 @@ export default function MyOrdersPage() {
                     <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${cfg.bg} ${cfg.text}`}>
                       {cfg.label}
                     </span>
+                    {isCancelled && order.payment_status === 'failed' && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                        Payment Failed
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground">
                     Placed on {new Date(order.created_at).toLocaleDateString('en-IN', {
@@ -79,7 +88,9 @@ export default function MyOrdersPage() {
                       year: 'numeric'
                     })}
                   </p>
-                  <p className="font-medium">₹{Number(order.total).toFixed(0)}</p>
+                  <p className={`font-medium ${isCancelled ? 'line-through text-muted-foreground' : ''}`}>
+                    ₹{Number(order.total).toFixed(0)}
+                  </p>
                 </div>
                 <Button variant="ghost" size="sm" asChild className="flex-shrink-0">
                   <Link to={`/account/order/${order.id}`}>
