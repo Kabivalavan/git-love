@@ -94,7 +94,8 @@ export function DataTable<T>({
       style={style}
       className={cn(
         "transition-colors",
-        onRowClick && "cursor-pointer hover:bg-muted/50"
+        onRowClick && "cursor-pointer hover:bg-muted/50",
+        getRowClassName?.(item)
       )}
       onClick={() => onRowClick?.(item)}
     >
