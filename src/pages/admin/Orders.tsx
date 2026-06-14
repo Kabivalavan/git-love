@@ -972,10 +972,11 @@ export default function AdminOrders() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {uniqueFilteredOrders.map((order) => {
             const items = (order as any).order_items || [];
+            const isCancelled = order.status === 'cancelled';
             return (
               <Card
                 key={order.id}
-                className="cursor-pointer hover:shadow-md transition-shadow"
+                className={`cursor-pointer hover:shadow-md transition-shadow ${isCancelled ? 'bg-red-50/70 dark:bg-red-950/20 border-red-200 dark:border-red-900/40' : ''}`}
                 onClick={() => handleRowClick(order)}
               >
                 <CardContent className="p-4 space-y-2">
