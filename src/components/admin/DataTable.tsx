@@ -30,6 +30,7 @@ interface DataTableProps<T> {
   searchPlaceholder?: string;
   searchKeys?: (keyof T)[];
   getRowId?: (item: T) => string;
+  getRowClassName?: (item: T) => string | undefined;
   /** Infinite scroll support */
   isLoadingMore?: boolean;
   hasMore?: boolean;
