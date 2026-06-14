@@ -52,6 +52,7 @@ export function DataTable<T>({
   searchPlaceholder = 'Search...',
   searchKeys = [],
   getRowId,
+  getRowClassName,
   isLoadingMore = false,
   hasMore = false,
   sentinelRef,
