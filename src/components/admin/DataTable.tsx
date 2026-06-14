@@ -30,6 +30,7 @@ interface DataTableProps<T> {
   searchPlaceholder?: string;
   searchKeys?: (keyof T)[];
   getRowId?: (item: T) => string;
+  getRowClassName?: (item: T) => string | undefined;
   /** Infinite scroll support */
   isLoadingMore?: boolean;
   hasMore?: boolean;
@@ -51,6 +52,7 @@ export function DataTable<T>({
   searchPlaceholder = 'Search...',
   searchKeys = [],
   getRowId,
+  getRowClassName,
   isLoadingMore = false,
   hasMore = false,
   sentinelRef,
@@ -92,7 +94,8 @@ export function DataTable<T>({
       style={style}
       className={cn(
         "transition-colors",
-        onRowClick && "cursor-pointer hover:bg-muted/50"
+        onRowClick && "cursor-pointer hover:bg-muted/50",
+        getRowClassName?.(item)
       )}
       onClick={() => onRowClick?.(item)}
     >
