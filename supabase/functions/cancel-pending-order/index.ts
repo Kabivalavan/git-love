@@ -65,6 +65,13 @@ serve(async (req) => {
       });
     }
 
+    // Fetch order details for email before mutating
+    const { data: ordFull } = await admin
+      .from("orders")
+      .select("order_number, total, customer_email, customer_name")
+      .eq("id", order_id)
+      .maybeSingle();
+
     await admin
       .from("orders")
       .update({ status: "cancelled", payment_status: "failed" })
@@ -88,6 +95,31 @@ serve(async (req) => {
       entity_id: order_id,
       details: { from: "new", to: "cancelled", reason: reason || "payment_cancelled" },
     });
+
+    // Fire order_cancelled email (best-effort, non-blocking failure)
+    if (ordFull?.customer_email) {
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/email-triggers`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${SRK}`,
+          },
+          body: JSON.stringify({
+            trigger: "order_cancelled",
+            data: {
+              email: ordFull.customer_email,
+              customer_name: ordFull.customer_name,
+              order_number: ordFull.order_number,
+              order_total: Number(ordFull.total || 0).toFixed(0),
+              reason: reason || "payment cancelled",
+            },
+          }),
+        });
+      } catch (e) {
+        console.error("[cancel-pending-order] email trigger failed", e);
+      }
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

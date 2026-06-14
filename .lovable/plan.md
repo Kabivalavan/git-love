@@ -1,85 +1,106 @@
-## Plan: Multi-Module Bug Fixes & Improvements
+## Plan: Finish Pending Items + Admin/Storefront Code Separation
 
-### 1. BUGS — Razorpay Payment Cancellation
+### Part A — Finish previously pending follow-ups
 
-**Problem:** When user cancels at Razorpay checkout, order stays as `status='new'` + `payment_status='pending'` instead of being marked cancelled.
+**A1. Email triggers for new lifecycle events**
+- Extend `supabase/functions/email-triggers/index.ts` with two new event types:
+  - `order_cancelled` — branded template with order #, items, refund note.
+  - `refund_completed` — branded template with refund amount, method, expected ETA.
+- Wire automatic invocation:
+  - `cancel-pending-order` edge function → fire `order_cancelled` after status flip.
+  - Admin Returns "Mark Refunded" path (refunds insert) → fire `refund_completed`.
+- Gate both with `store_settings.email_automation.{order_cancelled,refund_completed}` flags (default true).
 
-**Fix:**
-- In `Checkout.tsx`, on Razorpay `ondismiss` / `onFailure` for online payments, update the just-created order: `status='cancelled'`, `payment_status='failed'` (or `cancelled`), release stock holds, log activity.
-- In `MyOrders.tsx` / order cards: add a light red background tint (`bg-red-50 dark:bg-red-950/20`) for cancelled orders.
-- Same treatment on admin Orders list cancelled rows.
+**A2. Before/After diff capture across admin mutations**
+Wire `useActivityLog({ before, after })` into the remaining admin pages so the diff renders in the Activity Log detail modal:
+- `Products.tsx` (update + variant changes)
+- `Categories.tsx`, `Banners.tsx`, `Bundles.tsx`
+- `Coupons.tsx`, `Offers.tsx`
+- `Settings.tsx` (per settings key)
+- `Customers.tsx` (block/unblock + profile edit)
+- `Returns.tsx` and `Deliveries.tsx` status transitions
+- `Expenses.tsx` edits
 
----
-
-### 2. MARKETING — Bulk WhatsApp & Email
-
-**Bulk WhatsApp (replace deep-link approach):**
-- New edge function `whatsapp-bulk-send` using Meta Cloud API (uses connected token + phone_number_id from `store_settings.whatsapp`).
-- Supports text + media (image/document) — uploads local media to `store` bucket first, then sends via API URL.
-- Refactor `BulkWhatsApp.tsx`: remove `window.open`, add file upload (image/video/document), call edge function, show real per-recipient send results from API.
-
-**Bulk Email:**
-- Add local media file upload (attach images inline / as attachment URL) to `BulkEmail.tsx` and route via existing `send-smtp-email` function with attachment support.
-
-**Email Templates:**
-- Audit all 9 lifecycle email triggers (order_confirmation, shipped, delivered, returned, refunded, signup_welcome, password_reset, abandoned_cart, review_request) in `email-triggers` edge function.
-- Ensure toggle flags in `store_settings.email_automation` properly gate each trigger; add missing trigger wiring if found.
+Pattern: snapshot the row before `.update()`, snapshot the response after, pass both into `log()`.
 
 ---
 
-### 3. EXPENSES
+### Part B — Admin / Storefront separation (architecture)
 
-**KPI accuracy (backend aggregation):**
-- New RPC `get_expenses_summary(p_from, p_to)` returning: total_count, total_amount, this_month_amount, top_categories. Replaces frontend computation that breaks with paginated scroll.
-- `Expenses.tsx`: call RPC for KPI cards independently of paginated list.
+**B1. Route-level code split (compile-time isolation)**
+- Group every admin lazy import into a single dynamic boundary so Vite/Rollup emits two distinct chunk graphs:
+  - `chunk-admin-*` (admin pages + admin-only components/hooks)
+  - `chunk-store-*` (storefront pages + storefront-only components/hooks)
+- Add `manualChunks` in `vite.config.ts`:
+  - `admin` → anything under `src/pages/admin`, `src/components/admin`, `src/hooks/useAdmin*`, `src/api/admin*`, `src/api/reports2*`, `src/pages/admin/Reports2`
+  - `storefront` → `src/pages/store`, `src/components/storefront`, `src/components/home`, `src/components/product`, `src/hooks/useCartQuery`, `useGlobalStore`, `useConversionOptimization`, `useOffers`, `useProductQuery`
+  - `vendor-react`, `vendor-ui` (radix + lucide), `vendor-charts` (recharts), `vendor-supabase`
+- Net effect: a customer visiting `/` never downloads any admin code; an admin opening `/admin` doesn't download storefront-only widgets.
 
-**Detail modal UI/UX:**
-- Redesign `Expenses.tsx` detail modal with sectioned layout (Header w/ amount + category, Meta grid, Description, Receipt viewer in cleaner card, action footer).
+**B2. Provider scoping**
+- `GlobalStoreProvider` and storefront-only providers (analytics, conversion optimization) already exist — confirm they wrap only storefront routes via an `<Outlet>`-based `StorefrontShell`, never admin.
+- Introduce an `AdminShell` that wraps admin routes once with `AdminLayout` + admin-only providers (sidebar state, notifications channel, theme override), removing per-page `AdminLayout` mounts.
+- Result: switching admin↔store no longer re-instantiates the wrong provider tree.
+
+**B3. Folder/module boundaries**
+Reorganize into clear domains (move-only, no logic changes) to enforce who-imports-what:
+```text
+src/
+  app/                 # App.tsx, router, shells
+    StorefrontShell.tsx
+    AdminShell.tsx
+  modules/
+    storefront/
+      pages/   (was pages/store)
+      components/ (was components/storefront, home, product)
+      hooks/   (cart, global store, offers, conversion)
+      api/
+    admin/
+      pages/   (was pages/admin)
+      components/ (was components/admin)
+      hooks/   (useAdminQueries, useAdminNotifications, useActivityLog)
+      api/     (admin.ts, reports2.ts)
+  shared/              # ui/, lib/, integrations/, types/, hooks shared by both (useAuth, useTheme, useAnalytics)
+```
+Add an ESLint `no-restricted-imports` rule:
+- `modules/storefront/**` cannot import from `modules/admin/**`
+- `modules/admin/**` cannot import from `modules/storefront/**`
+This makes accidental cross-pollution a build-time error.
+
+**B4. Separate React Query clients (optional but high-impact)**
+- One `storeQueryClient` (long staleTime, aggressive cache, no window-focus refetch — current default).
+- One `adminQueryClient` (shorter staleTime, refetchOnWindowFocus true, realtime invalidation friendly).
+- Mounted inside the respective Shell so admin invalidations never trigger storefront refetches and vice versa.
+
+**B5. Asset & vendor optimizations (carry-over from perf rules)**
+- Preconnect to Supabase + image CDN in `index.html`.
+- Defer admin sidebar icons (lucide) to admin chunk via the manualChunks rule (already covered by B1).
+- Confirm storefront pages don't transitively import `recharts` (admin Reports2/Analytics only).
 
 ---
 
-### 4. ACTIVITY LOG
+### Files to touch
+- `supabase/functions/email-triggers/index.ts` (+ template helpers)
+- `supabase/functions/cancel-pending-order/index.ts` (invoke trigger)
+- `src/pages/admin/Returns.tsx` (invoke refund trigger)
+- Admin mutation pages listed in A2 (small inline diff captures)
+- `vite.config.ts` (manualChunks + alias updates)
+- `src/App.tsx` → split into `src/app/StorefrontShell.tsx` + `src/app/AdminShell.tsx`
+- Move (git-mv equivalent) page/component folders into `src/modules/{storefront,admin}` and `src/shared`
+- `eslint.config.js` — add `no-restricted-imports` boundary rule
+- `index.html` — preconnect hints
 
-**Architecture (no refetch on revisit):**
-- Migrate `ActivityLog.tsx` to React Query (`useQuery` with `staleTime: 5min`) so navigating away and back uses cached data.
-- Add infinite query with proper `getNextPageParam` — fix scroll crash (current crash likely from unbounded state / dup keys → use `dedupeById` and `keepPreviousData`).
-
-**KPI backend aggregation:**
-- New RPC `get_activity_log_summary(p_from, p_to, p_module, p_action)` returning total count + breakdown by action + by module.
-
-**Richer audit capture (from → to diffs):**
-- Extend `useActivityLog` to accept `before` and `after` snapshots; store as JSON in `details.changes`.
-- Update all admin mutation sites (Products, Categories, Orders status, Coupons, Offers, Banners, Bundles, Customers block/unblock, Settings, Returns, Deliveries, Expenses) to capture before/after.
-- In `ActivityLog.tsx` detail panel: render a clean diff table — Field | Old → New.
-
-**Display:**
-- Add module filter, action filter, search by entity ID, date range — all server-side via RPC.
-
----
-
-### Files to modify
-
-**Bugs (Razorpay):**
-- `src/pages/store/Checkout.tsx`
-- `src/pages/store/MyOrders.tsx`
-- `src/pages/admin/Orders.tsx`
-
-**Marketing:**
-- new: `supabase/functions/whatsapp-bulk-send/index.ts`
-- `src/components/admin/BulkWhatsApp.tsx`
-- `src/components/admin/BulkEmail.tsx`
-- `supabase/functions/email-triggers/index.ts`
-
-**Expenses:**
-- new migration: `get_expenses_summary` RPC
-- `src/pages/admin/Expenses.tsx`
-
-**Activity Log:**
-- new migration: `get_activity_log_summary` RPC + index on `activity_logs(created_at desc)`
-- `src/hooks/useActivityLog.tsx` (add diff capture)
-- `src/pages/admin/ActivityLog.tsx` (React Query + infinite + diff UI)
-- Mutation call sites listed above to pass before/after snapshots (incremental — start with Products, Orders, Coupons, Offers, Settings; extend others as quick follow-ups)
+### Execution order (to keep preview green)
+1. Email triggers (A1) — isolated, no refactor risk.
+2. Diff capture wiring (A2) — page-by-page, additive.
+3. `vite.config.ts` `manualChunks` + preconnect (B1, B5) — zero file moves, immediate bundle win.
+4. Shells + scoped query clients (B2, B4).
+5. Folder reorg (B3) with path alias `@/modules/*`, `@/shared/*`; update imports via codemod; add ESLint boundary rule last.
 
 ### Out of scope
-- Designing dedicated WhatsApp template manager UI (existing 8 templates in marketing memory unchanged).
-- Rewriting Bulk Email composer entirely — only adding media upload.
+- Splitting into two separate Vite apps / subdomains (would break SPA routing and shared auth session).
+- Server-side rendering.
+- Rewriting any business logic during the move.
+
+### Risk / rollback
+- Folder reorg (step 5) is the only high-churn change. It is purely move + import-rewrite; can be reverted with a single revert. Steps 1–4 are independently shippable.

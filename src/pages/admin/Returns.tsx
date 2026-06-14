@@ -198,6 +198,28 @@ export default function AdminReturns() {
 
     await updateStatus('refunded', { item_condition: itemCondition });
     log({ action: 'refund', entityType: 'return', entityId: selectedReturn.id, details: { refund_number: refundNumber, amount: totalAmount } });
+
+    // Fire refund_completed email (best-effort)
+    if (selectedReturn.profile?.email) {
+      try {
+        await supabase.functions.invoke('email-triggers', {
+          body: {
+            trigger: 'refund_completed',
+            data: {
+              email: selectedReturn.profile.email,
+              customer_name: selectedReturn.profile.full_name || 'there',
+              order_number: selectedReturn.order?.order_number || '',
+              refund_number: refundNumber,
+              amount: totalAmount.toFixed(0),
+              mode: selectedReturn.order?.payment_method === 'cod' ? 'Store Wallet' : 'Original payment method',
+              eta: selectedReturn.order?.payment_method === 'cod' ? 'Instant' : '5–7 business days',
+            },
+          },
+        });
+      } catch (e) {
+        console.error('[Returns] refund_completed email failed', e);
+      }
+    }
   };
 
   const statusCounts = returns.reduce((acc, r) => {

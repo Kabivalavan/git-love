@@ -170,6 +170,39 @@ serve(async (req) => {
         }
         break;
       }
+      case "order_cancelled": {
+        if (automation.order_cancelled !== false) {
+          templateId = "order_cancelled";
+          toEmail = data.email;
+          const reason = data.reason || "as requested";
+          variables = {
+            ...variables,
+            customer_name: data.customer_name || "there",
+            order_number: data.order_number || "",
+            order_total: data.order_total || "0",
+            reason,
+            reason_suffix: reason ? ` (${reason})` : "",
+            shop_url: data.shop_url || "",
+          };
+        }
+        break;
+      }
+      case "refund_completed": {
+        if (automation.refund_completed !== false) {
+          templateId = "refund_completed";
+          toEmail = data.email;
+          variables = {
+            ...variables,
+            customer_name: data.customer_name || "there",
+            order_number: data.order_number || "",
+            refund_number: data.refund_number || "",
+            amount: data.amount || "0",
+            mode: data.mode || "Original payment method",
+            eta: data.eta || "5–7 business days",
+          };
+        }
+        break;
+      }
       default:
         return new Response(
           JSON.stringify({ error: `Unknown trigger: ${trigger}` }),

@@ -195,6 +195,33 @@ const DEFAULT_TEMPLATES: Record<string, { subject: string; html: string }> = {
   <p style="color:#b45309;font-size:14px;margin:4px 0 0">Get <strong>{{discount}}% OFF</strong> your next order!</p>
 </div>`,
   },
+  order_cancelled: {
+    subject: "Order Cancelled — #{{order_number}}",
+    html: `<h2>Your order was cancelled</h2>
+<p>Hi <strong>{{customer_name}}</strong>,</p>
+<p>Your order <strong>#{{order_number}}</strong> has been cancelled{{reason_suffix}}. No charge will be made.</p>
+<div class="info-box">
+  <div class="info-row"><span>Order Total</span><strong>₹{{order_total}}</strong></div>
+  <div class="info-row"><span>Reason</span><strong>{{reason}}</strong></div>
+</div>
+<p>If any amount was deducted, it will be refunded to the original payment method within 5–7 business days.</p>
+<div style="text-align:center;margin:24px 0">
+  <a href="{{shop_url}}" class="btn-primary">Continue Shopping →</a>
+</div>`,
+  },
+  refund_completed: {
+    subject: "Refund Processed ✅ #{{refund_number}}",
+    html: `<h2>Your refund has been processed ✅</h2>
+<p>Hi <strong>{{customer_name}}</strong>,</p>
+<p>We've processed your refund for order <strong>#{{order_number}}</strong>.</p>
+<div class="info-box">
+  <div class="info-row"><span>Refund #</span><strong>{{refund_number}}</strong></div>
+  <div class="info-row"><span>Amount</span><strong>₹{{amount}}</strong></div>
+  <div class="info-row"><span>Mode</span><strong>{{mode}}</strong></div>
+  <div class="info-row"><span>Expected By</span><strong>{{eta}}</strong></div>
+</div>
+<p style="color:#64748b;font-size:13px">Refunds to the original payment method usually take 5–7 business days to reflect.</p>`,
+  },
 };
 
 function renderTemplate(
