@@ -23,4 +23,26 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  // Module boundary: storefront cannot import admin
+  {
+    files: ["src/modules/storefront/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          { group: ["@/modules/admin/*", "**/modules/admin/*"], message: "Storefront code must not import from admin module." },
+        ],
+      }],
+    },
+  },
+  // Module boundary: admin cannot import storefront
+  {
+    files: ["src/modules/admin/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          { group: ["@/modules/storefront/*", "**/modules/storefront/*"], message: "Admin code must not import from storefront module." },
+        ],
+      }],
+    },
+  },
 );
