@@ -216,7 +216,7 @@ export default function AdminCoupons() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Coupon updated successfully' });
-        log({ action: 'update', entityType: 'coupon', entityId: selectedCoupon.id, details: { name: formData.code } });
+        log({ action: 'update', entityType: 'coupon', entityId: selectedCoupon.id, details: { name: formData.code }, before: selectedCoupon as any, after: formData as any });
         setIsFormOpen(false);
         queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.coupons });
         refetch();

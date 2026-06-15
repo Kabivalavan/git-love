@@ -286,7 +286,7 @@ export default function AdminOffers() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Offer updated successfully' });
-        log({ action: 'update', entityType: 'offer', entityId: selectedOffer.id, details: { name: formData.name, type: formData.type, value: formData.value } });
+        log({ action: 'update', entityType: 'offer', entityId: selectedOffer.id, details: { name: formData.name, type: formData.type, value: formData.value }, before: selectedOffer as any, after: formData as any });
         setIsFormOpen(false);
         queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.offers });
         refetch();
