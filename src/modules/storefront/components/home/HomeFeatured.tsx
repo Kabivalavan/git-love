@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Sparkles, ArrowRight } from 'lucide-react';
-import { ProductCard } from '@/components/storefront/ProductCard';
+import { ProductCard } from '@/modules/storefront/components/storefront/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Shimmer } from '@/components/ui/shimmer';
 import { useGlobalStore } from '@/hooks/useGlobalStore';

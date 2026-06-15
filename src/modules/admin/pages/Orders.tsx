@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
+import { AdminLayout } from '@/modules/admin/components/AdminLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

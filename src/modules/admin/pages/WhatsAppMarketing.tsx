@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
+import { AdminLayout } from '@/modules/admin/components/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -11,8 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { MessageSquare, Send, Save, Loader2, Edit, Eye, ShoppingCart, Truck, Star, UserPlus, Package, Clock, Sparkles, Mail } from 'lucide-react';
-import { BulkWhatsApp } from '@/components/admin/BulkWhatsApp';
-import { BulkEmail } from '@/components/admin/BulkEmail';
+import { BulkWhatsApp } from '@/modules/admin/components/BulkWhatsApp';
+import { BulkEmail } from '@/modules/admin/components/BulkEmail';
 import { useAdminStoreSettings, useSaveStoreSetting } from '@/hooks/useAdminQueries';
 
 interface WhatsAppTemplate {

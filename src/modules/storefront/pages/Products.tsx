@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams, useParams } from 'react-router-dom';
 import { Grid, List, SlidersHorizontal, X, Loader2, ChevronRight, Home } from 'lucide-react';
-import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
-import { ProductCard } from '@/components/storefront/ProductCard';
+import { StorefrontLayout } from '@/modules/storefront/components/storefront/StorefrontLayout';
+import { ProductCard } from '@/modules/storefront/components/storefront/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

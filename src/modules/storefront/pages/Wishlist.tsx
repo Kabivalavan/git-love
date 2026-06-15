@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
-import { ProductCard } from '@/components/storefront/ProductCard';
+import { StorefrontLayout } from '@/modules/storefront/components/storefront/StorefrontLayout';
+import { ProductCard } from '@/modules/storefront/components/storefront/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';

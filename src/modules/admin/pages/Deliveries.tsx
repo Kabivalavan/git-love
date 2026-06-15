@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
-import { DataTable, Column } from '@/components/admin/DataTable';
-import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
+import { AdminLayout } from '@/modules/admin/components/AdminLayout';
+import { DataTable, Column } from '@/modules/admin/components/DataTable';
+import { DetailPanel, DetailField, DetailSection } from '@/modules/admin/components/DetailPanel';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { ExternalLink, Info, Filter } from 'lucide-react';

@@ -1,5 +1,5 @@
 import { useState, useMemo, lazy, Suspense } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
+import { AdminLayout } from '@/modules/admin/components/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { ShimmerCard } from '@/components/ui/shimmer';
 
-const ReportViewer = lazy(() => import('@/components/admin/ReportViewer').then(m => ({ default: m.ReportViewer })));
+const ReportViewer = lazy(() => import('@/modules/admin/components/ReportViewer').then(m => ({ default: m.ReportViewer })));
 
 export interface ReportDefinition {
   id: string;

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { AdminLayout } from '@/components/admin/AdminLayout';
-import { DataTable, Column } from '@/components/admin/DataTable';
+import { AdminLayout } from '@/modules/admin/components/AdminLayout';
+import { DataTable, Column } from '@/modules/admin/components/DataTable';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

@@ -9,11 +9,11 @@ import { ThemeProvider } from '@/hooks/useTheme';
 import { GlobalStoreProvider } from '@/hooks/useGlobalStore';
 import { ScrollToTop } from '@/components/ScrollToTop';
 import { ScrollToTopButton } from '@/components/ScrollToTopButton';
-import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
-import { AdminLayout } from '@/components/admin/AdminLayout';
+import { StorefrontLayout } from '@/modules/storefront/components/storefront/StorefrontLayout';
+import { AdminLayout } from '@/modules/admin/components/AdminLayout';
 import { Shimmer, ShimmerProductGrid, ShimmerTable } from '@/components/ui/shimmer';
 
-import HomePage from './pages/store/Home';
+import HomePage from './modules/storefront/pages/Home';
 
 const NotFound = lazy(() => import('./pages/NotFound'));
 const CustomerAuth = lazy(() => import('./pages/auth/CustomerAuth'));

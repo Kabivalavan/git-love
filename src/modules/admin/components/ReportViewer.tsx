@@ -11,7 +11,7 @@ import {
   PieChart, Pie, Cell, Legend, LineChart, Line, ScatterChart, Scatter,
   ComposedChart
 } from 'recharts';
-import type { ReportDefinition } from '@/pages/admin/Reports';
+import type { ReportDefinition } from '@/modules/admin/pages/Reports';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#84CC16', '#06B6D4'];

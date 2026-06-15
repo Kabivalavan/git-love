@@ -1,6 +1,6 @@
  import { useEffect } from 'react';
  import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
- import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
+ import { StorefrontLayout } from '@/modules/storefront/components/storefront/StorefrontLayout';
  import { Card, CardContent } from '@/components/ui/card';
  import { useAuth } from '@/hooks/useAuth';
  import { cn } from '@/lib/utils';

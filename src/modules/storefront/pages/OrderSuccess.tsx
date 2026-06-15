@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Package, ArrowRight } from 'lucide-react';
-import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
+import { StorefrontLayout } from '@/modules/storefront/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { motion } from 'framer-motion';

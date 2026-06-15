@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Star, Truck, RefreshCw, Tag, Copy, Check } from 'lucide-react';
-import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
+import { StorefrontLayout } from '@/modules/storefront/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -13,7 +13,7 @@ import { Shimmer } from '@/components/ui/shimmer';
 import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { useCartQuery, useCartMutations, type CartItemWithProduct } from '@/hooks/useCartQuery';
 import { useCheckoutSettings } from '@/hooks/useProductQuery';
-import { CartValueOptimizer } from '@/components/storefront/CartValueOptimizer';
+import { CartValueOptimizer } from '@/modules/storefront/components/storefront/CartValueOptimizer';
 import { cn } from '@/lib/utils';
 import { validateCouponForUser } from '@/lib/coupon-validation';
 import type { Product, Coupon, ProductVariant } from '@/types/database';

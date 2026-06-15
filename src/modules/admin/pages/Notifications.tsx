@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
+import { AdminLayout } from '@/modules/admin/components/AdminLayout';
 import { useAdminNotifications, AdminNotification } from '@/hooks/useAdminNotifications';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

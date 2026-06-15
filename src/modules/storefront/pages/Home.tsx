@@ -1,7 +1,7 @@
 import { useEffect, useState, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, X, ChevronRight as ArrowRight, Info } from 'lucide-react';
-import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
+import { StorefrontLayout } from '@/modules/storefront/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
 import { Shimmer } from '@/components/ui/shimmer';
 import { ResponsiveImage } from '@/components/ui/responsive-image';
@@ -9,11 +9,11 @@ import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { SEOHead } from '@/components/seo/SEOHead';
 
 // Lazy-load below-fold sections
-const HomeBestsellers = lazy(() => import('@/components/home/HomeBestsellers'));
-const HomeMiddleBanners = lazy(() => import('@/components/home/HomeMiddleBanners'));
-const HomeFeatured = lazy(() => import('@/components/home/HomeFeatured'));
-const HomeBundles = lazy(() => import('@/components/home/HomeBundles'));
-const HomeNewArrivals = lazy(() => import('@/components/home/HomeNewArrivals'));
+const HomeBestsellers = lazy(() => import('@/modules/storefront/components/home/HomeBestsellers'));
+const HomeMiddleBanners = lazy(() => import('@/modules/storefront/components/home/HomeMiddleBanners'));
+const HomeFeatured = lazy(() => import('@/modules/storefront/components/home/HomeFeatured'));
+const HomeBundles = lazy(() => import('@/modules/storefront/components/home/HomeBundles'));
+const HomeNewArrivals = lazy(() => import('@/modules/storefront/components/home/HomeNewArrivals'));
 
 function ProductSectionShimmer() {
   return (

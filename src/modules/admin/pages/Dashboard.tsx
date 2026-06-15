@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
-import { AdminLayout, StatCard } from '@/components/admin/AdminLayout';
+import { AdminLayout, StatCard } from '@/modules/admin/components/AdminLayout';
 import { ShimmerStats, ShimmerTable } from '@/components/ui/shimmer';
-import { DataTable, Column } from '@/components/admin/DataTable';
+import { DataTable, Column } from '@/modules/admin/components/DataTable';
 import {
   ShoppingCart, DollarSign, Package, Users, TrendingUp, AlertTriangle,
   Truck, Clock, Percent, CreditCard, Zap, RotateCcw, PackageX, Eye, Activity,

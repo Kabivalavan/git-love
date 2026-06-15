@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
+import { StorefrontLayout } from '@/modules/storefront/components/storefront/StorefrontLayout';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import { Shimmer } from '@/components/ui/shimmer';

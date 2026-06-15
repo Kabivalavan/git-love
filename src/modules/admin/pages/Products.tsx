@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
-import { DataTable, Column } from '@/components/admin/DataTable';
-import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
+import { AdminLayout } from '@/modules/admin/components/AdminLayout';
+import { DataTable, Column } from '@/modules/admin/components/DataTable';
+import { DetailPanel, DetailField, DetailSection } from '@/modules/admin/components/DetailPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -34,8 +34,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { MultiImageUpload } from '@/components/ui/image-upload';
-import { ContentSectionsEditor } from '@/components/product/ContentSectionsEditor';
-import type { ContentSection } from '@/components/product/ContentSections';
+import { ContentSectionsEditor } from '@/modules/storefront/components/product/ContentSectionsEditor';
+import type { ContentSection } from '@/modules/storefront/components/product/ContentSections';
 
 const PRODUCT_TYPES = [
   { value: 'general', label: 'General' },

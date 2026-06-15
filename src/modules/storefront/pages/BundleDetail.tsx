@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ShoppingCart, Package, Tag, AlertCircle } from 'lucide-react';
-import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
+import { StorefrontLayout } from '@/modules/storefront/components/storefront/StorefrontLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';

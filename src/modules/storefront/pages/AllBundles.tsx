@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
+import { StorefrontLayout } from '@/modules/storefront/components/storefront/StorefrontLayout';
 import { ResponsiveImage } from '@/components/ui/responsive-image';
 import { Shimmer } from '@/components/ui/shimmer';
 import { useGlobalStore } from '@/hooks/useGlobalStore';

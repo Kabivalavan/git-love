@@ -1,4 +1,4 @@
-import { StorefrontLayout } from '@/components/storefront/StorefrontLayout';
+import { StorefrontLayout } from '@/modules/storefront/components/storefront/StorefrontLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { RefreshCw, CheckCircle, XCircle, Clock } from 'lucide-react';
 

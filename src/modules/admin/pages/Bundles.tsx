@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
-import { DataTable, Column } from '@/components/admin/DataTable';
-import { DetailPanel, DetailField, DetailSection } from '@/components/admin/DetailPanel';
+import { AdminLayout } from '@/modules/admin/components/AdminLayout';
+import { DataTable, Column } from '@/modules/admin/components/DataTable';
+import { DetailPanel, DetailField, DetailSection } from '@/modules/admin/components/DetailPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
