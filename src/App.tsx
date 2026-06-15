@@ -64,7 +64,8 @@ const AllBundlesPage = lazy(() => import('./pages/store/AllBundles'));
 const ReturnRequestPage = lazy(() => import('./pages/store/ReturnRequest'));
 const MyReturnsPage = lazy(() => import('./pages/store/MyReturns'));
 
-const queryClient = new QueryClient({
+// Storefront client: long staleTime, aggressive cache, no focus refetch
+const storeQueryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 2 * 60 * 1000,
@@ -75,9 +76,22 @@ const queryClient = new QueryClient({
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
       structuralSharing: true,
     },
-    mutations: {
+    mutations: { retry: 1 },
+  },
+});
+
+// Admin client: shorter staleTime, focus refetch on (realtime-friendly)
+const adminQueryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30 * 1000,
+      gcTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
       retry: 1,
+      structuralSharing: true,
     },
+    mutations: { retry: 1 },
   },
 });
 
@@ -180,28 +194,34 @@ function RouteScopedProviders({ children }: { children: React.ReactNode }) {
   const isAdminRoute = location.pathname.startsWith('/admin');
 
   if (isAdminRoute) {
-    return <>{children}</>;
+    return (
+      <QueryClientProvider client={adminQueryClient}>
+        {children}
+      </QueryClientProvider>
+    );
   }
 
-  return <GlobalStoreProvider>{children}</GlobalStoreProvider>;
+  return (
+    <QueryClientProvider client={storeQueryClient}>
+      <GlobalStoreProvider>{children}</GlobalStoreProvider>
+    </QueryClientProvider>
+  );
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <ThemeProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <RouteScopedProviders>
-              <AppRoutes />
-            </RouteScopedProviders>
-          </BrowserRouter>
-        </TooltipProvider>
-      </ThemeProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+  <AuthProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <RouteScopedProviders>
+            <AppRoutes />
+          </RouteScopedProviders>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
+  </AuthProvider>
 );
 
 export default App;
