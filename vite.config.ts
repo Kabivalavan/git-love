@@ -45,8 +45,7 @@ export default defineConfig(({ mode }) => ({
 
           // Admin surface
           if (
-            id.includes("/src/pages/admin/") ||
-            id.includes("/src/components/admin/") ||
+            id.includes("/src/modules/admin/") ||
             id.includes("/src/api/admin") ||
             id.includes("/src/api/reports2") ||
             id.includes("/src/hooks/useAdmin") ||
@@ -58,10 +57,7 @@ export default defineConfig(({ mode }) => ({
 
           // Storefront surface
           if (
-            id.includes("/src/pages/store/") ||
-            id.includes("/src/components/storefront/") ||
-            id.includes("/src/components/home/") ||
-            id.includes("/src/components/product/") ||
+            id.includes("/src/modules/storefront/") ||
             id.includes("/src/hooks/useCartQuery") ||
             id.includes("/src/hooks/useGlobalStore") ||
             id.includes("/src/hooks/useConversionOptimization") ||

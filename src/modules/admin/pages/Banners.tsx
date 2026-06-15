@@ -1,0 +1,432 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from 'react';
+import { AdminLayout } from '@/modules/admin/components/AdminLayout';
+import { DataTable, Column } from '@/modules/admin/components/DataTable';
+import { DetailPanel, DetailField, DetailSection } from '@/modules/admin/components/DetailPanel';
+import { supabase } from '@/integrations/supabase/client';
+import { useAdminBanners, useAdminRealtimeInvalidation, ADMIN_KEYS } from '@/hooks/useAdminQueries';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Plus } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useActivityLog } from '@/hooks/useActivityLog';
+import { ImageUpload } from '@/components/ui/image-upload';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+interface Banner {
+  id: string;
+  title: string;
+  position: string;
+  type: string;
+  media_url: string;
+  media_url_tablet: string | null;
+  media_url_mobile: string | null;
+  redirect_url: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  is_active: boolean;
+  show_on_mobile: boolean;
+  show_on_desktop: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+const POSITIONS = [
+  { value: 'home_top', label: 'Home Top Slider' },
+  { value: 'home_middle', label: 'Home Middle' },
+  { value: 'popup', label: 'Popup (1 only, shows after 4s)' },
+];
+
+// Convert a UTC ISO string to IST datetime-local value for the input
+function utcToISTLocal(utcStr: string | null): string {
+  if (!utcStr) return '';
+  const d = new Date(utcStr);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d);
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+}
+
+// Convert a datetime-local value (assumed IST) to UTC ISO string for storage
+function istLocalToUTC(localStr: string): string {
+  if (!localStr) return '';
+  // Treat the datetime-local value as IST (+05:30) regardless of browser timezone
+  const d = new Date(localStr + ':00+05:30');
+  return d.toISOString();
+}
+
+function formatIST(utcStr: string | null): string {
+  if (!utcStr) return 'Not set';
+  return new Date(utcStr).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+}
+
+export default function AdminBanners() {
+  const { data: bannersData, isLoading } = useAdminBanners();
+
+  useAdminRealtimeInvalidation(['banners'], [ADMIN_KEYS.banners as unknown as string[]]);
+
+  const banners = (bannersData || []) as Banner[];
+
+  const [selectedBanner, setSelectedBanner] = useState<Banner | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formData, setFormData] = useState<Partial<Banner> & { start_date_local?: string; end_date_local?: string }>({});
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { log } = useActivityLog();
+
+  const handleRowClick = (banner: Banner) => {
+    setSelectedBanner(banner);
+    setIsDetailOpen(true);
+  };
+
+  const handleEdit = () => {
+    if (selectedBanner) {
+      setFormData({
+        ...selectedBanner,
+        start_date_local: utcToISTLocal(selectedBanner.start_date),
+        end_date_local: utcToISTLocal(selectedBanner.end_date),
+      });
+      setIsDetailOpen(false);
+      setIsFormOpen(true);
+    }
+  };
+
+  const handleCreate = () => {
+    setFormData({
+      is_active: true,
+      show_on_mobile: true,
+      show_on_desktop: true,
+      type: 'image',
+      position: 'home_top',
+      sort_order: 0,
+      start_date_local: '',
+      end_date_local: '',
+    });
+    setSelectedBanner(null);
+    setIsFormOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedBanner) return;
+    setIsDeleting(true);
+
+    const { error } = await supabase
+      .from('banners')
+      .delete()
+      .eq('id', selectedBanner.id);
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: 'Banner deleted successfully' });
+      log({ action: 'delete', entityType: 'banner', entityId: selectedBanner.id, details: { name: selectedBanner.title } });
+      setIsDetailOpen(false);
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.banners });
+    }
+    setIsDeleting(false);
+  };
+
+  const handleSave = async () => {
+    if (!formData.title || !formData.media_url) {
+      toast({ title: 'Error', description: 'Title and image are required', variant: 'destructive' });
+      return;
+    }
+
+    if (formData.position === 'popup') {
+      const existingPopup = banners.find(b => b.position === 'popup' && b.id !== selectedBanner?.id);
+      if (existingPopup) {
+        toast({ title: 'Error', description: 'Only one popup banner is allowed. Delete the existing one first.', variant: 'destructive' });
+        return;
+      }
+    }
+
+    setIsSaving(true);
+
+    const bannerData = {
+      title: formData.title,
+      position: (formData.position || 'home_top') as 'home_top' | 'home_middle' | 'category' | 'offer' | 'popup',
+      type: (formData.type || 'image') as 'image' | 'video',
+      media_url: formData.media_url,
+      media_url_tablet: null,
+      media_url_mobile: null,
+      redirect_url: formData.redirect_url,
+      start_date: formData.start_date_local ? istLocalToUTC(formData.start_date_local) : null,
+      end_date: formData.end_date_local ? istLocalToUTC(formData.end_date_local) : null,
+      is_active: formData.is_active ?? true,
+      show_on_mobile: formData.show_on_mobile ?? true,
+      show_on_desktop: formData.show_on_desktop ?? true,
+      sort_order: formData.sort_order ?? 0,
+    };
+
+    if (selectedBanner) {
+      const { error } = await supabase
+        .from('banners')
+        .update(bannerData)
+        .eq('id', selectedBanner.id);
+
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Success', description: 'Banner updated successfully' });
+        log({ action: 'update', entityType: 'banner', entityId: selectedBanner.id, details: { name: formData.title }, before: selectedBanner as any, after: formData as any });
+        setIsFormOpen(false);
+        queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.banners });
+      }
+    } else {
+      const { error } = await supabase.from('banners').insert([bannerData]);
+
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Success', description: 'Banner created successfully' });
+        log({ action: 'create', entityType: 'banner', details: { name: formData.title } });
+        setIsFormOpen(false);
+        queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.banners });
+      }
+    }
+    setIsSaving(false);
+  };
+
+  const columns: Column<Banner>[] = [
+    {
+      key: 'media_url',
+      header: 'Preview',
+      render: (b) => (
+        <img src={b.media_url} alt={b.title} className="h-12 w-20 object-cover rounded" />
+      ),
+    },
+    { key: 'title', header: 'Title' },
+    {
+      key: 'position',
+      header: 'Position',
+      render: (b) => POSITIONS.find(p => p.value === b.position)?.label || b.position,
+    },
+    { key: 'sort_order', header: 'Order' },
+    {
+      key: 'show_on_desktop',
+      header: 'Visibility',
+      render: (b) => (
+        <div className="flex gap-1">
+          {b.show_on_desktop && <Badge variant="outline" className="text-[10px]">Desktop</Badge>}
+          {b.show_on_mobile && <Badge variant="outline" className="text-[10px]">Mobile</Badge>}
+        </div>
+      ),
+    },
+    {
+      key: 'is_active',
+      header: 'Status',
+      render: (b) => (
+        <Badge variant={b.is_active ? 'default' : 'secondary'}>
+          {b.is_active ? 'Active' : 'Inactive'}
+        </Badge>
+      ),
+    },
+  ];
+
+  return (
+    <AdminLayout
+      title="Banners & Media"
+      description="Manage homepage banners and promotional media"
+      actions={
+        <Button onClick={handleCreate} className="bg-primary hover:bg-primary/90">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Banner
+        </Button>
+      }
+    >
+      <DataTable<Banner>
+        columns={columns}
+        data={banners}
+        isLoading={isLoading}
+        onRowClick={handleRowClick}
+        searchable
+        searchPlaceholder="Search banners..."
+        searchKeys={['title']}
+        getRowId={(b) => b.id}
+        emptyMessage="No banners found. Click 'Add Banner' to create one."
+      />
+
+      <DetailPanel
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        title={selectedBanner?.title || 'Banner Details'}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        isDeleting={isDeleting}
+      >
+        {selectedBanner && (
+          <div className="space-y-6">
+            <img
+              src={selectedBanner.media_url}
+              alt={selectedBanner.title}
+              className="w-full rounded-lg"
+            />
+            <DetailSection title="Details">
+              <DetailField label="Title" value={selectedBanner.title} />
+              <DetailField label="Position" value={POSITIONS.find(p => p.value === selectedBanner.position)?.label} />
+              <DetailField label="Redirect URL" value={selectedBanner.redirect_url} />
+              <DetailField label="Sort Order" value={selectedBanner.sort_order} />
+            </DetailSection>
+            <DetailSection title="Visibility">
+              <DetailField label="Active" value={selectedBanner.is_active ? 'Yes' : 'No'} />
+              <DetailField label="Mobile" value={selectedBanner.show_on_mobile ? 'Yes' : 'No'} />
+              <DetailField label="Desktop" value={selectedBanner.show_on_desktop ? 'Yes' : 'No'} />
+            </DetailSection>
+            <DetailSection title="Schedule (IST)">
+              <DetailField label="Start Date" value={formatIST(selectedBanner.start_date)} />
+              <DetailField label="End Date" value={formatIST(selectedBanner.end_date)} />
+            </DetailSection>
+          </div>
+        )}
+      </DetailPanel>
+
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedBanner ? 'Edit Banner' : 'Create Banner'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Banner Image *</Label>
+              <p className="text-xs text-muted-foreground">Recommended: 1920 × 900 px</p>
+              <ImageUpload
+                bucket="banners"
+                value={formData.media_url}
+                onChange={(url) => setFormData({ ...formData, media_url: url || '' })}
+                aspectRatio="banner"
+                placeholder="Upload banner (1920 × 900 px)"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Title *</Label>
+                <Input
+                  id="title"
+                  value={formData.title || ''}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="position">Position</Label>
+                <Select
+                  value={formData.position || 'home_top'}
+                  onValueChange={(value) => setFormData({ ...formData, position: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {POSITIONS.map((pos) => (
+                      <SelectItem key={pos.value} value={pos.value}>
+                        {pos.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="redirect_url">Redirect URL</Label>
+              <Input
+                id="redirect_url"
+                value={formData.redirect_url || ''}
+                onChange={(e) => setFormData({ ...formData, redirect_url: e.target.value })}
+                placeholder="https://..."
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="start_date">Start Date (IST)</Label>
+                <Input
+                  id="start_date"
+                  type="datetime-local"
+                  value={formData.start_date_local || ''}
+                  onChange={(e) => setFormData({ ...formData, start_date_local: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="end_date">End Date (IST)</Label>
+                <Input
+                  id="end_date"
+                  type="datetime-local"
+                  value={formData.end_date_local || ''}
+                  onChange={(e) => setFormData({ ...formData, end_date_local: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sort_order">Sort Order</Label>
+              <Input
+                id="sort_order"
+                type="number"
+                value={formData.sort_order || 0}
+                onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) })}
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-6">
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="is_active"
+                  checked={formData.is_active ?? true}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                />
+                <Label htmlFor="is_active">Active</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show_on_mobile"
+                  checked={formData.show_on_mobile ?? true}
+                  onCheckedChange={(checked) => setFormData({ ...formData, show_on_mobile: checked })}
+                />
+                <Label htmlFor="show_on_mobile">Show on Mobile</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show_on_desktop"
+                  checked={formData.show_on_desktop ?? true}
+                  onCheckedChange={(checked) => setFormData({ ...formData, show_on_desktop: checked })}
+                />
+                <Label htmlFor="show_on_desktop">Show on Desktop</Label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setIsFormOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? 'Saving...' : 'Save Banner'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </AdminLayout>
+  );
+}
