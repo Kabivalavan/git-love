@@ -115,7 +115,7 @@ export default function AdminCategories() {
     try {
       await saveCategoryMutation.mutateAsync({ data: categoryData, existingId: selectedCategory?.id });
       toast({ title: 'Success', description: `Category ${selectedCategory ? 'updated' : 'created'} successfully` });
-      log({ action: selectedCategory ? 'update' : 'create', entityType: 'category', entityId: selectedCategory?.id, details: { name: formData.name } });
+      log({ action: selectedCategory ? 'update' : 'create', entityType: 'category', entityId: selectedCategory?.id, details: { name: formData.name }, before: selectedCategory ? selectedCategory as any : undefined, after: selectedCategory ? formData as any : undefined });
       setIsFormOpen(false);
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });

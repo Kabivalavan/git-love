@@ -189,7 +189,7 @@ export default function AdminBanners() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Success', description: 'Banner updated successfully' });
-        log({ action: 'update', entityType: 'banner', entityId: selectedBanner.id, details: { name: formData.title } });
+        log({ action: 'update', entityType: 'banner', entityId: selectedBanner.id, details: { name: formData.title }, before: selectedBanner as any, after: formData as any });
         setIsFormOpen(false);
         queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.banners });
       }

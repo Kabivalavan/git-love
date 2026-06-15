@@ -201,7 +201,7 @@ export default function AdminExpenses() {
     if (selectedExpense) {
       const { error } = await supabase.from('expenses').update(expenseData).eq('id', selectedExpense.id);
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      else { toast({ title: 'Success', description: 'Expense updated' }); log({ action: 'update', entityType: 'expense', entityId: selectedExpense.id, details: { name: formData.description } }); setIsFormOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); refetch(); }
+      else { toast({ title: 'Success', description: 'Expense updated' }); log({ action: 'update', entityType: 'expense', entityId: selectedExpense.id, details: { name: formData.description }, before: selectedExpense as any, after: formData as any }); setIsFormOpen(false); queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.expenses }); refetch(); }
     } else {
       const { error } = await supabase.from('expenses').insert([expenseData]);
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
