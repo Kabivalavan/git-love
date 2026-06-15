@@ -34,8 +34,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { MultiImageUpload } from '@/components/ui/image-upload';
-import { ContentSectionsEditor } from '@/modules/storefront/components/product/ContentSectionsEditor';
-import type { ContentSection } from '@/modules/storefront/components/product/ContentSections';
+import { ContentSectionsEditor } from '@/shared/product/ContentSectionsEditor';
+import type { ContentSection } from '@/shared/product/ContentSections';
 
 const PRODUCT_TYPES = [
   { value: 'general', label: 'General' },

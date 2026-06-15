@@ -21,7 +21,7 @@ import { useGlobalStore } from '@/hooks/useGlobalStore';
 import { Shimmer } from '@/components/ui/shimmer';
 import { ResponsiveImage } from '@/components/ui/responsive-image';
 import { SEOHead } from '@/components/seo/SEOHead';
-import { ContentSections, type ContentSection } from '@/modules/storefront/components/product/ContentSections';
+import { ContentSections, type ContentSection } from '@/shared/product/ContentSections';
 import { CrossSellUpsell } from '@/modules/storefront/components/storefront/CrossSellUpsell';
 import { cn } from '@/lib/utils';
 import { useProductPageData } from '@/hooks/useProductQuery';
